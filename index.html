@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STR 사례 분석기 v2.5</title>
+<style>
+  :root{
+    --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
+    --ink:#13202f; --txt:#2c3a4b; --dim:#516074; --faint:#8593a4;
+    --primary:#0d7a5f; --primary-d:#0a5e49; --primary-bg:#e4f3ee; --primary-line:#a9d8c9;
+    --ext:#b45309; --ext-bg:#fbf0df; --ext-line:#e7c489;
+    --accent:#1d4ed8;
+    --rep:#d32f2f; --rep-bg:#fdecec; --rep-line:#f2b8b8;
+    --chk:#c2790a; --chk-bg:#fcf2e1; --chk-line:#ecd09a;
+    --exc:#0d7a5f; --exc-bg:#e4f3ee; --exc-line:#a9d8c9;
+    --mono:"D2Coding","Consolas","Menlo",monospace;
+    --kr:"Malgun Gothic","Apple SD Gothic Neo","맑은 고딕",sans-serif;
+    --sh:0 1px 2px rgba(19,32,47,.04),0 4px 16px rgba(19,32,47,.06);
+    --sh-sm:0 1px 2px rgba(19,32,47,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:var(--kr);line-height:1.55;min-height:100vh;padding:28px 18px 64px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1200px;margin:0 auto}
+  header{margin-bottom:6px}
+  .kicker{font-size:11.5px;letter-spacing:.18em;color:var(--primary);text-transform:uppercase;font-weight:800}
+  h1{font-size:27px;font-weight:800;margin-top:7px;letter-spacing:-.6px;color:var(--ink)}
+  h1 .v{font-size:13px;color:var(--faint);font-weight:700;letter-spacing:0}
+  .sub{color:var(--dim);font-size:13.5px;margin-top:7px}
+  .badge{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;padding:5px 11px;border-radius:99px;border:1px solid var(--primary-line);background:var(--primary-bg);color:var(--primary-d);margin-top:13px}
+  .badge i{width:7px;height:7px;border-radius:50%;background:var(--primary);display:block;animation:p 2.2s infinite}
+  @keyframes p{0%{box-shadow:0 0 0 0 rgba(13,122,95,.4)}70%{box-shadow:0 0 0 8px rgba(13,122,95,0)}100%{box-shadow:0 0 0 0 rgba(13,122,95,0)}}
+  .grid{display:grid;grid-template-columns:1fr;gap:18px;margin-top:20px}
+  @media(min-width:980px){.grid{grid-template-columns:0.9fr 1.1fr;align-items:start}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--sh)}
+  .card h2{font-size:14px;font-weight:800;color:var(--ink);letter-spacing:-.2px;display:flex;align-items:center;gap:9px;margin-bottom:4px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+  .tag{font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;letter-spacing:.02em}
+  .tag.local{background:var(--primary-bg);color:var(--primary-d);border:1px solid var(--primary-line)}
+  label.l{display:block;font-size:12.5px;color:var(--dim);margin:15px 0 6px;font-weight:700}
+  label.l .opt{color:var(--faint);font-weight:500}
+  select,input,textarea{width:100%;background:var(--field);border:1px solid var(--line2);border-radius:10px;color:var(--ink);font-family:var(--kr);font-size:13.5px;padding:11px 12px;transition:.15s}
+  select:hover,input:hover,textarea:hover{border-color:#aeb9c8}
+  textarea{font-family:var(--mono);min-height:140px;resize:vertical;line-height:1.65}
+  select:focus,input:focus,textarea:focus{outline:none;border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(13,122,95,.12)}
+  ::placeholder{color:#a7b1bf}
+  .twocol{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .flags{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .flags label{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:600;color:var(--txt);background:var(--field);border:1px solid var(--line2);border-radius:8px;padding:7px 10px}
+  .flags input{width:auto;accent-color:var(--rep)}
+  .opts{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:12px;color:var(--dim)}
+  .opts .lab{color:var(--faint);font-weight:700}
+  .opts label{display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600}
+  .opts input{width:auto;accent-color:var(--primary)}
+  .modetoggle{display:flex;gap:0;margin-top:6px;border:1px solid var(--line2);border-radius:10px;overflow:hidden}
+  .modetoggle button{flex:1;background:var(--field);color:var(--dim);padding:9px;font-size:12.5px;border-radius:0}
+  .modetoggle button.on{background:var(--primary);color:#fff}
+  button{font-family:var(--kr);font-weight:700;border:none;border-radius:11px;cursor:pointer;transition:.15s}
+  .btn-go{background:var(--primary);color:#fff;width:100%;padding:14px;font-size:14.5px;margin-top:16px;box-shadow:var(--sh-sm);letter-spacing:.02em}
+  .btn-go:hover{background:var(--primary-d)} .btn-go:disabled{opacity:.55;cursor:wait}
+  .btn-sm{background:#fff;color:var(--ink);border:1px solid var(--line2);padding:8px 13px;font-size:12px}
+  .btn-sm:hover{border-color:var(--primary);color:var(--primary-d)}
+  details{margin-top:13px;border:1px solid var(--line);border-radius:11px;padding:11px 13px;background:var(--field)}
+  summary{cursor:pointer;font-size:12.5px;color:var(--dim);font-weight:700;list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"▸ ";color:var(--primary)} details[open] summary::before{content:"▾ "}
+  .deid{font-family:var(--mono);font-size:12.5px;white-space:pre-wrap;word-break:break-all;margin-top:10px;line-height:1.7;color:var(--txt)}
+  .tok{background:var(--ext-bg);color:var(--ext);border:1px solid var(--ext-line);border-radius:5px;padding:0 4px;font-weight:700}
+  .result{min-height:360px}
+  .placeholder{color:var(--faint);text-align:center;padding:80px 20px;font-size:13.5px;line-height:1.9}
+  .placeholder .ic{font-size:30px;display:block;margin-bottom:10px;opacity:.5}
+  .gauge{display:flex;align-items:center;gap:18px;margin-bottom:10px}
+  .score{font-family:var(--mono);font-size:48px;font-weight:800;line-height:1}
+  .score small{font-size:17px;color:var(--faint);font-weight:700}
+  .bar{flex:1}
+  .bartrack{height:12px;background:var(--field);border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+  .barfill{height:100%;border-radius:99px;transition:width .9s cubic-bezier(.2,.8,.2,1)}
+  .bandlabel{font-size:12px;font-weight:800;margin-top:7px}
+  .convert{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 4px}
+  .cv{font-size:12px;font-weight:700;padding:7px 12px;border-radius:9px;border:1px solid var(--line2);background:var(--field);color:var(--ink)}
+  .cv b{color:var(--primary-d);font-size:14px}
+  .cv.main{background:var(--primary-bg);border-color:var(--primary-line)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+  .chip{font-size:11px;font-weight:700;padding:4px 9px;border-radius:99px;background:#eef4ff;color:#1b3a72;border:1px solid #bcd0f5}
+  .sec{font-size:11px;font-weight:800;color:var(--primary-d);letter-spacing:.07em;margin:18px 0 8px;text-transform:uppercase;display:flex;align-items:center;gap:7px}
+  .sec::before{content:"";width:3px;height:13px;background:var(--primary);border-radius:2px}
+  .block{background:var(--field);border:1px solid var(--line);border-radius:11px;padding:14px;font-size:13.5px;line-height:1.8;white-space:pre-wrap;color:var(--txt)}
+  .handoff{background:#eef4ff;border:1px solid #bcd0f5;border-radius:11px;padding:13px 14px;font-size:13px;color:#1b3a72;line-height:1.7}
+  .handoff b{color:#1d4ed8}
+  .monitor{background:#fff7e8;border:1px solid var(--chk-line);border-radius:11px;padding:13px 14px;font-size:12.5px;margin-top:14px;color:#7a4d06;line-height:1.75}
+  .monitor b{color:var(--chk)}
+  .missing{background:var(--chk-bg);border:1px solid var(--chk-line);border-radius:11px;padding:13px 14px;font-size:12.5px;margin-top:14px}
+  .missing b{color:var(--chk)} .missing ul{margin:7px 0 0 18px} .missing li{margin:4px 0;color:var(--txt)}
+  .fallback{border:1px solid var(--ext-line);background:var(--ext-bg);border-radius:12px;padding:16px}
+  .fallback h3{font-size:13.5px;color:var(--ext);font-weight:800;margin-bottom:6px}
+  .fallback p{font-size:12.5px;color:var(--txt);line-height:1.7}
+  .fallback .box{background:#fff;border:1px solid var(--ext-line);border-radius:9px;padding:12px;margin-top:11px;font-family:var(--mono);font-size:12px;white-space:pre-wrap;word-break:break-all;max-height:240px;overflow:auto;line-height:1.65}
+  .loading{text-align:center;padding:70px 20px;color:var(--dim);font-size:13.5px}
+  .spin{width:32px;height:32px;border:3px solid var(--line);border-top-color:var(--primary);border-radius:50%;margin:0 auto 16px;animation:s 1s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .copied{color:var(--primary-d);font-size:11.5px;margin-left:9px;font-weight:700}
+  .steps{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 4px}
+  .step{flex:1;min-width:120px;display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:12.5px;color:var(--faint);font-weight:700;box-shadow:var(--sh-sm)}
+  .step .n{width:20px;height:20px;border-radius:50%;background:var(--line2);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+  .step.on{border-color:var(--primary);background:var(--primary-bg);color:var(--primary-d)}
+  .step.on .n{background:var(--primary)}
+  .guide{margin-top:10px;border:1px solid var(--line);border-radius:11px;padding:12px 14px;background:var(--card);box-shadow:var(--sh-sm)}
+  .guide summary{cursor:pointer;font-size:13px;color:var(--ink);font-weight:800;list-style:none}
+  .guide summary::-webkit-details-marker{display:none}
+  .guide summary::before{content:"▸ ";color:var(--primary)} .guide[open] summary::before{content:"▾ "}
+  .guide .gb{margin-top:11px;font-size:12.5px;color:var(--txt);line-height:1.75}
+  .guide ol{margin:6px 0 0 18px} .guide li{margin:5px 0}
+  .guide .muted{color:var(--faint)}
+  .drive-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;padding:12px 14px;background:#f0f7ff;border:1px solid #b8d4f5;border-radius:11px}
+  .drive-bar .ds{font-size:12px;color:#1a4a8a;font-weight:700;flex:1;min-width:120px}
+  .drive-bar .ds span{font-weight:400;color:#5a7aa8;margin-left:6px}
+  .btn-drive{background:#1a73e8;color:#fff;padding:8px 14px;font-size:12.5px;border-radius:9px;border:none;cursor:pointer;font-weight:700;white-space:nowrap}
+  .btn-drive:hover{background:#1557b0}
+  .btn-drive.out{background:#fff;color:#1a73e8;border:1px solid #1a73e8}
+  .btn-drive.out:hover{background:#f0f7ff}
+  .btn-drive-list{background:#fff;color:#1a4a8a;border:1px solid #b8d4f5;padding:8px 14px;font-size:12.5px;border-radius:9px;cursor:pointer;font-weight:700}
+  .btn-drive-list:hover{background:#e8f0fe}
+  .drive-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
+  .drive-modal-bg.show{display:flex}
+  .drive-modal{background:#fff;border-radius:16px;padding:22px;width:92%;max-width:540px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.18)}
+  .drive-modal h3{font-size:15px;font-weight:800;color:var(--ink);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+  .case-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:.15s}
+  .case-row:hover{border-color:var(--primary);background:var(--primary-bg)}
+  .case-row .cr-name{font-size:13px;font-weight:700;color:var(--ink);flex:1}
+  .case-row .cr-date{font-size:11px;color:var(--faint)}
+  .case-row .cr-score{font-size:13px;font-weight:800;color:var(--primary-d)}
+  footer{margin-top:30px;font-size:11.5px;color:var(--faint);text-align:center;line-height:1.9}
+  footer b{color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">의심거래보고 검토 보조 · 보험업권</div>
+    <h1>STR 사례 분석기 <span class="v">v2.5</span></h1>
+    <p class="sub">0~100 점수 엔진 + 등급 + 고객사 척도 환산. 트리아지(1차)↔세부분석 전환. 개인정보는 비식별화 후 분석.</p>
+    <span class="badge"><i></i> PII 비식별화 후 분석 · 결과에서 자동 복원</span>
+  </header>
+
+  <div class="steps">
+    <div class="step" id="st1"><span class="n">1</span>사례 입력</div>
+    <div class="step" id="st2"><span class="n">2</span>분석 실행</div>
+    <div class="step" id="st3"><span class="n">3</span>사례 파일저장</div>
+    <div class="step" id="st4"><span class="n">4</span>초기화 → 다음</div>
+  </div>
+
+  <details class="guide">
+    <summary>📖 사용 가이드 — 버튼 역할과 순서</summary>
+    <div class="gb">
+      <b>전형적 1건 작업 순서</b>
+      <ol>
+        <li><b>사례 입력</b> — 거래유형·금액·플래그·사례 내용 입력 (개인정보는 자동 비식별화)</li>
+        <li><b>분석 실행</b> — 점수·등급·유형·의견 생성 <span class="muted">(PC 파일은 '프롬프트 복사' 후 Claude 대화창에 붙여 분석)</span></li>
+        <li><b>의견서 복사</b> <span class="muted">(선택)</span> — 결과 텍스트를 클립보드로 복사해 보고서·메일에 붙여넣기. 저장 아님</li>
+        <li><b>사례 파일저장</b> — JSON 파일로 내보내 <b>자체사례</b> 폴더에 영구 보관·누적 <span class="muted">/ Drive 연동 시 자동 저장</span></li>
+        <li><b>초기화(새 사례)</b> — 화면을 비우고 다음 사례로</li>
+      </ol>
+      <div class="muted" style="margin-top:8px">복사 = 텍스트 한 번 쓰고 끝 · 저장 = 파일로 영구 보관 · 불러오기 = 과거 저장 파일 꺼내기<br>☁ Drive 연동 시: 저장→Drive 자동 업로드 · 불러오기→Drive 사례 목록에서 선택</div>
+    </div>
+  </details>
+
+  <!-- Drive 연동 바 -->
+  <div class="drive-bar" id="driveBar">
+    <div class="ds" id="driveStatus">☁ Google Drive 연동<span>미연결</span></div>
+    <button class="btn-drive-list" id="driveListBtn" onclick="openDriveList()" style="display:none">📂 Drive 사례 목록</button>
+    <button class="btn-drive out" id="driveSignOutBtn" onclick="driveSignOut()" style="display:none">로그아웃</button>
+    <button class="btn-drive" id="driveSignInBtn" onclick="driveSignIn()">🔗 구글 계정 연동</button>
+  </div>
+
+  <!-- Drive 사례 목록 모달 -->
+  <div class="drive-modal-bg" id="driveModalBg" onclick="if(event.target===this)closeDriveList()">
+    <div class="drive-modal">
+      <h3>☁ Drive 저장 사례 목록</h3>
+      <div id="driveListContent"><div style="text-align:center;padding:30px;color:var(--faint)">불러오는 중…</div></div>
+      <button class="btn-sm" style="margin-top:12px;width:100%" onclick="closeDriveList()">닫기</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>사례 입력 <span class="tag local">로컬 처리</span></h2>
+
+      <label class="l">거래 유형</label>
+      <select id="ttype">
+        <option>부동산 담보대출·조기상환</option>
+        <option>보험계약대출·상환</option>
+        <option>고액보험료 입금(일시납·수시납)</option>
+        <option>가상계좌 입금</option>
+        <option>해지·환급금</option>
+        <option>기타</option>
+      </select>
+
+      <div class="twocol">
+        <div><label class="l">사례번호 <span class="opt">(선택)</span></label><input id="caseno" placeholder="예: 003"></div>
+        <div><label class="l">거래일 <span class="opt">(선택)</span></label><input id="txdate" placeholder="예: 2026-05-19"></div>
+      </div>
+
+      <div class="twocol">
+        <div><label class="l">고객 유형</label>
+          <select id="ctype"><option>개인</option><option>법인</option><option>개인사업자</option></select></div>
+        <div><label class="l">거래금액(원)</label><input id="amt" placeholder="예: 1억4천만"></div>
+      </div>
+      <div class="twocol">
+        <div><label class="l">보유계약 건수</label><input id="ncnt" placeholder="예: 19"></div>
+        <div><label class="l">누적 보험료(원) <span class="opt">신규 포함</span></label><input id="ntot" placeholder="예: 1억5천만"></div>
+      </div>
+      <div class="twocol">
+        <div><label class="l">자금 경로</label>
+          <select id="fpath"><option>미상</option><option>본인 명의 계좌</option><option>타인 명의 계좌</option><option>현금</option></select></div>
+        <div><label class="l">자금원천 확인</label>
+          <select id="fsrc"><option>미확인</option><option>자가진술 확보</option><option>증빙 확인</option></select></div>
+      </div>
+
+      <label class="l">위험 플래그</label>
+      <div class="flags">
+        <label><input type="checkbox" id="f_sanc">제재·PEP 연계</label>
+        <label><input type="checkbox" id="f_third">타인계약(계약자≠피보험자)</label>
+        <label><input type="checkbox" id="f_refuse">설명·확인 비협조</label>
+        <label><input type="checkbox" id="f_fraud">보험사기·증서 위변조 인지</label>
+        <label><input type="checkbox" id="f_cash">1천만원↑ 현금지급(환급 등)</label>
+      </div>
+
+      <label class="l">사례 내용 (자유 서술)</label>
+      <textarea id="src" placeholder="고객·거래·특이사항을 편하게 적으세요. 개인정보는 자동 비식별화됩니다."></textarea>
+
+      <label class="l">이름·고유명사 지정 <span class="opt">(쉼표 구분)</span></label>
+      <input id="names" placeholder="윤OO, 신한은행">
+      <div class="opts"><span class="lab">자동탐지</span>
+        <label><input type="checkbox" id="o_rrn" checked>주민번호</label>
+        <label><input type="checkbox" id="o_phone" checked>전화</label>
+        <label><input type="checkbox" id="o_acct" checked>계좌·카드</label>
+        <label><input type="checkbox" id="o_biz" checked>사업자번호</label>
+        <label><input type="checkbox" id="o_email" checked>이메일</label>
+      </div>
+
+      <label class="l">고객사 척도 (환산 표시)</label>
+      <select id="scale">
+        <option value="5">1~5단계 (5=보고가능성 높음)</option>
+        <option value="10">1~10단계</option>
+        <option value="grade">보고 / 추가확인 / 제외</option>
+      </select>
+
+      <label class="l">분석 모드</label>
+      <div class="modetoggle">
+        <button id="m_tri" class="on" onclick="setMode('tri')">트리아지(1차)</button>
+        <button id="m_full" onclick="setMode('full')">세부분석</button>
+      </div>
+
+      <details>
+        <summary>AI 전송본 미리보기 (비식별 결과)</summary>
+        <div id="deid" class="deid"><span style="color:var(--faint)">분석 시 자동 생성됩니다.</span></div>
+      </details>
+
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="btn-sm" style="flex:1" onclick="document.getElementById('importFile').click()">📂 사례 불러오기(JSON)</button>
+        <button class="btn-sm" style="flex:1" onclick="resetForm()">🧹 초기화(새 사례)</button>
+        <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importJSON(event)">
+      </div>
+      <button class="btn-go" id="goBtn" onclick="analyze()">분석 실행</button>
+    </section>
+
+    <section class="card">
+      <h2>분석 결과 <span class="tag local">PII 복원 표시</span></h2>
+      <div id="result" class="result">
+        <div class="placeholder"><span class="ic">📊</span>왼쪽에 사례를 입력하고<br>‘분석 실행’을 누르세요.</div>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    STR 사례 분석기 v2.5 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    보험권 STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
+  </footer>
+</div>
+
+<!-- Google Identity Services -->
+<script src="https://accounts.google.com/gsi/client" async></script>
+
+<script>
+/* ── Drive 연동 (v2.5) ── */
+const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
+const STR_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+// Drive 폴더 경로: 40_프로그램개발 → STR자동화 → 사례DB → 자체사례
+const STR_FOLDER_PATH = ['40_프로그램개발','STR자동화','사례DB','자체사례'];
+
+let driveToken = null;
+let driveFolderIdCache = null; // 폴더ID 캐시 (API 호출 최소화)
+
+function driveSignIn(){
+  if(typeof google==='undefined'){alert('Google API 로딩 중입니다. 잠시 후 다시 눌러주세요.');return;}
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: STR_CLIENT_ID,
+    scope: STR_DRIVE_SCOPE,
+    callback:(resp)=>{
+      if(resp.access_token){
+        driveToken = resp.access_token;
+        localStorage.setItem('str_drive_token', driveToken);
+        driveFolderIdCache = null; // 새 토큰이면 캐시 초기화
+        updateDriveUI(true);
+        // 연동 직후 폴더ID 미리 캐시
+        getDriveFolder().then(id=>{
+          if(id) driveFolderIdCache = id;
+        });
+      }
+    }
+  });
+  client.requestAccessToken();
+}
+
+function driveSignOut(){
+  driveToken = null;
+  driveFolderIdCache = null;
+  localStorage.removeItem('str_drive_token');
+  updateDriveUI(false);
+}
+
+function updateDriveUI(connected){
+  const st = document.getElementById('driveStatus');
+  const si = document.getElementById('driveSignInBtn');
+  const so = document.getElementById('driveSignOutBtn');
+  const li = document.getElementById('driveListBtn');
+  if(connected){
+    st.innerHTML = '☁ Google Drive 연동<span>연결됨 · 저장 시 자동 업로드</span>';
+    si.style.display='none'; so.style.display=''; li.style.display='';
+  } else {
+    st.innerHTML = '☁ Google Drive 연동<span>미연결</span>';
+    si.style.display=''; so.style.display='none'; li.style.display='none';
+  }
+}
+
+// 폴더 탐색/생성 (주소록 앱 getDriveFolderId 방식 그대로, 경로 배열 처리)
+async function getDriveFolder(){
+  if(!driveToken) return null;
+  if(driveFolderIdCache) return driveFolderIdCache;
+  try{
+    let parentId = null;
+    for(const name of STR_FOLDER_PATH){
+      const q = parentId
+        ? `name='${name}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`
+        : `name='${name}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`,{
+        headers:{Authorization:`Bearer ${driveToken}`}
+      });
+      if(res.status===401){driveToken=null;localStorage.removeItem('str_drive_token');updateDriveUI(false);return null;}
+      const data = await res.json();
+      if(data.files&&data.files.length>0){
+        parentId = data.files[0].id;
+      } else {
+        // 없으면 생성
+        const body = {name, mimeType:'application/vnd.google-apps.folder'};
+        if(parentId) body.parents=[parentId];
+        const cr = await fetch('https://www.googleapis.com/drive/v3/files',{
+          method:'POST',
+          headers:{Authorization:`Bearer ${driveToken}`,'Content-Type':'application/json'},
+          body:JSON.stringify(body)
+        });
+        const folder = await cr.json();
+        parentId = folder.id;
+      }
+    }
+    driveFolderIdCache = parentId;
+    return parentId;
+  }catch(e){console.log('폴더 탐색 오류:',e.message);return null;}
+}
+
+// 사례 저장 — 사례번호 기준 기존 파일 PATCH(업데이트), 없으면 신규 생성
+async function saveToDriveCase(rec){
+  if(!driveToken) return;
+  try{
+    const folderId = await getDriveFolder();
+    if(!folderId) return;
+    const fname = caseFilename();
+    const content = JSON.stringify(rec,null,2);
+    const caseNo = val('caseno')||'';
+
+    // 사례번호 있으면 기존 파일 검색 (덮어쓰기)
+    let existingId = null;
+    if(caseNo){
+      const q=`'${folderId}' in parents and name contains '사례_${caseNo}_' and mimeType='application/json' and trashed=false`;
+      const sr=await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`,{
+        headers:{Authorization:`Bearer ${driveToken}`}
+      });
+      const sd=await sr.json();
+      if(sd.files&&sd.files.length>0) existingId=sd.files[0].id;
+    }
+
+    if(existingId){
+      // PATCH — 기존 파일 내용 업데이트
+      const res=await fetch(`https://www.googleapis.com/upload/drive/v3/files/${existingId}?uploadType=media`,{
+        method:'PATCH',
+        headers:{Authorization:`Bearer ${driveToken}`,'Content-Type':'application/json'},
+        body:content
+      });
+      if(res.ok) showDriveToast(`☁ Drive 업데이트: ${fname}`);
+      else showDriveToast('❌ Drive 저장 실패 — 재연동 필요');
+    } else {
+      // POST — 신규 파일 생성
+      const metadata=JSON.stringify({name:fname,mimeType:'application/json',parents:[folderId]});
+      const form=new FormData();
+      form.append('metadata',new Blob([metadata],{type:'application/json'}));
+      form.append('file',new Blob([content],{type:'application/json'}));
+      const res=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+        method:'POST',headers:{Authorization:`Bearer ${driveToken}`},body:form
+      });
+      if(res.ok) showDriveToast(`☁ Drive 저장: ${fname}`);
+      else showDriveToast('❌ Drive 저장 실패 — 재연동 필요');
+    }
+  }catch(e){showDriveToast('❌ Drive 오류: '+e.message);}
+}
+
+// Drive 사례 목록 불러오기
+async function openDriveList(){
+  if(!driveToken){alert('먼저 구글 계정을 연동하세요.');return;}
+  document.getElementById('driveModalBg').classList.add('show');
+  document.getElementById('driveListContent').innerHTML='<div style="text-align:center;padding:30px;color:var(--faint)">Drive에서 불러오는 중…</div>';
+  try{
+    const folderId=await getDriveFolder();
+    if(!folderId){document.getElementById('driveListContent').innerHTML='<div style="color:var(--faint);padding:20px">폴더를 찾을 수 없습니다.</div>';return;}
+    const q=`'${folderId}' in parents and mimeType='application/json' and trashed=false`;
+    const res=await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=name+desc&pageSize=50&fields=files(id,name,modifiedTime)`,{
+      headers:{Authorization:`Bearer ${driveToken}`}
+    });
+    const data=await res.json();
+    const files=data.files||[];
+    if(!files.length){document.getElementById('driveListContent').innerHTML='<div style="color:var(--faint);padding:20px">저장된 사례가 없습니다.</div>';return;}
+    const html=files.map(f=>{
+      const dt=new Date(f.modifiedTime).toLocaleString('ko-KR',{year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+      return `<div class="case-row" onclick="loadDriveCase('${f.id}','${esc(f.name)}')">
+        <div class="cr-name">${esc(f.name.replace('.json',''))}</div>
+        <div class="cr-date">${dt}</div>
+      </div>`;
+    }).join('');
+    document.getElementById('driveListContent').innerHTML=html;
+  }catch(e){document.getElementById('driveListContent').innerHTML='<div style="color:var(--rep)">오류: '+esc(e.message)+'</div>';}
+}
+
+async function loadDriveCase(fileId, fname){
+  try{
+    const res=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{
+      headers:{Authorization:`Bearer ${driveToken}`}
+    });
+    const rec=await res.json();
+    closeDriveList();
+    // importJSON과 동일한 복원 로직
+    const i=rec.input||{};
+    const setv=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v;};
+    ['caseno','txdate','ttype','ctype','amt','ncnt','ntot','fpath','fsrc','names','scale'].forEach(k=>setv(k,i[k]));
+    if(i.src!=null)document.getElementById('src').value=i.src;
+    if(i.sancFlags){document.getElementById('f_sanc').checked=!!i.sancFlags.sanc;document.getElementById('f_third').checked=!!i.sancFlags.third;document.getElementById('f_refuse').checked=!!i.sancFlags.refuse;document.getElementById('f_fraud').checked=!!i.sancFlags.fraud;document.getElementById('f_cash').checked=!!i.sancFlags.cash;}
+    if(i.opts){['rrn','phone','acct','biz','email'].forEach(k=>{const el=document.getElementById('o_'+k);if(el)el.checked=!!i.opts[k];});}
+    MAP=rec.map||{}; LAST=Object.assign({},LAST,{deid:rec.deid||''});
+    if(rec.deid)renderDeid(rec.deid);
+    if(rec.result){RES=rec.result; draw();}
+    showDriveToast('☁ Drive에서 사례 불러옴: '+fname.replace('.json',''));
+  }catch(e){alert('사례 불러오기 실패: '+e.message);}
+}
+
+function closeDriveList(){document.getElementById('driveModalBg').classList.remove('show');}
+
+function showDriveToast(msg){
+  let t=document.getElementById('driveToast');
+  if(!t){t=document.createElement('div');t.id='driveToast';t.style.cssText='position:fixed;bottom:90px;right:18px;background:#1a73e8;color:#fff;padding:10px 16px;border-radius:10px;font-size:12.5px;font-weight:700;z-index:300;opacity:0;transition:opacity .3s;box-shadow:0 4px 16px rgba(0,0,0,.15)';document.body.appendChild(t);}
+  t.textContent=msg; t.style.opacity='1';
+  clearTimeout(t._tid); t._tid=setTimeout(()=>{t.style.opacity='0';},3000);
+}
+
+// 토큰 복원 (로컬 스토리지)
+window.addEventListener('load',()=>{
+  const saved=localStorage.getItem('str_drive_token');
+  if(saved){driveToken=saved;updateDriveUI(true);getDriveFolder().then(id=>{if(id)driveFolderIdCache=id;});}
+});
+</script>
+
+<script>
+let MAP={},counters={},LAST={},RES=null,MODE='tri';
+const TYPENAME={A1:'고액 일시납',A2:'단기 해지·중도인출',A3:'보험계약대출',A4:'분산가입',A5:'가상계좌·즉시이체',A6:'현금성 납입',B1:'타인계약',B2:'수익자 변경',B3:'명의대여·차명',B4:'법인 실소유자 불일치',C1:'소득대비 불일치',C2:'거래패턴 급변',C3:'설명·확인 회피',C4:'제재·PEP·고위험국',C5:'취약계층·범죄 연계'};
+function tokenFor(value,type,label){for(const t in MAP){if(MAP[t].value===value)return t;}counters[type]=(counters[type]||0)+1;const tok=`[${label}${counters[type]}]`;MAP[tok]={value,type:label};return tok;}
+function chk(id){return document.getElementById(id).checked;}
+function val(id){return document.getElementById(id).value.trim();}
+function esc(s){return String(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+function setMode(m){MODE=m;
+  document.getElementById('m_tri').classList.toggle('on',m==='tri');
+  document.getElementById('m_full').classList.toggle('on',m==='full');
+  if(RES) draw();
+}
+function setStep(n){[1,2,3,4].forEach(i=>{const e=document.getElementById('st'+i);if(e)e.classList.toggle('on',i===n);});}
+
+function deidentify(){
+  MAP={};counters={};
+  let text=document.getElementById('src').value;
+  let names=document.getElementById('names').value.split(',').map(s=>s.trim()).filter(Boolean).sort((a,b)=>b.length-a.length);
+  names.forEach(n=>{const tok=tokenFor(n,'name','이름');text=text.split(n).join('\u0000'+tok+'\u0000');});
+  const rules=[];
+  if(chk('o_rrn'))   rules.push([/\b\d{6}[-\s]?\d{7}\b/g,'rrn','주민번호']);
+  if(chk('o_biz'))   rules.push([/\b\d{3}-\d{2}-\d{5}\b/g,'biz','사업자번호']);
+  if(chk('o_acct'))  rules.push([/\b\d{4}-\d{4}-\d{4}-\d{4}\b/g,'card','카드']);
+  if(chk('o_phone')) rules.push([/\b01[016789][-\s]?\d{3,4}[-\s]?\d{4}\b/g,'phone','전화']);
+  if(chk('o_phone')) rules.push([/\b0\d{1,2}[-\s]?\d{3,4}[-\s]?\d{4}\b/g,'phone','전화']);
+  if(chk('o_acct'))  rules.push([/\b\d{2,6}-\d{2,6}-\d{2,7}(?:-\d{1,6})?\b/g,'acct','계좌']);
+  if(chk('o_email')) rules.push([/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/g,'email','이메일']);
+  rules.forEach(([re,type,label])=>{text=text.replace(re,m=>{if(m.includes('\u0000'))return m;return '\u0000'+tokenFor(m.trim(),type,label)+'\u0000';});});
+  return text.replace(/\u0000/g,'');
+}
+function restore(s){s=String(s||'');Object.keys(MAP).sort((a,b)=>b.length-a.length).forEach(tok=>{s=s.split(tok).join(MAP[tok].value);});return s;}
+function renderDeid(t){document.getElementById('deid').innerHTML=esc(t).replace(/\[[가-힣A-Za-z]+\d+\]/g,m=>`<span class="tok">${m}</span>`)||'<span style="color:var(--faint)">치환 내용 없음</span>';}
+
+function flags(){const a=[];if(chk('f_sanc'))a.push('제재·PEP 연계');if(chk('f_third'))a.push('타인계약(계약자≠피보험자)');if(chk('f_refuse'))a.push('설명·확인 비협조');if(chk('f_fraud'))a.push('보험사기·증서 위변조 인지');if(chk('f_cash'))a.push('1천만원 이상 현금지급');return a.length?a.join(', '):'없음';}
+function ctx(){
+  return `[거래유형] ${LAST.ttype}\n[고객유형] ${LAST.ctype}\n[거래금액] ${LAST.amt||'미입력'}\n[보유계약 건수] ${LAST.ncnt||'미입력'}\n[누적 보험료(신규포함)] ${LAST.ntot||'미입력'}\n[자금 경로] ${LAST.fpath}\n[자금원천 확인] ${LAST.fsrc}\n[위험 플래그] ${LAST.flags}\n[사례(비식별)]\n${LAST.deid}`;
+}
+function buildPrompt(){
+  return `다음 STR(의심거래보고) 사례를 한국 보험업권 AML 관점에서 0~100점으로 평가해줘.\n개인정보는 토큰([이름1] 등)으로 비식별화돼 있으니 토큰은 그대로 둬.\n위험도 점수(0~100), 매칭 유형(A1~C5 코드), 핵심 근거, 심화분석팀 이관 요약, 프로필 개요, 의심 가능성, 의견, 모니터링 조건, 추가확인 권장정보를 알려줘.\n\n${ctx()}`;
+}
+
+async function analyze(){
+  const src=document.getElementById('src').value.trim();
+  if(!src){alert('사례 내용을 입력하세요.');return;}
+  setStep(2);
+  const deid=deidentify(); renderDeid(deid);
+  LAST={deid,ttype:val('ttype'),ctype:val('ctype'),amt:val('amt'),ncnt:val('ncnt'),ntot:val('ntot'),fpath:val('fpath'),fsrc:val('fsrc'),flags:flags(),cash:chk('f_cash'),fraud:chk('f_fraud')};
+  const btn=document.getElementById('goBtn');btn.disabled=true;btn.textContent='분석 중…';
+  document.getElementById('result').innerHTML='<div class="loading"><div class="spin"></div>AI가 비식별 데이터를 분석 중입니다…</div>';
+
+  const sys=`당신은 한국 보험회사의 자금세탁방지(AML) 의심거래보고(STR) 검토 전문가입니다.
+입력은 개인정보가 토큰([이름1] 등)으로 치환된 비식별 사례입니다. 토큰은 그대로 유지하세요.
+
+[보험권 STR 유형 라이브러리] 아래 코드로 매칭하세요.
+A1 고액 일시납 / A2 단기 해지·중도인출 / A3 보험계약대출 활용 / A4 분산가입·분할납입 / A5 가상계좌·즉시이체 고액 / A6 현금성 납입
+B1 타인계약 / B2 수익자 빈번변경 / B3 명의대여·차명 / B4 법인 실제소유자 불일치
+C1 소득·직업 대비 거래규모 불일치 / C2 거래패턴 급변 / C3 설명·확인 회피 / C4 제재·PEP·고위험국 연계 / C5 취약계층·민생침해·초국경 범죄 연계
+
+[핵심 판단원칙]
+- 자금 경로(추적가능성)와 자금 원천(출처)은 별개. 경로가 투명(본인계좌)해도 원천 미확인이면 의심 잔존. 본인계좌는 차명위험을 낮추는 완화요인이지 원천 소명이 아니다.
+- 단발 거래가 기존 누적·베이스라인 대비 비중이 크면(급변) 가중.
+- 무직·소득無 + 고액이면 자금원천 확인이 핵심.
+- 자금원천이 '증빙 확인' 또는 합리적 '자가진술+자산정황'으로 소명되면 점수↓, 단 지속 모니터링 조건 제시.
+- 제재·PEP·차명 정황은 강한 가중.
+
+[보험권 유권해석 반영 (FIU 유권해석 사례집 2.0)]
+- '보험사기·증서 위변조 인지' 플래그가 켜져 있으면, 보험금 면책·회사 손해 여부와 무관하게 STR 보고 방향으로 강하게 가중(사례 9).
+- 중도해지 시 환급금이 발생하는 보험은 계약 체결 시 고객확인(CDD)이 필요(사례 39). 타인을 위한 보험은 수익자 지정 시·보험금 지급 시 확인(사례 44). cdd_check에 해당 사례 기준 점검 결과를 적어라.
+- '1천만원 이상 현금 지급(환급 등)'은 STR과 별개로 고액현금거래보고(CTR) 대상일 수 있음(사례 14) — 의견에 참고로 언급 가능.
+- 거래유형은 사례 내용에 가장 부합하는 것을 목록(부동산 담보대출·조기상환 / 보험계약대출·상환 / 고액보험료 입금(일시납·수시납) / 가상계좌 입금 / 해지·환급금 / 기타)에서 골라 suggested_type에 적어라. 선택된 거래유형과 다르면 오분류 가능성으로 보고 의견에 짚어라(사례 14).
+- [복합 조합 가중] 위험 유형이 여러 개 동시 해당 시 단순 합 이상으로 가중하라. 특히 A1(고액 일시납)+A2(단기 해지·중도인출)=레이어링 전형, A1+C1(소득대비 불일치)+자금원천 미확인=강한 의심, B1(타인계약)+C4(제재·PEP)=매우 강한 의심. 위험 조합이 겹칠수록 점수를 높이고, 의견에 어떤 조합이 위험한지 명시하라.
+
+점수 가이드: 0~19 매우낮음 / 20~39 낮음 / 40~59 보통 / 60~79 높음 / 80~100 매우높음.
+
+반드시 아래 JSON만 출력. 코드펜스·서론 금지. 모든 서술에서 토큰 유지.
+{
+ "risk_score": 0~100 정수,
+ "suggested_type": "사례에 가장 부합하는 거래유형(목록 중 하나)",
+ "typologies": [{"code":"A1","text":"해당 유형이 사례에서 어떻게 나타나는지 한 줄"}],
+ "key_basis": "점수의 핵심 근거 1~2문장(트리아지용)",
+ "handoff": "심화분석팀 이관용 요약 1~2문장(다음단계가 무엇을 봐야 하는지)",
+ "profile": "프로필 개요 2~4문장",
+ "suspicion": "의심 가능성 — 위험·완화 종합 + 의심수준(낮음/중간/높음)",
+ "opinion": "의견 — 결론과 근거 2~4문장",
+ "monitoring": "향후 모니터링·재검토 조건(없으면 빈 문자열)",
+ "cdd_check": "고객확인(CDD) 시점·범위 점검 결과(해당 시 1~2문장, 없으면 빈 문자열)",
+ "missing_info": ["추가 확인 권장 정보"]
+}`;
+
+  try{
+    const res=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,
+        messages:[{role:"user",content:sys+"\n\n"+ctx()}]})
+    });
+    if(!res.ok) throw new Error("API "+res.status);
+    const data=await res.json();
+    let txt=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n");
+    txt=txt.replace(/```json|```/g,"").trim();
+    const j=JSON.parse(txt);
+    RES={
+      score:Math.max(0,Math.min(100,parseInt(j.risk_score)||0)),
+      suggested_type:restore(j.suggested_type),
+      typologies:(j.typologies||[]),
+      key_basis:restore(j.key_basis), handoff:restore(j.handoff),
+      profile:restore(j.profile), suspicion:restore(j.suspicion),
+      opinion:restore(j.opinion), monitoring:restore(j.monitoring),
+      cdd_check:restore(j.cdd_check),
+      missing:(j.missing_info||[]).map(restore)
+    };
+    draw();
+  }catch(e){ renderFallback(); }
+  finally{btn.disabled=false;btn.textContent='분석 실행';}
+}
+
+function bandOf(s){
+  if(s>=80)return['매우 높음','var(--rep)'];
+  if(s>=60)return['높음','var(--rep)'];
+  if(s>=40)return['보통','var(--chk)'];
+  if(s>=20)return['낮음','var(--exc)'];
+  return['매우 낮음','var(--exc)'];
+}
+function convert(s){
+  const scale=val('scale');
+  if(scale==='5'){const n=Math.min(5,Math.floor(s/20)+1);return `귀사 척도: <b>${n}</b> / 5점`;}
+  if(scale==='10'){const n=Math.max(1,Math.ceil(s/10));return `귀사 척도: <b>${n}</b> / 10점`;}
+  const g=s>=70?'보고':s>=40?'추가확인':'제외';return `귀사 척도: <b>${g}</b>`;
+}
+
+function draw(){
+  setStep(3);
+  const s=RES.score, [bl,col]=bandOf(s);
+  let html=`<div class="gauge"><div class="score" style="color:${col}">${s}<small>/100</small></div>
+      <div class="bar"><div class="bartrack"><div class="barfill" style="width:0%;background:${col}"></div></div>
+        <div class="bandlabel" style="color:${col}">위험등급: ${bl}</div></div></div>
+    <div class="convert"><div class="cv main">${convert(s)}</div></div>`;
+
+  if(RES.suggested_type && RES.suggested_type.trim()){
+    const mm = RES.suggested_type.trim()!==LAST.ttype;
+    html+=`<div class="convert"><div class="cv" style="${mm?'background:var(--chk-bg);border-color:var(--chk-line);color:#7a4d06':'background:var(--field)'}">추정 거래유형: <b>${esc(RES.suggested_type)}</b>${mm?' · ⚠ 입력('+esc(LAST.ttype)+')과 다름 — 오분류 가능성':''}</div></div>`;
+  }
+
+  if(RES.typologies&&RES.typologies.length){
+    html+=`<div class="chips">`+RES.typologies.map(t=>{const c=(t.code||'').trim();return `<span class="chip" title="${esc(restore(t.text||''))}">${esc(c)} ${esc(TYPENAME[c]||'')}</span>`;}).join('')+`</div>`;
+  }
+  html+=`<div class="sec">핵심 근거</div><div class="block">${esc(RES.key_basis)}</div>`;
+  html+=`<div class="handoff" style="margin-top:14px"><b>▶ 심화분석팀 이관 요약</b><br>${esc(RES.handoff)}</div>`;
+
+  if(LAST.cash)
+    html+=`<div class="monitor" style="background:var(--rep-bg);border-color:var(--rep-line);color:#7a1c1c"><b>⚠ 고액현금거래보고(CTR) 별도 검토</b><br>1천만원 이상 현금 지급(환급 등)은 STR과 별개로 CTR 대상일 수 있습니다. (FIU 유권해석 사례 14)</div>`;
+  if(RES.cdd_check&&RES.cdd_check.trim())
+    html+=`<div class="handoff" style="margin-top:14px;background:var(--primary-bg);border-color:var(--primary-line);color:var(--primary-d)"><b>✔ 고객확인(CDD) 시점 점검</b><br>${esc(RES.cdd_check)}</div>`;
+
+  if(MODE==='full'){
+    html+=`<div class="sec">프로필 개요</div><div class="block">${esc(RES.profile)}</div>`;
+    html+=`<div class="sec">의심 가능성</div><div class="block">${esc(RES.suspicion)}</div>`;
+    html+=`<div class="sec">의견</div><div class="block">${esc(RES.opinion)}</div>`;
+    if(RES.monitoring&&RES.monitoring.trim())
+      html+=`<div class="monitor"><b>🔭 향후 모니터링·재검토 조건</b><br>${esc(RES.monitoring)}</div>`;
+    if(RES.missing&&RES.missing.length)
+      html+=`<div class="missing"><b>📋 추가 확인 권장 정보</b><ul>`+RES.missing.map(m=>`<li>${esc(m)}</li>`).join('')+`</ul></div>`;
+  }
+  html+=`<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <button class="btn-sm" onclick="copyOut()">📋 의견서 복사</button>
+    <button class="btn-sm" onclick="exportJSON()">💾 사례 파일저장</button>
+    <span id="cp" class="copied"></span>
+    <span style="font-size:11px;color:var(--faint)">모드: ${MODE==='tri'?'트리아지':'세부분석'}</span></div>`;
+  document.getElementById('result').innerHTML=html;
+  setTimeout(()=>{const f=document.querySelector('.barfill');if(f)f.style.width=s+'%';},60);
+}
+
+function resetForm(){
+  RES=null; MAP={}; LAST={};
+  ['caseno','txdate','amt','ncnt','ntot','names','src'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['ttype','ctype','fpath','fsrc','scale'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;});
+  ['f_sanc','f_third','f_refuse','f_fraud','f_cash'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
+  ['o_rrn','o_phone','o_acct','o_biz','o_email'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=true;});
+  setMode('tri');
+  setStep(1);
+  document.getElementById('deid').innerHTML='<span style="color:var(--faint)">분석 시 자동 생성됩니다.</span>';
+  document.getElementById('result').innerHTML='<div class="placeholder"><span class="ic">📊</span>왼쪽에 사례를 입력하고<br>\u2018분석 실행\u2019을 누르세요.</div>';
+}
+
+function renderFallback(){
+  const prompt=buildPrompt();
+  document.getElementById('result').innerHTML=
+   `<div class="fallback">
+      <h3>⚠ 이 환경에서는 AI 직접 분석을 사용할 수 없습니다</h3>
+      <p>로컬 파일로 열었거나 백엔드가 없어 AI 호출이 차단됐습니다. 비식별화는 정상 완료됐으니,
+         아래 <b>분석 프롬프트</b>를 복사해 Claude 대화창에 붙여넣어 분석하세요. (개인정보는 토큰으로 치환돼 안전)</p>
+      <div class="box" id="fb">${esc(prompt)}</div>
+      <button class="btn-sm" style="margin-top:11px" onclick="copyFB()">분석 프롬프트 복사</button><span id="cpf" class="copied"></span>
+    </div>`;
+}
+function copyFB(){navigator.clipboard.writeText(document.getElementById('fb').innerText).then(()=>{const c=document.getElementById('cpf');c.textContent='✓ 복사됨';setTimeout(()=>c.textContent='',1500);});}
+
+function curInput(){return {caseno:val('caseno'),txdate:val('txdate'),ttype:val('ttype'),ctype:val('ctype'),amt:val('amt'),ncnt:val('ncnt'),ntot:val('ntot'),fpath:val('fpath'),fsrc:val('fsrc'),names:val('names'),src:document.getElementById('src').value,flags:flags(),scale:val('scale'),opts:{rrn:chk('o_rrn'),phone:chk('o_phone'),acct:chk('o_acct'),biz:chk('o_biz'),email:chk('o_email')},sancFlags:{sanc:chk('f_sanc'),third:chk('f_third'),refuse:chk('f_refuse'),fraud:chk('f_fraud'),cash:chk('f_cash')}};}
+
+function shortType(t){return String(t||'').replace(/\(.*?\)/g,'').replace(/[ ·]/g,'');}
+function caseFilename(){
+  const parts=['사례'];
+  const no=val('caseno'); if(no)parts.push(no);
+  const nm=(val('names').split(',')[0]||'').trim(); if(nm)parts.push(nm);
+  parts.push(val('txdate')||new Date().toISOString().slice(0,10));
+  const ty=shortType(val('ttype')); if(ty)parts.push(ty);
+  return parts.join('_').replace(/[\\/:*?"<>|]/g,'')+'.json';
+}
+
+function exportJSON(){
+  if(!RES){alert('먼저 분석을 실행하세요.');return;}
+  const rec={meta:{saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v2.5'},input:curInput(),deid:LAST.deid||'',result:RES,map:MAP};
+  const blob=new Blob([JSON.stringify(rec,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=caseFilename(); a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),500);
+  // Drive 연동 시 자동 병행 저장
+  if(driveToken) saveToDriveCase(rec);
+  setStep(4);
+}
+
+function importJSON(ev){
+  const f=ev.target.files[0]; if(!f){return;}
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const rec=JSON.parse(r.result), i=rec.input||{};
+      const setv=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v;};
+      ['caseno','txdate','ttype','ctype','amt','ncnt','ntot','fpath','fsrc','names','scale'].forEach(k=>setv(k,i[k]));
+      if(i.src!=null)document.getElementById('src').value=i.src;
+      if(i.sancFlags){document.getElementById('f_sanc').checked=!!i.sancFlags.sanc;document.getElementById('f_third').checked=!!i.sancFlags.third;document.getElementById('f_refuse').checked=!!i.sancFlags.refuse;document.getElementById('f_fraud').checked=!!i.sancFlags.fraud;document.getElementById('f_cash').checked=!!i.sancFlags.cash;}
+      if(i.opts){['rrn','phone','acct','biz','email'].forEach(k=>{const el=document.getElementById('o_'+k);if(el)el.checked=!!i.opts[k];});}
+      MAP=rec.map||{}; LAST=Object.assign({},LAST,{deid:rec.deid||''});
+      if(rec.deid)renderDeid(rec.deid);
+      if(rec.result){RES=rec.result; draw();}
+      alert('사례를 불러왔습니다.');
+    }catch(e){alert('JSON을 읽을 수 없습니다: '+e);}
+  };
+  r.readAsText(f); ev.target.value='';
+}
+
+function copyOut(){
+  if(!RES)return;
+  const s=RES.score,[bl]=bandOf(s);
+  let t=`[STR 검토 결과]\n위험도 ${s}/100 (${bl}) · ${convert(s).replace(/<[^>]+>/g,'')}`;
+  if(RES.suggested_type&&RES.suggested_type.trim()) t+=`\n추정 거래유형: ${RES.suggested_type}`;
+  t+=`\n\n[핵심 근거]\n${RES.key_basis}\n\n[심화분석팀 이관 요약]\n${RES.handoff}`;
+  if(MODE==='full'){
+    t+=`\n\n【프로필 개요】\n${RES.profile}\n\n【의심 가능성】\n${RES.suspicion}\n\n【의견】\n${RES.opinion}`;
+    if(RES.monitoring&&RES.monitoring.trim()) t+=`\n\n[모니터링·재검토 조건]\n${RES.monitoring}`;
+  }
+  navigator.clipboard.writeText(t).then(()=>{const c=document.getElementById('cp');c.textContent='✓ 복사됨';setTimeout(()=>c.textContent='',1500);});
+}
+setStep(1);
+</script>
+</body>
+</html>

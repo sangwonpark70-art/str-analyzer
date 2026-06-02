@@ -284,8 +284,9 @@
 /* ── Drive 연동 (v2.5) ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 const STR_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
-// Drive 폴더 경로: 40_프로그램개발 → STR자동화 → 사례DB → 자체사례
-const STR_FOLDER_PATH = ['40_프로그램개발','STR자동화','사례DB','자체사례'];
+// 40_프로그램개발 폴더 ID 직접 지정 (이름 탐색 시 중복생성 방지)
+const STR_ROOT_FOLDER_ID = '1slYAFK3NlItmjAimUPvYxWPaKoQbhj1b';
+const STR_SUB_PATH = ['STR자동화','사례DB','자체사례']; // 루트 아래 하위 경로
 
 let driveToken = null;
 let driveFolderIdCache = null; // 폴더ID 캐시 (API 호출 최소화)
@@ -332,37 +333,34 @@ function updateDriveUI(connected){
   }
 }
 
-// 폴더 탐색/생성 (주소록 앱 getDriveFolderId 방식 그대로, 경로 배열 처리)
+// 폴더 탐색: 루트(40_프로그램개발) ID 직접 지정 → 하위 경로만 탐색/생성
 async function getDriveFolder(){
   if(!driveToken) return null;
   if(driveFolderIdCache) return driveFolderIdCache;
   try{
-    let parentId = null;
-    for(const name of STR_FOLDER_PATH){
-      const q = parentId
-        ? `name='${name}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`
-        : `name='${name}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
-      const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`,{
+    let parentId = STR_ROOT_FOLDER_ID; // 40_프로그램개발 ID 고정
+    for(const name of STR_SUB_PATH){
+      const q=`name='${name}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
+      const res=await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`,{
         headers:{Authorization:`Bearer ${driveToken}`}
       });
       if(res.status===401){driveToken=null;localStorage.removeItem('str_drive_token');updateDriveUI(false);return null;}
-      const data = await res.json();
+      const data=await res.json();
       if(data.files&&data.files.length>0){
-        parentId = data.files[0].id;
+        parentId=data.files[0].id;
       } else {
-        // 없으면 생성
-        const body = {name, mimeType:'application/vnd.google-apps.folder'};
-        if(parentId) body.parents=[parentId];
-        const cr = await fetch('https://www.googleapis.com/drive/v3/files',{
+        // 없으면 루트 아래에 생성
+        const body={name,mimeType:'application/vnd.google-apps.folder',parents:[parentId]};
+        const cr=await fetch('https://www.googleapis.com/drive/v3/files',{
           method:'POST',
           headers:{Authorization:`Bearer ${driveToken}`,'Content-Type':'application/json'},
           body:JSON.stringify(body)
         });
-        const folder = await cr.json();
-        parentId = folder.id;
+        const folder=await cr.json();
+        parentId=folder.id;
       }
     }
-    driveFolderIdCache = parentId;
+    driveFolderIdCache=parentId;
     return parentId;
   }catch(e){console.log('폴더 탐색 오류:',e.message);return null;}
 }

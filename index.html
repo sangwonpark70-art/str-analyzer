@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>STR 사례 분석기 v2.9</title>
+<title>STR 사례 분석기 v3.0</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -45,6 +45,9 @@
   ::placeholder{color:#a7b1bf}
   .twocol{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .flags{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .ocrmode{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .ocrmode label{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:600;color:var(--txt);background:var(--field);border:1px solid var(--line2);border-radius:8px;padding:7px 10px}
+  .ocrmode label:has(input:checked){border-color:var(--primary);background:var(--primary-bg)}
   .flags label{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:600;color:var(--txt);background:var(--field);border:1px solid var(--line2);border-radius:8px;padding:7px 10px}
   .flags input{width:auto;accent-color:var(--rep)}
   .opts{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:12px;color:var(--dim)}
@@ -136,7 +139,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 보험업권</div>
-    <h1>STR 사례 분석기 <span class="v">v2.9</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.0</span></h1>
     <p class="sub">0~100 점수 엔진 + 등급 + 고객사 척도 환산. 트리아지(1차)↔세부분석 전환. 개인정보는 비식별화 후 분석.</p>
     <span class="badge"><i></i> PII 비식별화 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -242,6 +245,17 @@
         <label><input type="checkbox" id="f_cash">1천만원↑ 현금지급(환급 등)</label>
       </div>
 
+      <label class="l">📷 사진 인식 <span class="opt">(AML 화면·서류 사진 → 아래 사례 내용에 자동 입력)</span></label>
+      <div class="ocrmode">
+        <label><input type="radio" name="ocrm" value="ai" checked> 🌐 외부 AI 인식 <span class="opt">정확 · 사진이 외부(Claude)로 전송됨</span></label>
+        <label><input type="radio" name="ocrm" value="local"> 💻 로컬 인식 <span class="opt">사진 미전송 · 정확도 낮을 수 있음</span></label>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button class="btn-sm" style="flex:1" id="photoBtn" onclick="document.getElementById('photoFile').click()">📷 사진 선택·촬영 (최대 4장)</button>
+        <input type="file" id="photoFile" accept="image/*" multiple style="display:none" onchange="onPhotoSelect(event)">
+      </div>
+      <div id="photoStatus" style="display:none;margin-top:6px;font-size:12px;color:var(--faint);line-height:1.5"></div>
+
       <label class="l">사례 내용 (자유 서술)</label>
       <textarea id="src" placeholder="고객·거래·특이사항을 편하게 적으세요. 개인정보는 자동 비식별화됩니다."></textarea>
 
@@ -290,7 +304,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v2.9 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.0 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     보험권 STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -719,6 +733,105 @@ function draw(){
   setTimeout(()=>{const f=document.querySelector('.barfill');if(f)f.style.width=s+'%';},60);
 }
 
+/* ── 사진 인식 (v3.0): 외부 AI(Claude Vision) / 로컬(Tesseract.js) ── */
+const OCR_MAX_IMG = 4, OCR_MAX_SIDE = 1568;
+
+function ocrStatus(msg, show=true){
+  const el=document.getElementById('photoStatus');
+  el.style.display=show?'block':'none'; el.innerHTML=msg||'';
+}
+
+async function onPhotoSelect(ev){
+  let files=[...(ev.target.files||[])].filter(f=>f.type.startsWith('image/'));
+  ev.target.value='';
+  if(!files.length) return;
+  if(files.length>OCR_MAX_IMG){ files=files.slice(0,OCR_MAX_IMG); }
+  const mode=document.querySelector('input[name="ocrm"]:checked').value;
+  const btn=document.getElementById('photoBtn'); btn.disabled=true;
+  try{
+    ocrStatus(`이미지 ${files.length}장 준비 중…`);
+    const imgs=[]; for(const f of files){ imgs.push(await resizeToJpeg(f)); }
+    let text='';
+    if(mode==='ai'){
+      ocrStatus(`🌐 외부 AI 인식 중… (${files.length}장)`);
+      text=await extractByWorker(imgs);
+    }else{
+      text=await extractByTesseract(imgs);
+    }
+    text=(text||'').trim();
+    if(!text) throw new Error('인식된 텍스트가 없습니다');
+    applyExtractedText(text, mode);
+  }catch(e){
+    ocrStatus(`⚠️ 인식 실패: ${e.message||e}. ${mode==='ai'?'네트워크·Worker 상태 확인 후 재시도하거나 로컬 인식으로 전환하세요.':'사진을 더 선명하게 찍거나 외부 AI 인식으로 전환하세요.'}`);
+  }finally{ btn.disabled=false; }
+}
+
+// 캔버스 리사이즈 → JPEG base64 (긴 변 1568px, 품질 0.85 — 전송량·API 제한 대응)
+function resizeToJpeg(file){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>{
+      let w=img.naturalWidth,h=img.naturalHeight;
+      const sc=Math.min(1, OCR_MAX_SIDE/Math.max(w,h));
+      w=Math.round(w*sc); h=Math.round(h*sc);
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      const dataUrl=cv.toDataURL('image/jpeg',0.85);
+      URL.revokeObjectURL(img.src);
+      resolve({media_type:'image/jpeg', data:dataUrl.split(',')[1], dataUrl});
+    };
+    img.onerror=()=>reject(new Error('이미지 로드 실패'));
+    img.src=URL.createObjectURL(file);
+  });
+}
+
+// 외부 AI: Worker로 이미지 전송 → Claude Vision 텍스트 추출
+async function extractByWorker(imgs){
+  const inst=`다음은 보험사 AML 시스템 화면 또는 관련 서류 사진입니다. 사진 속 모든 텍스트를 빠짐없이 정확히 한국어로 옮겨 적으세요.
+규칙: 1) 표는 "항목명: 값" 형식으로 줄바꿈 정리 2) 요약·해석·생략 금지, 원문 그대로 3) 숫자·날짜·금액·계약번호는 특히 정확히 4) 마스킹하지 말 것(별도 비식별화 단계 있음) 5) 결과는 순수 텍스트만.`;
+  const res=await fetch(STR_WORKER_URL,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({task:'vision_extract', prompt:inst, images:imgs.map(i=>({media_type:i.media_type,data:i.data}))})
+  });
+  if(!res.ok) throw new Error('Worker '+res.status+(res.status===400?' (Worker가 이미지 미지원 — worker.js 업데이트 필요)':''));
+  const d=await res.json(); if(d.error) throw new Error(d.error);
+  return d.text||'';
+}
+
+// 로컬: Tesseract.js (사진이 PC·휴대폰 밖으로 나가지 않음)
+let _tessLoaded=false;
+function loadTesseract(){
+  if(_tessLoaded||window.Tesseract) return Promise.resolve();
+  return new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload=()=>{_tessLoaded=true;resolve()};
+    s.onerror=()=>reject(new Error('Tesseract 로드 실패(네트워크 확인)'));
+    document.head.appendChild(s);
+  });
+}
+async function extractByTesseract(imgs){
+  ocrStatus('💻 로컬 인식 엔진 로드 중… (최초 1회 다운로드, 사진은 전송되지 않음)');
+  await loadTesseract();
+  let out=[];
+  for(let i=0;i<imgs.length;i++){
+    const r=await Tesseract.recognize(imgs[i].dataUrl,'kor+eng',{
+      logger:m=>{ if(m.status==='recognizing text') ocrStatus(`💻 로컬 인식 중… ${i+1}/${imgs.length}장 (${Math.round(m.progress*100)}%)`); }
+    });
+    out.push((r.data.text||'').trim());
+  }
+  return out.filter(Boolean).join('\n\n');
+}
+
+// 추출 텍스트를 사례 내용에 반영 (기존 입력 보존: 뒤에 덧붙임)
+function applyExtractedText(text, mode){
+  const ta=document.getElementById('src');
+  ta.value = ta.value.trim() ? ta.value.trim()+'\n\n[사진 인식 추가]\n'+text : text;
+  ta.dispatchEvent(new Event('input'));
+  ocrStatus(`✅ 인식 완료 (${mode==='ai'?'외부 AI':'로컬'}). <b>내용을 검토·수정한 뒤</b> 분석 실행하세요. 개인정보는 분석 시 자동 비식별화됩니다.${mode==='local'?' 로컬 인식은 오타 가능성이 있으니 숫자·이름을 꼭 확인하세요.':''}`);
+  if(ta.scrollIntoView) ta.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
 function resetForm(){
   RES=null; MAP={}; LAST={};
   ['caseno','txdate','amt','ncnt','ntot','names','src'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
@@ -779,7 +892,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const rec={meta:{saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v2.9'},input:curInput(),deid:LAST.deid||'',result:RES,map:MAP};
+  const rec={meta:{saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.0'},input:curInput(),deid:LAST.deid||'',result:RES,map:MAP};
   const blob=new Blob([JSON.stringify(rec,null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob); a.download=caseFilename(); a.click();

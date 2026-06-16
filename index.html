@@ -136,6 +136,8 @@
   .case-row .cr-name{font-size:13px;font-weight:700;color:var(--ink);flex:1}
   .case-row .cr-date{font-size:11px;color:var(--faint)}
   .case-row .cr-score{font-size:13px;font-weight:800;color:var(--primary-d)}
+  .btn-sort{flex:1;padding:7px 10px;font-size:12px;font-weight:700;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--dim);cursor:pointer}
+  .btn-sort.on{background:var(--primary-bg);border-color:var(--primary);color:var(--primary-d)}
   footer{margin-top:30px;font-size:11.5px;color:var(--faint);text-align:center;line-height:1.9}
   footer b{color:var(--dim)}
 </style>
@@ -183,6 +185,10 @@
   <div class="drive-modal-bg" id="driveModalBg" onclick="if(event.target===this)closeDriveList()">
     <div class="drive-modal">
       <h3>☁ Drive 저장 사례 목록</h3>
+      <div id="driveSortBar" style="display:none;gap:6px;margin-bottom:10px">
+        <button class="btn-sort" id="sortDate" onclick="sortDriveList('date')">📅 날짜순</button>
+        <button class="btn-sort" id="sortName" onclick="sortDriveList('name')">🔤 제목순</button>
+      </div>
       <div id="driveListContent"><div style="text-align:center;padding:30px;color:var(--faint)">불러오는 중…</div></div>
       <button class="btn-sm" style="margin-top:12px;width:100%" onclick="closeDriveList()">닫기</button>
     </div>
@@ -318,7 +324,7 @@
 <script src="https://accounts.google.com/gsi/client" async></script>
 
 <script>
-/* ── Drive 연동 (v2.5 도입) ── */
+/* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
 const STR_WORKER_URL = 'https://str-proxy.sangwonpark70.workers.dev';
@@ -441,29 +447,54 @@ function tokenExpired(){
 }
 
 // Drive 사례 목록 불러오기
+let DRIVE_FILES=[], driveSortKey='date', driveSortDir='desc';
 async function openDriveList(){
   if(!driveToken){alert('먼저 구글 계정을 연동하세요.');return;}
   document.getElementById('driveModalBg').classList.add('show');
+  document.getElementById('driveSortBar').style.display='none';
   document.getElementById('driveListContent').innerHTML='<div style="text-align:center;padding:30px;color:var(--faint)">Drive에서 불러오는 중…</div>';
   try{
     const folderId=await getDriveFolder();
     if(!folderId){document.getElementById('driveListContent').innerHTML='<div style="color:var(--faint);padding:20px">폴더를 찾을 수 없습니다.</div>';return;}
     const q=`'${folderId}' in parents and mimeType='application/json' and trashed=false`;
-    const res=await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=name+desc&pageSize=50&fields=files(id,name,modifiedTime)`,{
+    const res=await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&pageSize=200&fields=files(id,name,modifiedTime)`,{
       headers:{Authorization:`Bearer ${driveToken}`}
     });
     const data=await res.json();
-    const files=data.files||[];
-    if(!files.length){document.getElementById('driveListContent').innerHTML='<div style="color:var(--faint);padding:20px">저장된 사례가 없습니다.</div>';return;}
-    const html=files.map(f=>{
-      const dt=new Date(f.modifiedTime).toLocaleString('ko-KR',{year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-      return `<div class="case-row" onclick="loadDriveCase('${f.id}','${esc(f.name)}')">
-        <div class="cr-name">${esc(f.name.replace('.json',''))}</div>
-        <div class="cr-date">${dt}</div>
-      </div>`;
-    }).join('');
-    document.getElementById('driveListContent').innerHTML=html;
+    DRIVE_FILES=data.files||[];
+    if(!DRIVE_FILES.length){document.getElementById('driveListContent').innerHTML='<div style="color:var(--faint);padding:20px">저장된 사례가 없습니다.</div>';return;}
+    document.getElementById('driveSortBar').style.display='flex';
+    renderDriveList();
   }catch(e){document.getElementById('driveListContent').innerHTML='<div style="color:var(--rep)">오류: '+esc(e.message)+'</div>';}
+}
+
+// 같은 기준 재클릭 시 방향 반전, 다른 기준이면 기본 방향(날짜=최신, 제목=가나다)
+function sortDriveList(key){
+  if(driveSortKey===key){ driveSortDir=(driveSortDir==='desc')?'asc':'desc'; }
+  else { driveSortKey=key; driveSortDir=(key==='date')?'desc':'asc'; }
+  renderDriveList();
+}
+
+function renderDriveList(){
+  const dir=(driveSortDir==='asc')?1:-1;
+  const arr=DRIVE_FILES.slice().sort((a,b)=>{
+    if(driveSortKey==='name') return a.name.localeCompare(b.name,'ko')*dir;
+    return (new Date(a.modifiedTime)-new Date(b.modifiedTime))*dir;
+  });
+  // 버튼 상태/방향 표시
+  const arrow=(driveSortDir==='asc')?'▲':'▼';
+  const bd=document.getElementById('sortDate'), bn=document.getElementById('sortName');
+  bd.classList.toggle('on',driveSortKey==='date'); bn.classList.toggle('on',driveSortKey==='name');
+  bd.textContent='📅 날짜순'+(driveSortKey==='date'?' '+arrow:'');
+  bn.textContent='🔤 제목순'+(driveSortKey==='name'?' '+arrow:'');
+  const html=arr.map(f=>{
+    const dt=new Date(f.modifiedTime).toLocaleString('ko-KR',{year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    return `<div class="case-row" onclick="loadDriveCase('${f.id}','${esc(f.name)}')">
+      <div class="cr-name">${esc(f.name.replace('.json',''))}</div>
+      <div class="cr-date">${dt}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('driveListContent').innerHTML=html;
 }
 
 async function loadDriveCase(fileId, fname){

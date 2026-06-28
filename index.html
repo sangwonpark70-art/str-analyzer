@@ -138,6 +138,9 @@
   .case-row .cr-score{font-size:13px;font-weight:800;color:var(--primary-d)}
   .btn-sort{flex:1;padding:7px 10px;font-size:12px;font-weight:700;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--dim);cursor:pointer}
   .btn-sort.on{background:var(--primary-bg);border-color:var(--primary);color:var(--primary-d)}
+  .idcode-box{margin:4px 0 10px;padding:9px 12px;background:var(--primary-bg);border:1px solid var(--primary);border-radius:9px;font-size:12.5px;color:var(--dim)}
+  .idcode-box b{font-size:14px;color:var(--primary-d);font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.5px;margin:0 8px 0 4px}
+  .idcode-box .idcode-hint{font-size:11px;color:var(--faint)}
   footer{margin-top:30px;font-size:11.5px;color:var(--faint);text-align:center;line-height:1.9}
   footer b{color:var(--dim)}
 </style>
@@ -232,6 +235,12 @@
       </div>
 
       <div class="twocol">
+        <div><label class="l">생년월일 <span class="opt">(식별코드 생성·기본키)</span></label><input id="birth" placeholder="예: 1975-03-21" oninput="genIdCode()"></div>
+        <div><label class="l">고객번호 <span class="opt">(회사 부여·검색 보조)</span></label><input id="custno" placeholder="예: C123456" oninput="genIdCode()"></div>
+      </div>
+      <div id="idcodeBox" class="idcode-box">식별코드 <b id="idcodeVal">—</b><span class="idcode-hint">생년월일 + 성명으로 자동 생성 (동일 고객 재호출 키)</span></div>
+
+      <div class="twocol">
         <div><label class="l">고객 유형</label>
           <select id="ctype"><option>개인</option><option>법인</option><option>개인사업자</option></select></div>
         <div><label class="l">거래금액(원)</label><input id="amt" placeholder="예: 1억4천만"></div>
@@ -271,7 +280,7 @@
       <textarea id="src" placeholder="고객·거래·특이사항을 편하게 적으세요. 개인정보는 자동 비식별화됩니다."></textarea>
 
       <label class="l">이름·고유명사 지정 <span class="opt">(쉼표 구분)</span></label>
-      <input id="names" placeholder="윤OO, 신한은행">
+      <input id="names" placeholder="윤OO, 신한은행" oninput="genIdCode()">
       <div class="opts"><span class="lab">자동탐지</span>
         <label><input type="checkbox" id="o_rrn" checked>주민번호</label>
         <label><input type="checkbox" id="o_phone" checked>전화</label>
@@ -507,7 +516,7 @@ async function loadDriveCase(fileId, fname){
     // importJSON과 동일한 복원 로직
     const i=rec.input||{};
     const setv=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v;};
-    ['caseno','txdate','ttype','ctype','amt','ncnt','ntot','fpath','fsrc','names','scale'].forEach(k=>setv(k,i[k]));
+    ['caseno','txdate','birth','custno','ttype','ctype','amt','ncnt','ntot','fpath','fsrc','names','scale'].forEach(k=>setv(k,i[k])); genIdCode();
     if(i.src!=null)document.getElementById('src').value=i.src;
     if(i.sancFlags){document.getElementById('f_sanc').checked=!!i.sancFlags.sanc;document.getElementById('f_third').checked=!!i.sancFlags.third;document.getElementById('f_refuse').checked=!!i.sancFlags.refuse;document.getElementById('f_fraud').checked=!!i.sancFlags.fraud;document.getElementById('f_cash').checked=!!i.sancFlags.cash;}
     if(i.opts){['rrn','phone','acct','biz','email'].forEach(k=>{const el=document.getElementById('o_'+k);if(el)el.checked=!!i.opts[k];});}
@@ -881,7 +890,7 @@ function applyExtractedText(text, mode){
 
 function resetForm(){
   RES=null; MAP={}; LAST={};
-  ['caseno','txdate','amt','ncnt','ntot','names','src'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['caseno','txdate','birth','custno','amt','ncnt','ntot','names','src'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';}); genIdCode();
   ['ttype','ctype','fpath','fsrc','scale'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;});
   ['f_sanc','f_third','f_refuse','f_fraud','f_cash'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
   ['o_rrn','o_phone','o_acct','o_biz','o_email'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=true;});
@@ -904,7 +913,25 @@ function renderFallback(){
 }
 function copyFB(){navigator.clipboard.writeText(document.getElementById('fb').innerText).then(()=>{const c=document.getElementById('cpf');c.textContent='✓ 복사됨';setTimeout(()=>c.textContent='',1500);});}
 
-function curInput(){return {caseno:val('caseno'),txdate:val('txdate'),ttype:val('ttype'),ctype:val('ctype'),amt:val('amt'),ncnt:val('ncnt'),ntot:val('ntot'),fpath:val('fpath'),fsrc:val('fsrc'),names:val('names'),src:document.getElementById('src').value,flags:flags(),scale:val('scale'),opts:{rrn:chk('o_rrn'),phone:chk('o_phone'),acct:chk('o_acct'),biz:chk('o_biz'),email:chk('o_email')},sancFlags:{sanc:chk('f_sanc'),third:chk('f_third'),refuse:chk('f_refuse'),fraud:chk('f_fraud'),cash:chk('f_cash')}};}
+// ── 식별코드 (기본키=생년월일+성명, 로컬 생성·비식별) ──
+// 동기 해시(djb2 변형) → base36 대문자 4자리. 같은 입력=같은 코드. 동명+동일생일 충돌은 고객번호로 사람이 구분.
+function hash36(str){
+  let h=5381;
+  for(let i=0;i<str.length;i++){ h=((h<<5)+h+str.charCodeAt(i))>>>0; }
+  return h.toString(36).toUpperCase().slice(-4).padStart(4,'0');
+}
+// 주 대상자명: names 첫 항목(파일명 로직과 동일). 생년월일은 숫자만 추출(구분자 무관).
+function genIdCode(){
+  const nm=(val('names').split(',')[0]||'').trim();
+  const bd=(val('birth')||'').replace(/[^0-9]/g,'');
+  const el=document.getElementById('idcodeVal');
+  if(!el) return '';
+  let code='';
+  if(nm && bd.length>=6){ code='STR-'+hash36(bd+'|'+nm); el.textContent=code; }
+  else { el.textContent='—'; }
+  return code;
+}
+function curInput(){return {caseno:val('caseno'),txdate:val('txdate'),birth:val('birth'),custno:val('custno'),idcode:genIdCode(),ttype:val('ttype'),ctype:val('ctype'),amt:val('amt'),ncnt:val('ncnt'),ntot:val('ntot'),fpath:val('fpath'),fsrc:val('fsrc'),names:val('names'),src:document.getElementById('src').value,flags:flags(),scale:val('scale'),opts:{rrn:chk('o_rrn'),phone:chk('o_phone'),acct:chk('o_acct'),biz:chk('o_biz'),email:chk('o_email')},sancFlags:{sanc:chk('f_sanc'),third:chk('f_third'),refuse:chk('f_refuse'),fraud:chk('f_fraud'),cash:chk('f_cash')}};}
 
 function shortType(t){return String(t||'').replace(/\(.*?\)/g,'').replace(/[ ·]/g,'');}
 function verdictShort(){
@@ -956,7 +983,7 @@ function importJSON(ev){
     try{
       const rec=JSON.parse(r.result), i=rec.input||{};
       const setv=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v;};
-      ['caseno','txdate','ttype','ctype','amt','ncnt','ntot','fpath','fsrc','names','scale'].forEach(k=>setv(k,i[k]));
+      ['caseno','txdate','birth','custno','ttype','ctype','amt','ncnt','ntot','fpath','fsrc','names','scale'].forEach(k=>setv(k,i[k])); genIdCode();
       if(i.src!=null)document.getElementById('src').value=i.src;
       if(i.sancFlags){document.getElementById('f_sanc').checked=!!i.sancFlags.sanc;document.getElementById('f_third').checked=!!i.sancFlags.third;document.getElementById('f_refuse').checked=!!i.sancFlags.refuse;document.getElementById('f_fraud').checked=!!i.sancFlags.fraud;document.getElementById('f_cash').checked=!!i.sancFlags.cash;}
       if(i.opts){['rrn','phone','acct','biz','email'].forEach(k=>{const el=document.getElementById('o_'+k);if(el)el.checked=!!i.opts[k];});}

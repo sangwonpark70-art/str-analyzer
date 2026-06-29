@@ -228,6 +228,13 @@
     </div>
   </div>
 
+  <!-- 재평가 모드 배너 — loadDriveCase/importJSON 후 표시, resetForm/새분석 완료 시 해제 -->
+  <div id="reevalBanner" style="display:none;margin-bottom:12px;padding:10px 14px;background:#fff4e0;border:1px solid var(--chk-line);border-radius:11px;font-size:12.5px;color:#7a4d06;display:flex;align-items:center;gap:10px">
+    <span>🔄</span>
+    <span id="reevalBannerText">과거 사례 재평가 중</span>
+    <button onclick="resetForm()" style="margin-left:auto;font-size:11.5px;padding:4px 10px;border:1px solid var(--chk-line);border-radius:7px;background:#fff;color:#7a4d06;cursor:pointer;font-weight:700">✕ 새 사례로</button>
+  </div>
+
   <div class="grid">
     <section class="card">
       <h2>사례 입력 <span class="tag local">로컬 처리</span></h2>
@@ -659,11 +666,29 @@ async function loadDriveCase(fileId, fname){
     MAP=rec.map||{}; LAST=Object.assign({},LAST,{deid:rec.deid||''});
     if(rec.deid)renderDeid(rec.deid);
     if(rec.result){RES=rec.result; draw();}
+    // 재평가 모드 세팅
+    const idc=(i.idcode||'').replace(/-/g,'').toUpperCase();
+    LOADED_FROM={idcode:idc||'', fname, fileId};
+    showReevalBanner(idc, fname);
     showDriveToast('☁ Drive에서 사례 불러옴: '+fname.replace('.json',''));
   }catch(e){alert('사례 불러오기 실패: '+e.message);}
 }
 
 function closeDriveList(){document.getElementById('driveModalBg').classList.remove('show');}
+
+// 재평가 배너 표시·숨김
+function showReevalBanner(idc, fname){
+  const b=document.getElementById('reevalBanner');
+  const t=document.getElementById('reevalBannerText');
+  if(!b) return;
+  const label=idc ? `${idc} 재평가 중 — 정보 추가·수정 후 분석 실행하면 새 회차로 저장됩니다` : `과거 사례 재평가 중 — 정보 추가·수정 후 분석 실행하면 새 회차로 저장됩니다`;
+  t.textContent=label;
+  b.style.display='flex';
+}
+function hideReevalBanner(){
+  const b=document.getElementById('reevalBanner');
+  if(b) b.style.display='none';
+}
 
 function showDriveToast(msg){
   let t=document.getElementById('driveToast');
@@ -681,6 +706,8 @@ window.addEventListener('load',()=>{
 
 <script>
 let MAP={},counters={},LAST={},RES=null,MODE='tri';
+// 재호출 상태: 불러온 사례 정보 보관 (null=신규, 객체=재평가 모드)
+let LOADED_FROM=null; // {idcode, fname, fileId}
 const TYPENAME={A1:'고액 일시납',A2:'단기 해지·중도인출',A3:'보험계약대출',A4:'분산가입',A5:'가상계좌·즉시이체',A6:'현금성 납입',B1:'타인계약',B2:'수익자 변경',B3:'명의대여·차명',B4:'법인 실소유자 불일치',C1:'소득대비 불일치',C2:'거래패턴 급변',C3:'설명·확인 회피',C4:'제재·PEP·고위험국',C5:'취약계층·범죄 연계'};
 function tokenFor(value,type,label){for(const t in MAP){if(MAP[t].value===value)return t;}counters[type]=(counters[type]||0)+1;const tok=`[${label}${counters[type]}]`;MAP[tok]={value,type:label};return tok;}
 function chk(id){return document.getElementById(id).checked;}
@@ -1039,6 +1066,7 @@ function applyExtractedText(text, mode){
 
 function resetForm(){
   RES=null; MAP={}; LAST={};
+  LOADED_FROM=null; hideReevalBanner();
   ['caseno','txdate','birth','custno','amt','ncnt','ntot','names','src'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';}); genIdCode();
   ['ttype','ctype','fpath','fsrc','scale'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;});
   ['f_sanc','f_third','f_refuse','f_fraud','f_cash'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
@@ -1121,13 +1149,18 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const rec={meta:{saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.0'},input:curInput(),deid:LAST.deid||'',result:RES,map:MAP};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.0'};
+  // 재평가 이력 연결: 원본 파일명 기록
+  if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
+  const rec={meta,input:curInput(),deid:LAST.deid||'',result:RES,map:MAP};
   const blob=new Blob([JSON.stringify(rec,null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob); a.download=caseFilename(); a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),500);
   // Drive 연동 시 자동 병행 저장
   if(driveToken) saveToDriveCase(rec);
+  // 저장 완료 → 재평가 배너 해제 (새 회차로 저장됐으므로)
+  LOADED_FROM=null; hideReevalBanner();
   setStep(4);
 }
 
@@ -1145,7 +1178,11 @@ function importJSON(ev){
       MAP=rec.map||{}; LAST=Object.assign({},LAST,{deid:rec.deid||''});
       if(rec.deid)renderDeid(rec.deid);
       if(rec.result){RES=rec.result; draw();}
-      alert('사례를 불러왔습니다.');
+      // 재평가 모드 세팅
+      const idc=(i.idcode||'').replace(/-/g,'').toUpperCase();
+      LOADED_FROM={idcode:idc||'', fname:f.name, fileId:null};
+      showReevalBanner(idc, f.name);
+      showDriveToast('📂 로컬 파일 불러옴: '+f.name.replace('.json',''));
     }catch(e){alert('JSON을 읽을 수 없습니다: '+e);}
   };
   r.readAsText(f); ev.target.value='';

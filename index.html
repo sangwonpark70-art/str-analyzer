@@ -469,11 +469,39 @@ function tokenExpired(){
 }
 
 // Drive 사례 목록 불러오기
+// DRIVE_CACHE: fileId → {idcode, custno, names, rec} — 전체 JSON 내용 캐싱 (Drive API 무료, 중복 fetch 방지)
 let DRIVE_FILES=[], driveSortKey='date', driveSortDir='desc';
+let DRIVE_CACHE={};  // 페이지 새로고침 전까지 유지
+
+async function fetchDriveFileContent(fileId){
+  // 캐시 히트 시 즉시 반환
+  if(DRIVE_CACHE[fileId]) return DRIVE_CACHE[fileId];
+  try{
+    const res=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{
+      headers:{Authorization:`Bearer ${driveToken}`}
+    });
+    if(!res.ok) return null;
+    const rec=await res.json();
+    const i=rec.input||{};
+    // idcode 정규화: 'STR-494V' / 'STR494V' / '494V' 모두 → 'STR494V' (하이픈 제거·STR 접두 통일)
+    const rawIdc=(i.idcode||'').replace(/-/g,'').toUpperCase();
+    const normIdc=rawIdc.startsWith('STR') ? rawIdc : (rawIdc ? 'STR'+rawIdc : '');
+    const entry={
+      idcode:normIdc,                          // 'STR494V' 형식 — 그룹화 키·검색 둘 다 사용
+      custno:(i.custno||'').toLowerCase(),
+      names:(i.names||'').toLowerCase(),
+      rec
+    };
+    DRIVE_CACHE[fileId]=entry;
+    return entry;
+  }catch(_){ return null; }
+}
+
 async function openDriveList(){
   if(!driveToken){alert('먼저 구글 계정을 연동하세요.');return;}
   document.getElementById('driveModalBg').classList.add('show');
   document.getElementById('driveSortBar').style.display='none';
+  document.getElementById('driveSearch').style.display='none';
   document.getElementById('driveListContent').innerHTML='<div style="text-align:center;padding:30px;color:var(--faint)">Drive에서 불러오는 중…</div>';
   try{
     const folderId=await getDriveFolder();
@@ -485,6 +513,15 @@ async function openDriveList(){
     const data=await res.json();
     DRIVE_FILES=data.files||[];
     if(!DRIVE_FILES.length){document.getElementById('driveListContent').innerHTML='<div style="color:var(--faint);padding:20px">저장된 사례가 없습니다.</div>';return;}
+
+    // 전체 JSON 병렬 fetch — Drive API 무료, 비용 없음. 캐시된 파일은 재요청 없음.
+    const uncached=DRIVE_FILES.filter(f=>!DRIVE_CACHE[f.id]);
+    if(uncached.length){
+      document.getElementById('driveListContent').innerHTML=
+        `<div style="text-align:center;padding:20px;color:var(--faint)">사례 내용 로드 중… (${uncached.length}건)</div>`;
+      await Promise.allSettled(uncached.map(f=>fetchDriveFileContent(f.id)));
+    }
+
     document.getElementById('driveSortBar').style.display='flex';
     document.getElementById('driveSearch').style.display='block';
     renderDriveList();
@@ -516,8 +553,21 @@ function verdictBadge(vd){
 
 function renderDriveList(){
   const q=(document.getElementById('driveSearch').value||'').trim().toLowerCase();
-  // 1) 검색 필터 (파일명 텍스트 OR 매칭 — 식별코드·고객번호·이름 모두 파일명에 포함)
-  let files=DRIVE_FILES.filter(f=> !q || f.name.toLowerCase().includes(q));
+
+  // 1) 검색 필터 — 캐시 우선(idcode·custno·names), 없으면 파일명 폴백
+  let files=DRIVE_FILES.filter(f=>{
+    if(!q) return true;
+    const c=DRIVE_CACHE[f.id];
+    if(c){
+      // 캐시 기반: idcode·custno·names OR 매칭
+      return c.idcode.toLowerCase().includes(q)||
+             c.custno.includes(q)||
+             c.names.includes(q)||
+             f.name.toLowerCase().includes(q);  // 파일명 보조 (유형·날짜 검색도 허용)
+    }
+    // 미캐시(fetch 실패 등) — 파일명 폴백
+    return f.name.toLowerCase().includes(q);
+  });
   // 2) 정렬
   const dir=(driveSortDir==='asc')?1:-1;
   files=files.slice().sort((a,b)=>{
@@ -533,12 +583,15 @@ function renderDriveList(){
 
   if(!files.length){ document.getElementById('driveListContent').innerHTML='<div class="drive-empty">검색 결과가 없습니다.</div>'; return; }
 
-  // 3) 식별코드별 그룹화: 같은 코드 2건 이상이면 회차 묶음, 아니면 개별 행
+  // 3) 식별코드별 그룹화: 캐시 idcode 우선(STR494V 형식), 없으면 파일명 파싱 폴백
   const groups={}, order=[];
   files.forEach(f=>{
+    const c=DRIVE_CACHE[f.id];
     const m=parseFname(f.name);
-    const key=m.idc || ('_solo_'+f.id);   // 식별코드 없으면 개별
-    if(!groups[key]){ groups[key]={idc:m.idc, items:[]}; order.push(key); }
+    // 캐시 idcode = 'STR494V', 파일명 파싱 m.idc = 'STR494V' — 형식 동일하므로 키로 직접 사용
+    const idc=(c&&c.idcode) ? c.idcode : (m.idc||'');
+    const key=idc || ('_solo_'+f.id);
+    if(!groups[key]){ groups[key]={idc, items:[]}; order.push(key); }
     groups[key].items.push({f, m});
   });
 
@@ -569,10 +622,28 @@ function renderDriveList(){
 
 async function loadDriveCase(fileId, fname){
   try{
-    const res=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{
-      headers:{Authorization:`Bearer ${driveToken}`}
-    });
-    const rec=await res.json();
+    // 캐시에 전체 레코드가 있으면 재사용, 없으면 fetch
+    let rec;
+    const c=DRIVE_CACHE[fileId];
+    if(c&&c.rec){ rec=c.rec; }
+    else{
+      const res=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{
+        headers:{Authorization:`Bearer ${driveToken}`}
+      });
+      rec=await res.json();
+      // 캐시에 없었던 경우 저장 (fetchDriveFileContent와 동일한 정규화)
+      if(!DRIVE_CACHE[fileId]){
+        const i2=rec.input||{};
+        const rawIdc=(i2.idcode||'').replace(/-/g,'').toUpperCase();
+        const normIdc=rawIdc.startsWith('STR') ? rawIdc : (rawIdc ? 'STR'+rawIdc : '');
+        DRIVE_CACHE[fileId]={
+          idcode:normIdc,
+          custno:(i2.custno||'').toLowerCase(),
+          names:(i2.names||'').toLowerCase(),
+          rec
+        };
+      } else { DRIVE_CACHE[fileId].rec=rec; }
+    }
     closeDriveList();
     // importJSON과 동일한 복원 로직
     const i=rec.input||{};

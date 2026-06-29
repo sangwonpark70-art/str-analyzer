@@ -141,6 +141,18 @@
   .idcode-box{margin:4px 0 10px;padding:9px 12px;background:var(--primary-bg);border:1px solid var(--primary);border-radius:9px;font-size:12.5px;color:var(--dim)}
   .idcode-box b{font-size:14px;color:var(--primary-d);font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.5px;margin:0 8px 0 4px}
   .idcode-box .idcode-hint{font-size:11px;color:var(--faint)}
+  .drive-search{width:100%;padding:9px 12px;margin-bottom:10px;border:1px solid var(--line);border-radius:9px;font-size:13px;box-sizing:border-box}
+  .drive-search:focus{outline:none;border-color:var(--primary)}
+  .case-group{margin-bottom:10px;border:1px solid var(--primary);border-radius:10px;overflow:hidden}
+  .case-group-hd{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--primary-bg);font-size:12.5px;font-weight:700;color:var(--primary-d)}
+  .case-group-hd .gcode{font-family:ui-monospace,Menlo,Consolas,monospace}
+  .case-group-hd .gcount{margin-left:auto;font-size:11px;background:var(--primary);color:#fff;padding:1px 8px;border-radius:10px}
+  .case-group .case-row{margin:0;border:none;border-top:1px solid var(--line);border-radius:0}
+  .case-row .cr-badge{font-size:11px;font-weight:800;padding:1px 7px;border-radius:8px;margin-left:6px}
+  .cr-badge.bg-rep{background:#fde8e8;color:#c0392b}
+  .cr-badge.bg-chk{background:#fff4e0;color:#b9770e}
+  .cr-badge.bg-exc{background:#e8f5e9;color:#2e7d32}
+  .drive-empty{color:var(--faint);padding:20px;text-align:center;font-size:13px}
   footer{margin-top:30px;font-size:11.5px;color:var(--faint);text-align:center;line-height:1.9}
   footer b{color:var(--dim)}
 </style>
@@ -188,6 +200,7 @@
   <div class="drive-modal-bg" id="driveModalBg" onclick="if(event.target===this)closeDriveList()">
     <div class="drive-modal">
       <h3>☁ Drive 저장 사례 목록</h3>
+      <input id="driveSearch" class="drive-search" placeholder="🔍 식별코드·고객번호·이름으로 검색 (동일 고객 회차 묶음)" oninput="renderDriveList()" style="display:none">
       <div id="driveSortBar" style="display:none;gap:6px;margin-bottom:10px">
         <button class="btn-sort" id="sortDate" onclick="sortDriveList('date')">📅 날짜순</button>
         <button class="btn-sort" id="sortName" onclick="sortDriveList('name')">🔤 제목순</button>
@@ -473,6 +486,7 @@ async function openDriveList(){
     DRIVE_FILES=data.files||[];
     if(!DRIVE_FILES.length){document.getElementById('driveListContent').innerHTML='<div style="color:var(--faint);padding:20px">저장된 사례가 없습니다.</div>';return;}
     document.getElementById('driveSortBar').style.display='flex';
+    document.getElementById('driveSearch').style.display='block';
     renderDriveList();
   }catch(e){document.getElementById('driveListContent').innerHTML='<div style="color:var(--rep)">오류: '+esc(e.message)+'</div>';}
 }
@@ -484,9 +498,29 @@ function sortDriveList(key){
   renderDriveList();
 }
 
+// 파일명에서 메타 추출 (식별코드/점수/판정/날짜)
+function parseFname(name){
+  const base=name.replace('.json','');
+  const idc=(base.match(/STR[A-Z0-9]{4,}/)||[''])[0];           // 식별코드
+  const sc=(base.match(/_s(\d+)/)||[null,null])[1];             // 점수
+  const vd=(base.match(/_(보고|추가확인|제외)(_|$)/)||[null,null])[1]; // 판정
+  const dt8=(base.match(/_(\d{8})(_|$)/)||[null,null])[1];      // 거래일 YYYYMMDD
+  return {base, idc, score:sc!=null?parseInt(sc):null, verdict:vd, txdate:dt8};
+}
+function verdictBadge(vd){
+  if(vd==='보고') return '<span class="cr-badge bg-rep">보고</span>';
+  if(vd==='추가확인') return '<span class="cr-badge bg-chk">추가확인</span>';
+  if(vd==='제외') return '<span class="cr-badge bg-exc">제외</span>';
+  return '';
+}
+
 function renderDriveList(){
+  const q=(document.getElementById('driveSearch').value||'').trim().toLowerCase();
+  // 1) 검색 필터 (파일명 텍스트 OR 매칭 — 식별코드·고객번호·이름 모두 파일명에 포함)
+  let files=DRIVE_FILES.filter(f=> !q || f.name.toLowerCase().includes(q));
+  // 2) 정렬
   const dir=(driveSortDir==='asc')?1:-1;
-  const arr=DRIVE_FILES.slice().sort((a,b)=>{
+  files=files.slice().sort((a,b)=>{
     if(driveSortKey==='name') return a.name.localeCompare(b.name,'ko')*dir;
     return (new Date(a.modifiedTime)-new Date(b.modifiedTime))*dir;
   });
@@ -496,12 +530,39 @@ function renderDriveList(){
   bd.classList.toggle('on',driveSortKey==='date'); bn.classList.toggle('on',driveSortKey==='name');
   bd.textContent='📅 날짜순'+(driveSortKey==='date'?' '+arrow:'');
   bn.textContent='🔤 제목순'+(driveSortKey==='name'?' '+arrow:'');
-  const html=arr.map(f=>{
+
+  if(!files.length){ document.getElementById('driveListContent').innerHTML='<div class="drive-empty">검색 결과가 없습니다.</div>'; return; }
+
+  // 3) 식별코드별 그룹화: 같은 코드 2건 이상이면 회차 묶음, 아니면 개별 행
+  const groups={}, order=[];
+  files.forEach(f=>{
+    const m=parseFname(f.name);
+    const key=m.idc || ('_solo_'+f.id);   // 식별코드 없으면 개별
+    if(!groups[key]){ groups[key]={idc:m.idc, items:[]}; order.push(key); }
+    groups[key].items.push({f, m});
+  });
+
+  const rowHtml=(f,m)=>{
     const dt=new Date(f.modifiedTime).toLocaleString('ko-KR',{year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const sc=(m.score!=null)?` · ${m.score}점`:'';
     return `<div class="case-row" onclick="loadDriveCase('${f.id}','${esc(f.name)}')">
-      <div class="cr-name">${esc(f.name.replace('.json',''))}</div>
-      <div class="cr-date">${dt}</div>
+      <div class="cr-name">${esc(m.base)}${verdictBadge(m.verdict)}</div>
+      <div class="cr-date">${dt}${sc}</div>
     </div>`;
+  };
+
+  const html=order.map(key=>{
+    const g=groups[key];
+    if(g.idc && g.items.length>=2){
+      // 회차 묶음 — 그룹 내 최신순
+      const items=g.items.slice().sort((a,b)=>new Date(b.f.modifiedTime)-new Date(a.f.modifiedTime));
+      const rows=items.map(it=>rowHtml(it.f,it.m)).join('');
+      return `<div class="case-group">
+        <div class="case-group-hd"><span class="gcode">${esc(g.idc)}</span> 동일 고객 회차<span class="gcount">${items.length}회</span></div>
+        ${rows}
+      </div>`;
+    }
+    return g.items.map(it=>rowHtml(it.f,it.m)).join('');
   }).join('');
   document.getElementById('driveListContent').innerHTML=html;
 }
@@ -949,6 +1010,8 @@ function caseFilename(withTime){
   parts.push(nm? maskName(nm) : '대상미상');                        // 대상자(마스킹)
   const idc=(genIdCode()||'').replace('STR-','STR');               // 식별코드(하이픈 제거, 있을 때만) — 회차 묶음·검색 키
   if(idc)parts.push(idc);
+  const cno=(val('custno')||'').replace(/[^A-Za-z0-9가-힣]/g,'');   // 고객번호(특수문자 제거, 있을 때만) — 검색 보조키
+  if(cno)parts.push(cno);
   parts.push((val('txdate')||new Date().toISOString().slice(0,10)).replace(/-/g,'')); // 거래일 YYYYMMDD
   const vd=verdictShort(); if(vd)parts.push(vd);                    // 판정
   const sc=(RES&&RES.score!=null&&RES.score!=='')?('s'+RES.score):''; // 점수(s접두) — 가독성·회차 구분

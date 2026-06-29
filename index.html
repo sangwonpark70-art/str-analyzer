@@ -302,6 +302,10 @@
 
       <label class="l">사례 내용 (자유 서술)</label>
       <textarea id="src" placeholder="고객·거래·특이사항을 편하게 적으세요. 개인정보는 자동 비식별화됩니다."></textarea>
+      <div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <button class="btn-sm" onclick="autoFillFromText()" style="font-size:12px;padding:6px 12px">✨ 입력 자동채움</button>
+        <span id="autoFillStatus" style="font-size:11.5px;color:var(--faint)">사례 내용에서 이름·생년월일·거래일·금액·유형 추출 → 빈 칸만 채움</span>
+      </div>
 
       <label class="l">이름·고유명사 지정 <span class="opt">(쉼표 구분)</span></label>
       <input id="names" placeholder="윤OO, 신한은행" oninput="genIdCode()">
@@ -1064,9 +1068,123 @@ function applyExtractedText(text, mode){
   if(ta.scrollIntoView) ta.scrollIntoView({behavior:'smooth',block:'center'});
 }
 
+// ── 자동 채움 (사례 내용 → 입력 필드 초안) ──
+// 비용 0, Worker 호출 없음. 빈 칸만 채움(기존 입력 덮어쓰기 안 함). 분석 전 확인·수정 필수.
+function autoFillFromText(){
+  const src=document.getElementById('src').value;
+  if(!src.trim()){
+    document.getElementById('autoFillStatus').textContent='⚠ 사례 내용을 먼저 입력하세요.';
+    return;
+  }
+  const filled=[];
+
+  // ── 헬퍼 ──
+  const setIfEmpty=(id,v)=>{
+    if(!v) return false;
+    const el=document.getElementById(id);
+    if(el&&!el.value.trim()){el.value=v; return true;}
+    return false;
+  };
+  const setSelectIfEmpty=(id,v)=>{
+    if(!v) return false;
+    const el=document.getElementById(id);
+    if(el&&el.selectedIndex===0){
+      for(const op of el.options){
+        if(op.value&&(op.value===v||op.value.includes(v)||v.includes(op.value.replace(/[()（）]/g,'').split('·')[0]))){
+          el.value=op.value; return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  // 1) 이름 — 레이블 뒤 한글 2~4자, 또는 독립 한글 이름 패턴
+  const namePatterns=[
+    /(?:계약자|피보험자|고객명?|성명|대상자|수익자)[：:\s]*([가-힣]{2,4})(?=[\s,·\n\(（]|$)/,
+    /([가-힣]{2,4})\s*(?:씨|님)(?=[\s,·\n]|$)/,
+  ];
+  let foundName='';
+  for(const re of namePatterns){
+    const m=src.match(re);
+    if(m){foundName=m[1]; break;}
+  }
+  if(foundName && setIfEmpty('names', foundName)) filled.push('이름');
+
+  // 2) 생년월일 — 다양한 패턴 → YYYY-MM-DD 정규화
+  const birthPatterns=[
+    {re:/(?:생년월일|생일|주민)[^\d]*(\d{4})[.\-\/년\s](\d{1,2})[.\-\/월\s](\d{1,2})/,
+     fn:(m)=>`${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`},
+    {re:/(?:생년월일|생일|주민)[^\d]*(\d{6})/,
+     fn:(m)=>{const s=m[1];const y=parseInt(s.slice(0,2));const yr=(y>=0&&y<=30)?'20'+s.slice(0,2):'19'+s.slice(0,2);return `${yr}-${s.slice(2,4)}-${s.slice(4,6)}`;}},
+    {re:/\b(19|20)(\d{2})[.\-\/년](\d{1,2})[.\-\/월](\d{1,2})일?\b/,
+     fn:(m)=>`${m[1]}${m[2]}-${m[3].padStart(2,'0')}-${m[4].padStart(2,'0')}`},
+    {re:/\b((?:19|20)\d{2})(\d{2})(\d{2})\b/,
+     fn:(m)=>`${m[1]}-${m[2]}-${m[3]}`},
+  ];
+  for(const {re,fn} of birthPatterns){
+    const m=src.match(re);
+    if(m){ if(setIfEmpty('birth',fn(m))) filled.push('생년월일'); break; }
+  }
+
+  // 3) 거래일 — YYYY-MM-DD 또는 한국식
+  const datePatterns=[
+    {re:/(?:거래일|납입일|해지일|인출일|신청일|접수일)[^\d]*(20\d{2})[.\-\/년\s](\d{1,2})[.\-\/월\s](\d{1,2})/,
+     fn:(m)=>`${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`},
+    {re:/\b(20\d{2})[.\-\/](0[1-9]|1[0-2])[.\-\/](\d{2})\b/,
+     fn:(m)=>`${m[1]}-${m[2]}-${m[3]}`},
+  ];
+  for(const {re,fn} of datePatterns){
+    const m=src.match(re);
+    if(m){ if(setIfEmpty('txdate',fn(m))) filled.push('거래일'); break; }
+  }
+
+  // 4) 거래금액 — 억/만원 단위 텍스트 그대로
+  const amtM=src.match(/(\d+(?:\.\d+)?)\s*억\s*(?:(\d+)\s*천?\s*만)?\s*원?|(\d+(?:,\d{3})*)\s*만\s*원?|(\d{7,})\s*원/);
+  if(amtM){
+    const raw=amtM[0].replace(/\s+/g,'');
+    if(setIfEmpty('amt',raw)) filled.push('거래금액');
+  }
+
+  // 5) 거래유형 — 키워드 매칭
+  const typeMap=[
+    {keys:['일시납','수시납','고액보험료','고액 보험료'], val:'고액보험료 입금(일시납·수시납)'},
+    {keys:['해지','중도인출','중도 인출','환급'], val:'단기 해지·중도인출'},
+    {keys:['약관대출','보험계약대출','대출 상환','대출상환'], val:'보험계약대출(약관대출)·상환'},
+    {keys:['분산가입','분할납입','분산 가입'], val:'분산가입·분할납입'},
+    {keys:['가상계좌','즉시이체','즉시 이체'], val:'가상계좌·즉시이체 입금'},
+    {keys:['현금납','현금 납','현금성'], val:'현금·현금성 납입'},
+    {keys:['담보대출','부동산대출','담보 대출'], val:'부동산 담보대출·조기상환'},
+    {keys:['환급금 수령','해지환급','해지 환급'], val:'해지·환급금 수령'},
+  ];
+  for(const {keys,val} of typeMap){
+    if(keys.some(k=>src.includes(k))){
+      if(setSelectIfEmpty('ttype',val)) filled.push('거래유형'); break;
+    }
+  }
+
+  // 6) 고객번호 — 레이블 뒤 영숫자 패턴
+  const cnoM=src.match(/(?:고객번호|계약번호|고객\s*ID)[：:\s]*([A-Za-z0-9\-]{4,20})/);
+  if(cnoM){ if(setIfEmpty('custno',cnoM[1].trim())) filled.push('고객번호'); }
+
+  // 식별코드 재생성 (이름·생년월일 채워졌을 수 있으므로)
+  genIdCode();
+
+  // 결과 안내
+  const st=document.getElementById('autoFillStatus');
+  if(filled.length){
+    st.style.color='var(--primary-d)';
+    st.textContent=`✅ ${filled.join('·')} 채움 완료 — 확인·수정 후 분석 실행하세요.`;
+  } else {
+    st.style.color='var(--faint)';
+    st.textContent='추출 가능한 항목을 찾지 못했습니다. 직접 입력해주세요.';
+  }
+}
+
 function resetForm(){
   RES=null; MAP={}; LAST={};
   LOADED_FROM=null; hideReevalBanner();
+  const st=document.getElementById('autoFillStatus');
+  if(st){st.style.color='var(--faint)';st.textContent='사례 내용에서 이름·생년월일·거래일·금액·유형 추출 → 빈 칸만 채움';}
   ['caseno','txdate','birth','custno','amt','ncnt','ntot','names','src'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';}); genIdCode();
   ['ttype','ctype','fpath','fsrc','scale'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;});
   ['f_sanc','f_third','f_refuse','f_fraud','f_cash'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});

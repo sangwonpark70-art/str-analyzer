@@ -947,9 +947,13 @@ function caseFilename(withTime){
   const ty=shortType(val('ttype')); parts.push(ty||'유형미정');      // 유형(미선택 시 유형미정)
   const nm=(val('names').split(',')[0]||'').trim();
   parts.push(nm? maskName(nm) : '대상미상');                        // 대상자(마스킹)
+  const idc=(genIdCode()||'').replace('STR-','STR');               // 식별코드(하이픈 제거, 있을 때만) — 회차 묶음·검색 키
+  if(idc)parts.push(idc);
   parts.push((val('txdate')||new Date().toISOString().slice(0,10)).replace(/-/g,'')); // 거래일 YYYYMMDD
   const vd=verdictShort(); if(vd)parts.push(vd);                    // 판정
-  const age=(RES&&RES.subject_age)?RES.subject_age:'';              // 나이(동명이인 구분 보조)
+  const sc=(RES&&RES.score!=null&&RES.score!=='')?('s'+RES.score):''; // 점수(s접두) — 가독성·회차 구분
+  if(sc)parts.push(sc);
+  const age=(RES&&RES.subject_age)?('a'+RES.subject_age):'';        // 나이(a접두, 동명이인 구분 보조)
   if(age)parts.push(age);
   if(withTime){ const d=new Date(); parts.push(('0'+d.getHours()).slice(-2)+('0'+d.getMinutes()).slice(-2)); }
   return parts.join('_').replace(/[\\/:*?"<>|]/g,'')+'.json';

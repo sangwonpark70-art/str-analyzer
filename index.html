@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>STR 사례 분석기 v3.0</title>
+<title>STR 사례 분석기 v3.1</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -160,8 +160,8 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="kicker">의심거래보고 검토 보조 · 보험업권</div>
-    <h1>STR 사례 분석기 <span class="v">v3.0</span></h1>
+    <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
+    <h1>STR 사례 분석기 <span class="v">v3.1</span></h1>
     <p class="sub">0~100 점수 엔진 + 등급 + 고객사 척도 환산. 트리아지(1차)↔세부분석 전환. 개인정보는 비식별화 후 분석.</p>
     <span class="badge"><i></i> PII 비식별화 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -255,11 +255,23 @@
 
       <div class="twocol">
         <div><label class="l">사례번호 <span class="opt">(선택·메모용)</span></label><input id="caseno" placeholder="예: 004"></div>
-        <div><label class="l">거래일 <span class="opt">(파일명에 사용)</span></label><input id="txdate" placeholder="예: 2026-05-19"></div>
+        <div><label class="l">거래일 <span class="opt">(파일명에 사용)</span></label>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input id="txdate" placeholder="예: 20260519 또는 2026-05-19" style="flex:1" oninput="smartDateFmt(this)">
+            <input type="date" id="txdate_picker" title="캘린더로 선택" style="width:36px;padding:4px 2px;border:1px solid var(--border);border-radius:6px;cursor:pointer;color:transparent;background:var(--surface)" onchange="if(this.value){document.getElementById('txdate').value=this.value;this.value=''}">
+          </div>
+          <span style="font-size:10.5px;color:var(--faint)">20260519→2026-05-19 / 100120→2010-01-20 자동변환</span>
+        </div>
       </div>
 
       <div class="twocol">
-        <div><label class="l">생년월일 <span class="opt">(식별코드 생성·기본키)</span></label><input id="birth" placeholder="예: 1975-03-21" oninput="genIdCode()"></div>
+        <div><label class="l">생년월일 <span class="opt">(식별코드 생성·기본키)</span></label>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input id="birth" placeholder="예: 751203 또는 1975-12-03" style="flex:1" oninput="smartDateFmt(this);genIdCode()">
+            <input type="date" id="birth_picker" title="캘린더로 선택" style="width:36px;padding:4px 2px;border:1px solid var(--border);border-radius:6px;cursor:pointer;color:transparent;background:var(--surface)" onchange="if(this.value){document.getElementById('birth').value=this.value;genIdCode();this.value=''}">
+          </div>
+          <span style="font-size:10.5px;color:var(--faint)">751203→1975-12-03 / 19751203→1975-12-03 자동변환</span>
+        </div>
         <div><label class="l">고객번호 <span class="opt">(회사 부여·검색 보조)</span></label><input id="custno" placeholder="예: C123456" oninput="genIdCode()"></div>
       </div>
       <div id="idcodeBox" class="idcode-box">식별코드 <b id="idcodeVal">—</b><span class="idcode-hint">생년월일 + 성명으로 자동 생성 (동일 고객 재호출 키)</span></div>
@@ -352,7 +364,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.0 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.1 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     보험권 STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -749,7 +761,7 @@ function ctx(){
   return `[거래유형] ${LAST.ttype||'미선택(AI 추천 요청)'}\n[고객유형] ${LAST.ctype}\n[거래금액] ${LAST.amt||'미입력'}\n[보유계약 건수] ${LAST.ncnt||'미입력'}\n[누적 보험료(신규포함)] ${LAST.ntot||'미입력'}\n[자금 경로] ${LAST.fpath}\n[자금원천 확인] ${LAST.fsrc}\n[위험 플래그] ${LAST.flags}\n[사례(비식별)]\n${LAST.deid}`;
 }
 function buildPrompt(){
-  return `다음 STR(의심거래보고) 사례를 한국 보험업권 AML 관점에서 0~100점으로 평가해줘.\n개인정보는 토큰([이름1] 등)으로 비식별화돼 있으니 토큰은 그대로 둬.\n위험도 점수(0~100), 매칭 유형(A1~C5 코드), 핵심 근거, 심화분석팀 이관 요약, 프로필 개요, 의심 가능성, 의견, 모니터링 조건, 추가확인 권장정보를 알려줘.\n\n${ctx()}`;
+  return `다음 STR(의심거래보고) 사례를 한국 금융기관 AML 관점에서 0~100점으로 평가해줘.\n개인정보는 토큰([이름1] 등)으로 비식별화돼 있으니 토큰은 그대로 둬.\n위험도 점수(0~100), 매칭 유형(A1~C5 코드), 핵심 근거, 심화분석팀 이관 요약, 프로필 개요, 의심 가능성, 의견, 모니터링 조건, 추가확인 권장정보를 알려줘.\n\n${ctx()}`;
 }
 
 async function analyze(){
@@ -859,6 +871,27 @@ function normalizeDate(s){
   m=s.match(/(\d{2})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/); // 26-05-14 형태
   if(m) return `20${m[1]}-${('0'+m[2]).slice(-2)}-${('0'+m[3]).slice(-2)}`;
   return s;
+}
+
+// 날짜 단축입력 자동변환: 6자리(YYMMDD)→YYYY-MM-DD, 8자리(YYYYMMDD)→YYYY-MM-DD, 26-05-14→2026-05-14
+function smartDateFmt(el){
+  const raw=el.value.replace(/[^\d]/g,'');
+  if(raw.length===6){
+    const yy=parseInt(raw.slice(0,2));
+    const yr=(yy>=0&&yy<=30)?'20'+raw.slice(0,2):'19'+raw.slice(0,2);
+    const formatted=yr+'-'+raw.slice(2,4)+'-'+raw.slice(4,6);
+    // 커서가 끝에 있을 때만 자동변환 (입력 중 방해 방지)
+    if(el.selectionStart>=el.value.length){
+      el.value=formatted;
+      if(el.id==='birth') genIdCode();
+    }
+  } else if(raw.length===8){
+    const formatted=raw.slice(0,4)+'-'+raw.slice(4,6)+'-'+raw.slice(6,8);
+    if(el.selectionStart>=el.value.length){
+      el.value=formatted;
+      if(el.id==='birth') genIdCode();
+    }
+  }
 }
 
 // AI 추출값을 입력칸에 자동 반영 (사용자가 비워둔 칸만 채움 → 수동 입력 존중)
@@ -1267,7 +1300,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.0'};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.1'};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   const rec={meta,input:curInput(),deid:LAST.deid||'',result:RES,map:MAP};
@@ -1397,3 +1430,4 @@ setStep(1);
 </script>
 </body>
 </html>
+

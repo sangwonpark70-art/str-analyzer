@@ -1093,7 +1093,7 @@ function draw(){
     <div class="convert"><div class="cv main">${convert(s)}</div></div>`;
 
   if(RES.suggested_type && RES.suggested_type.trim()){
-    const mm = RES.suggested_type.trim()!==LAST.ttype;
+    const mm = LAST.ttype && RES.suggested_type.trim()!==LAST.ttype;
     html+=`<div class="convert"><div class="cv" style="${mm?'background:var(--chk-bg);border-color:var(--chk-line);color:#7a4d06':'background:var(--field)'}">추정 거래유형: <b>${esc(RES.suggested_type)}</b>${mm?' · ⚠ 입력('+esc(LAST.ttype)+')과 다름 — 오분류 가능성':''}</div></div>`;
   }
 

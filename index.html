@@ -3,6 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0d7a5f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="STR 분석기">
+<link id="pwaIcon" rel="apple-touch-icon" href="">
+<script>
+(function(){
+  var c=document.createElement('canvas');c.width=192;c.height=192;
+  var x=c.getContext('2d');
+  x.fillStyle='#0d7a5f';
+  var r=38;x.beginPath();x.moveTo(r,0);x.lineTo(192-r,0);x.quadraticCurveTo(192,0,192,r);
+  x.lineTo(192,192-r);x.quadraticCurveTo(192,192,192-r,192);x.lineTo(r,192);
+  x.quadraticCurveTo(0,192,0,192-r);x.lineTo(0,r);x.quadraticCurveTo(0,0,r,0);x.closePath();x.fill();
+  x.fillStyle='#ffffff';x.font='900 58px sans-serif';x.textAlign='center';x.textBaseline='middle';
+  x.fillText('STR',96,72);
+  x.fillStyle='#a9d8c9';x.font='700 30px sans-serif';
+  x.fillText('\uBD84\uC11D\uAE30',96,130);
+  var url=c.toDataURL('image/png');
+  document.getElementById('pwaIcon').href=url;
+})();
+</script>
 <title>STR 사례 분석기 v3.2</title>
 <style>
   :root{
@@ -763,6 +785,18 @@ async function loadDriveCase(fileId, fname){
 }
 
 function closeDriveList(){document.getElementById('driveModalBg').classList.remove('show');}
+// 모바일 터치 폴백
+(function(){
+  function addTouch(id,fn){
+    var el=document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('touchend',function(e){e.preventDefault();fn();},{passive:false});
+  }
+  document.addEventListener('DOMContentLoaded',function(){
+    addTouch('driveModalBg',function(){closeDriveList();});
+    addTouch('opinionModalBg',function(){closeOpinion();});
+  });
+})();
 
 // 재평가 배너 표시·숨김
 function showReevalBanner(idc, fname){
@@ -1273,10 +1307,16 @@ function autoFillFromText(){
     return false;
   };
 
-  // 1) 이름 — 레이블 뒤 한글 2~4자, 또는 독립 한글 이름 패턴
+  // 1) 이름 — 레이블 뒤, 씨/님, 서술형 괄호/조사 패턴
   const namePatterns=[
-    /(?:계약자|피보험자|고객명?|성명|대상자|수익자)[：:\s]*([가-힣]{2,4})(?=[\s,·\n\(（]|$)/,
-    /([가-힣]{2,4})\s*(?:씨|님)(?=[\s,·\n]|$)/,
+    // 레이블 뒤: "계약자: 김OO", "성명 홍길동"
+    /(?:계약자|피보험자|고객명?|성명|대상자|수익자|보험계약자|주계약자)[:\uff1a\s]*([가-힣]{2,4})(?=[\s,\u00b7\n\(\uff08]|$)/,
+    // 씨|님 앞
+    /([가-힣]{2,4})\s*(?:씨|님)(?=[\s,\u00b7\n]|$)/,
+    // 서술형: "김서현(97년생" "김서현은" "김서현의" "김서현이" "김서현가" 등
+    /([가-힣]{2,4})\s*(?:\(|은|는|이|가|의|을|를|에게|으로|로)(?=[\s\d가-힣])/,
+    // 문장 첫머리: 줄 시작 한글 2~4자 + 조사/괄호
+    /(?:^|[.\n]\s*)([가-힣]{2,4})(?=\s*[\(\uff08은는이가의을를])/m,
   ];
   let foundName='';
   for(const re of namePatterns){
@@ -1606,14 +1646,36 @@ function openOpinion(){
 function closeOpinion(){document.getElementById('opinionModalBg').classList.remove('show');}
 function copyOpinionAll(){
   const ta=document.getElementById('opinionText');
-  navigator.clipboard.writeText(ta.value).then(()=>{
-    const c=document.getElementById('opCp');c.textContent='✓ 전체 복사됨';setTimeout(()=>c.textContent='',1500);
-  });
+  const text=ta.value;
+  function fallback(t){
+    ta.select();ta.setSelectionRange(0,99999);
+    document.execCommand('copy');
+    const b=document.querySelector('[onclick="copyOpinionAll()"]');
+    if(b){const orig=b.textContent;b.textContent='✓ 복사됨';setTimeout(()=>b.textContent=orig,1500);}
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>{
+      const b=document.querySelector('[onclick="copyOpinionAll()"]');
+      if(b){const orig=b.textContent;b.textContent='✓ 복사됨';setTimeout(()=>b.textContent=orig,1500);}
+    }).catch(()=>fallback(text));
+  } else { fallback(text); }
 }
-// 바로복사 — 입력용(brief) 기본
+// 바로복사 — 입력용(brief) 기본, 모바일 폴백 포함
 function copyOut(){
   if(!RES)return;
-  navigator.clipboard.writeText(buildOpinionBrief()).then(()=>{const c=document.getElementById('cp');c.textContent='✓ 복사됨';setTimeout(()=>c.textContent='',1500);});
+  const text=buildOpinionBrief();
+  function fallback(){
+    const ta=document.createElement('textarea');
+    ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.focus();ta.select();ta.setSelectionRange(0,99999);
+    document.execCommand('copy');document.body.removeChild(ta);
+    const c=document.getElementById('cp');if(c){c.textContent='✓ 복사됨';setTimeout(()=>c.textContent='',1500);}
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>{
+      const c=document.getElementById('cp');if(c){c.textContent='✓ 복사됨';setTimeout(()=>c.textContent='',1500);}
+    }).catch(()=>fallback());
+  } else { fallback(); }
 }
 setStep(1);
 </script>

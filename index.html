@@ -790,7 +790,10 @@ function closeDriveList(){document.getElementById('driveModalBg').classList.remo
   function addTouch(id,fn){
     var el=document.getElementById(id);
     if(!el) return;
-    el.addEventListener('touchend',function(e){e.preventDefault();fn();},{passive:false});
+    el.addEventListener('touchend',function(e){
+      if(e.target!==el) return;   // 모달 내부 터치는 무시(배경 직접 터치만)
+      e.preventDefault();fn();
+    },{passive:false});
   }
   document.addEventListener('DOMContentLoaded',function(){
     addTouch('driveModalBg',function(){closeDriveList();});

@@ -1349,8 +1349,17 @@ function autoFillFromText(){
     if(m){ if(setIfEmpty('txdate',fn(m))) filled.push('거래일'); break; }
   }
 
-  // 4) 거래금액 — 억/만원 단위 텍스트 그대로
-  const amtM=src.match(/(\d+(?:\.\d+)?)\s*억\s*(?:(\d+)\s*천?\s*만)?\s*원?|(\d+(?:,\d{3})*)\s*만\s*원?|(\d{7,})\s*원/);
+  // 4) 누적보험료 — "누적보험료 1억5천만" 레이블 뒤 금액 (거래금액보다 먼저 처리)
+  const AMT_RE='(\\d+(?:\\.\\d+)?\\s*억\\s*(?:\\d+\\s*천?\\s*만)?\\s*원?|\\d+(?:,\\d{3})*\\s*천?\\s*만\\s*원?|\\d{7,}\\s*원)';
+  let srcForAmt=src;
+  const ntotM=src.match(new RegExp('누적\\s*보험료(?:\\(원\\))?[：:\\s]*(?:신규\\s*포함\\s*)?'+AMT_RE));
+  if(ntotM){
+    if(setIfEmpty('ntot',ntotM[1].replace(/\s+/g,''))) filled.push('누적보험료');
+    srcForAmt=src.replace(ntotM[0],'');  // 거래금액 추출에서 제외
+  }
+
+  // 4-1) 거래금액 — 억/만원 단위 텍스트 그대로
+  const amtM=srcForAmt.match(/(\d+(?:\.\d+)?)\s*억\s*(?:(\d+)\s*천?\s*만)?\s*원?|(\d+(?:,\d{3})*)\s*만\s*원?|(\d{7,})\s*원/);
   if(amtM){
     const raw=amtM[0].replace(/\s+/g,'');
     if(setIfEmpty('amt',raw)) filled.push('거래금액');

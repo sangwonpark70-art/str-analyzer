@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.2</title>
+<title>STR 사례 분석기 v3.3</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -177,13 +177,41 @@
   .drive-empty{color:var(--faint);padding:20px;text-align:center;font-size:13px}
   footer{margin-top:30px;font-size:11.5px;color:var(--faint);text-align:center;line-height:1.9}
   footer b{color:var(--dim)}
+  /* ── v3.3 실거래가 조회 패널 (외부 API — --ext 팔레트) ── */
+  .tag.ext{background:var(--ext-bg);color:var(--ext);border:1px solid var(--ext-line)}
+  #rt_panel{border-color:var(--ext-line);background:var(--ext-bg)}
+  #rt_panel > summary::before{color:var(--ext)}
+  #rt_panel .rt-in{background:var(--card);border:1px solid var(--ext-line);border-radius:11px;padding:12px 13px;margin-top:11px}
+  .rt-row{display:flex;gap:9px}
+  .rt-row>div{flex:1;min-width:0}
+  @media(max-width:640px){.rt-row{flex-direction:column;gap:0}}
+  .rt-keyrow{display:flex;gap:7px;align-items:center}
+  .rt-keyrow input{flex:1;min-width:0;font-family:var(--mono);font-size:11.5px}
+  .rt-keyrow .btn-sm{flex-shrink:0}
+  .rt-badge{display:inline-block;font-size:10px;font-weight:800;border-radius:99px;padding:2px 9px;margin-left:6px;vertical-align:1px}
+  .rt-b-ok{background:var(--exc-bg);color:var(--exc);border:1px solid var(--exc-line)}
+  .rt-b-no{background:var(--rep-bg);color:var(--rep);border:1px solid var(--rep-line)}
+  #rt_status{font-size:11.5px;padding:9px 11px;border-radius:9px;background:var(--field);border:1px dashed var(--line2);color:var(--dim);margin-top:11px;white-space:pre-wrap;font-family:var(--mono);line-height:1.55}
+  .rt-tblwrap{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:9px;margin-top:9px;background:var(--card)}
+  .rt-tblwrap table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .rt-tblwrap th,.rt-tblwrap td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;white-space:nowrap}
+  .rt-tblwrap th{color:var(--dim);font-weight:700;font-size:11px;position:sticky;top:0;background:var(--field)}
+  .rt-tblwrap td.num{text-align:right;font-family:var(--mono)}
+  .rt-tblwrap tbody tr:hover td{background:var(--ext-bg)}
+  .rt-apt{color:var(--accent);cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px}
+  .rt-apt:hover{text-decoration:underline solid}
+  .rt-grp td{background:var(--field);font-weight:800;color:var(--ink);font-size:11.5px}
+  .rt-grp:hover td{background:var(--field)}
+  .rt-sum{background:var(--exc-bg);border:1px solid var(--exc-line);border-radius:9px;padding:11px 12px;font-size:12.5px;margin-top:11px;display:none;line-height:1.6;color:var(--ink)}
+  .rt-hint{font-size:11px;color:var(--faint);margin-top:5px;line-height:1.55}
+  .rt-acts{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.2</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.3</span></h1>
     <p class="sub">0~100 점수 엔진 + 등급 + 고객사 척도 환산. 트리아지(1차)↔세부분석 전환. 개인정보는 비식별화 후 분석.</p>
     <span class="badge"><i></i> PII 비식별화 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -400,6 +428,76 @@
         <span id="autoFillStatus" style="font-size:11.5px;color:var(--faint)">사례 내용에서 이름·생년월일·거래일·금액·유형 추출 → 빈 칸만 채움</span>
       </div>
 
+      <details id="rt_panel">
+        <summary>🏢 실거래가 조회 <span class="tag ext">외부 API</span></summary>
+
+        <div class="rt-in">
+          <label class="l" style="margin-top:0">공공데이터포털 인증키 <span id="rt_keyBadge" class="rt-badge rt-b-no">미저장</span></label>
+          <div class="rt-keyrow">
+            <input type="password" id="rt_svcKey" placeholder="일반 인증키(Decoding) 붙여넣기">
+            <button class="btn-sm" onclick="rt_saveKey()">저장</button>
+            <button class="btn-sm" onclick="rt_clearKey()">삭제</button>
+          </div>
+          <div class="rt-hint">키는 이 브라우저 localStorage에만 저장됩니다(외부 전송 없음 — 국토부 API 호출에만 사용). Encoding 키를 넣으면 자동으로 변환합니다.</div>
+        </div>
+
+        <div class="rt-in">
+          <div class="rt-row">
+            <div>
+              <label class="l" style="margin-top:0">구분</label>
+              <select id="rt_tradeType">
+                <option value="trade">매매</option>
+                <option value="rent">전월세</option>
+              </select>
+            </div>
+            <div>
+              <label class="l" style="margin-top:0">계약년월</label>
+              <input id="rt_ym" placeholder="YYYYMM (예: 202607)" maxlength="6" inputmode="numeric">
+            </div>
+          </div>
+          <div class="rt-row">
+            <div>
+              <label class="l">시도</label>
+              <select id="rt_sido" onchange="rt_fillSgg()"></select>
+            </div>
+            <div>
+              <label class="l">시군구</label>
+              <select id="rt_sgg"></select>
+            </div>
+          </div>
+          <label class="l">법정동코드 직접 입력 <span class="opt">(목록에 없는 지역)</span></label>
+          <input id="rt_lawdManual" placeholder="5자리 코드 (입력 시 드롭다운보다 우선)" maxlength="5" inputmode="numeric">
+          <label class="l">단지명 필터 <span class="opt">(선택 — 결과 내 검색)</span></label>
+          <input id="rt_aptFilter" placeholder="예: 한남하이츠">
+          <button class="btn-go" id="rt_goBtn" onclick="rt_lookup()">실거래가 조회</button>
+          <div id="rt_status">대기 중 — 인증키 저장 후 조회하세요.</div>
+        </div>
+
+        <div class="rt-in" id="rt_resCard" style="display:none">
+          <label class="l" style="margin-top:0">조회 결과 <span id="rt_resCount" class="opt"></span></label>
+          <div class="rt-tblwrap"><table id="rt_resTbl"><thead></thead><tbody></tbody></table></div>
+          <div class="rt-hint">단지명을 클릭하면 그 단지만 면적별로 묶어 보여줍니다.</div>
+          <div class="rt-sum" id="rt_sumBox">
+            <div id="rt_sumText"></div>
+            <div class="rt-acts">
+              <button class="btn-sm" onclick="rt_copySummary()">📋 요약 복사</button>
+              <button class="btn-sm" onclick="rt_insertToSrc()">↳ 사례 내용란에 삽입</button>
+              <button class="btn-sm" id="rt_backBtn" onclick="rt_clearAptFocus()" style="display:none">↩ 전체 결과로</button>
+            </div>
+            <div class="rt-hint">삽입은 사례 내용란 말미에 텍스트로 덧붙일 뿐이며, 점수엔진 자동 반영은 하지 않습니다 — 담당자 판단 원칙.</div>
+          </div>
+        </div>
+
+        <details>
+          <summary>API 한계 고지 (조회 전 확인)</summary>
+          <div class="rt-hint" style="font-size:11.5px;margin-top:8px">
+            · <b>법정동코드 수기 확인 필요</b> — 주소 문자열 자동 변환은 지원하지 않습니다. 시도·시군구 드롭다운(수도권·광역시 수록) 또는 5자리 직접 입력으로 지정하세요.<br>
+            · <b>호수 비식별</b> — 동·호수는 제공되지 않아 개별 물건 특정은 불가합니다. 단지·전용면적·층 수준의 대조까지만 가능합니다.<br>
+            · <b>신고 지연</b> — 계약일로부터 신고기한(최대 30일)이 있어 최근 계약분은 누락될 수 있습니다. 미조회가 곧 미거래는 아닙니다.
+          </div>
+        </details>
+      </details>
+
       <label class="l">이름·고유명사 지정 <span class="opt">(쉼표 구분)</span></label>
       <input id="names" placeholder="윤OO, 신한은행" oninput="genIdCode()">
       <div class="opts"><span class="lab">자동탐지</span>
@@ -445,7 +543,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.2 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.3 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -1536,7 +1634,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.2'};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.3'};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   const rec={meta,input:curInput(),deid:LAST.deid||'',result:RES,map:MAP};
@@ -1699,6 +1797,220 @@ function copyOut(){
   } else { fallback(); }
 }
 setStep(1);
+</script>
+<script>
+/* ══ v3.3 실거래가 조회 패널 — 국토부 RTMS API (브라우저 직접 호출) ══
+   시험판 v0.2 이식(CORS 실측 통과) + 단지 상세·사례란 삽입 신규.
+   전역 오염 방지: 모든 식별자 rt_ 접두. 키는 localStorage만 사용 — 하드코딩 없음. */
+
+const rt_EP = {
+  trade: 'https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev',
+  rent:  'https://apis.data.go.kr/1613000/RTMSDataSvcAptRent/getRTMSDataSvcAptRent'
+};
+
+const rt_LAWD = {
+  '서울':{'종로구':'11110','중구':'11140','용산구':'11170','성동구':'11200','광진구':'11215','동대문구':'11230','중랑구':'11260','성북구':'11290','강북구':'11305','도봉구':'11320','노원구':'11350','은평구':'11380','서대문구':'11410','마포구':'11440','양천구':'11470','강서구':'11500','구로구':'11530','금천구':'11545','영등포구':'11560','동작구':'11590','관악구':'11620','서초구':'11650','강남구':'11680','송파구':'11710','강동구':'11740'},
+  '경기':{'수원 장안구':'41111','수원 권선구':'41113','수원 팔달구':'41115','수원 영통구':'41117','성남 수정구':'41131','성남 중원구':'41133','성남 분당구':'41135','의정부시':'41150','안양 만안구':'41171','안양 동안구':'41173','부천시':'41190','광명시':'41210','평택시':'41220','안산 상록구':'41271','안산 단원구':'41273','고양 덕양구':'41281','고양 일산동구':'41285','고양 일산서구':'41287','과천시':'41290','구리시':'41310','남양주시':'41360','오산시':'41370','시흥시':'41390','군포시':'41410','의왕시':'41430','하남시':'41450','용인 처인구':'41461','용인 기흥구':'41463','용인 수지구':'41465','파주시':'41480','이천시':'41500','안성시':'41550','김포시':'41570','화성시':'41590','광주시':'41610','양주시':'41630','포천시':'41650','여주시':'41670'},
+  '인천':{'중구':'28110','동구':'28140','미추홀구':'28177','연수구':'28185','남동구':'28200','부평구':'28237','계양구':'28245','서구':'28260','강화군':'28710','옹진군':'28720'},
+  '부산':{'중구':'26110','서구':'26140','동구':'26170','영도구':'26200','부산진구':'26230','동래구':'26260','남구':'26290','북구':'26320','해운대구':'26350','사하구':'26380','금정구':'26410','강서구':'26440','연제구':'26470','수영구':'26500','사상구':'26530','기장군':'26710'},
+  '대구':{'중구':'27110','동구':'27140','서구':'27170','남구':'27200','북구':'27230','수성구':'27260','달서구':'27290','달성군':'27710'},
+  '광주':{'동구':'29110','서구':'29140','남구':'29155','북구':'29170','광산구':'29200'},
+  '대전':{'동구':'30110','중구':'30140','서구':'30170','유성구':'30200','대덕구':'30230'},
+  '울산':{'중구':'31110','남구':'31140','동구':'31170','북구':'31200','울주군':'31710'},
+  '세종':{'세종시':'36110'}
+};
+
+
+const rt_$ = id => document.getElementById(id);
+const rt_gv = (el, tag) => el.querySelector(tag)?.textContent?.trim() || '';
+const rt_esc = s => String(s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+let rt_rows = [];        // 마지막 조회 결과 (필터·포커스 적용 전 원본)
+let rt_type = 'trade';   // 마지막 조회 구분
+let rt_focusApt = '';    // 단지 클릭 포커스
+let rt_summary = '';     // 현재 표시 중인 요약 문자열
+
+/* ── 키 관리 (localStorage — Drive 토큰과 동일 패턴, 코드 하드코딩 없음) ── */
+function rt_keyStatus(){
+  const k = localStorage.getItem('rtms_key');
+  const b = rt_$('rt_keyBadge');
+  if(!b) return;
+  if(k){ b.textContent = '저장됨'; b.className = 'rt-badge rt-b-ok'; rt_$('rt_svcKey').placeholder = '(저장된 키 사용 중 — 새로 넣으면 교체)'; }
+  else { b.textContent = '미저장'; b.className = 'rt-badge rt-b-no'; }
+}
+function rt_saveKey(){
+  let k = rt_$('rt_svcKey').value.trim();
+  if(!k){ alert('키를 입력하세요.'); return; }
+  if(k.includes('%')){ try{ k = decodeURIComponent(k); }catch(_){} }   // Encoding 키 → Decoding 변환
+  localStorage.setItem('rtms_key', k);
+  rt_$('rt_svcKey').value = '';
+  rt_keyStatus();
+  rt_setStatus('키 저장 완료. 조회 조건을 입력하고 실행하세요.');
+}
+function rt_clearKey(){ localStorage.removeItem('rtms_key'); rt_keyStatus(); rt_setStatus('키 삭제됨.'); }
+
+/* ── 지역 드롭다운 (2단 — 주소 자동 변환은 v3.3 범위 밖) ── */
+function rt_fillSido(){
+  const el = rt_$('rt_sido');
+  if(!el) return;
+  el.innerHTML = Object.keys(rt_LAWD).map(s => `<option>${s}</option>`).join('');
+  rt_fillSgg();
+}
+function rt_fillSgg(){
+  const sgg = rt_LAWD[rt_$('rt_sido').value] || {};
+  rt_$('rt_sgg').innerHTML = Object.entries(sgg).map(([n,c]) => `<option value="${c}">${n} (${c})</option>`).join('');
+}
+
+function rt_setStatus(msg){ const e = rt_$('rt_status'); if(e) e.textContent = msg; }
+
+/* ── 조회 ── */
+async function rt_lookup(){
+  const key = localStorage.getItem('rtms_key');
+  if(!key){ alert('인증키를 먼저 저장하세요.'); return; }
+  const ym = rt_$('rt_ym').value.trim();
+  if(!/^\d{6}$/.test(ym)){ alert('계약년월은 YYYYMM 6자리로 입력하세요.'); return; }
+  const lawd = rt_$('rt_lawdManual').value.trim() || rt_$('rt_sgg').value;
+  if(!/^\d{5}$/.test(lawd)){ alert('법정동코드 5자리가 필요합니다.'); return; }
+  const type = rt_$('rt_tradeType').value;
+
+  const url = `${rt_EP[type]}?serviceKey=${encodeURIComponent(key)}&LAWD_CD=${lawd}&DEAL_YMD=${ym}&pageNo=1&numOfRows=500`;
+  rt_$('rt_goBtn').disabled = true;
+  rt_setStatus(`호출 중… (${type==='trade'?'매매':'전월세'} / ${lawd} / ${ym})`);
+
+  try{
+    const t0 = performance.now();
+    const res = await fetch(url);
+    const ms = Math.round(performance.now() - t0);
+    const text = await res.text();
+
+    if(!res.ok){
+      rt_setStatus(`❌ HTTP ${res.status} (${ms}ms)\n엔드포인트 또는 파라미터 문제일 수 있습니다.\n호출 주소(키 제외): ${rt_EP[type]}\n응답 앞부분: ${text.slice(0,300)}`);
+      rt_$('rt_goBtn').disabled = false; return;
+    }
+    const xml = new DOMParser().parseFromString(text, 'text/xml');
+    const rc = xml.querySelector('resultCode')?.textContent?.trim();
+    const rmsg = xml.querySelector('resultMsg')?.textContent?.trim();
+    if(rc && rc !== '000' && rc !== '00'){
+      rt_setStatus(`❌ API 오류 resultCode=${rc} — ${rmsg}\n(SERVICE_KEY_IS_NOT_REGISTERED = 키·권한 문제 / LIMITED = 트래픽 초과)`);
+      rt_$('rt_goBtn').disabled = false; return;
+    }
+    const items = [...xml.querySelectorAll('item')];
+    rt_type = type;
+    rt_focusApt = '';
+    rt_rows = items.map(it => {
+      const apt   = rt_gv(it,'aptNm')      || rt_gv(it,'아파트');
+      const dong  = rt_gv(it,'umdNm')      || rt_gv(it,'법정동');
+      const area  = rt_gv(it,'excluUseAr') || rt_gv(it,'전용면적');
+      const floor = rt_gv(it,'floor')      || rt_gv(it,'층');
+      const y = rt_gv(it,'dealYear')||rt_gv(it,'년'), m = rt_gv(it,'dealMonth')||rt_gv(it,'월'), d = rt_gv(it,'dealDay')||rt_gv(it,'일');
+      const date = y ? `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}` : '';
+      let amt, amt2 = '';
+      if(type==='trade'){ amt = rt_gv(it,'dealAmount')||rt_gv(it,'거래금액'); }
+      else { amt = rt_gv(it,'deposit')||rt_gv(it,'보증금액'); amt2 = rt_gv(it,'monthlyRent')||rt_gv(it,'월세금액'); }
+      return {apt, dong, area, floor, date, amt:String(amt).replace(/,/g,'').trim(), amt2:String(amt2||'').replace(/,/g,'').trim()};
+    });
+    rt_setStatus(`✅ 조회 성공 (${ms}ms) · resultCode=${rc||'(없음)'} · 수신 ${rt_rows.length}건`);
+    rt_render();
+  }catch(e){
+    rt_setStatus(`❌ 조회 실패: ${e.message}\n네트워크 상태 또는 인증키를 확인하세요.`);
+  }
+  rt_$('rt_goBtn').disabled = false;
+}
+
+/* ── 결과 렌더 (단지 포커스 시 면적별 그룹핑) ── */
+function rt_render(){
+  const filter = rt_$('rt_aptFilter').value.trim();
+  const type = rt_type;
+  let rows = rt_rows.filter(r => !filter || r.apt.includes(filter));
+  if(rt_focusApt) rows = rows.filter(r => r.apt === rt_focusApt);
+
+  const cols = type==='trade' ? 6 : 7;
+  const th = type==='trade'
+    ? '<tr><th>법정동</th><th>단지</th><th>전용㎡</th><th>층</th><th>계약일</th><th style="text-align:right">거래금액(만원)</th></tr>'
+    : '<tr><th>법정동</th><th>단지</th><th>전용㎡</th><th>층</th><th>계약일</th><th style="text-align:right">보증금(만원)</th><th style="text-align:right">월세(만원)</th></tr>';
+
+  const rowHtml = r => type==='trade'
+    ? `<tr><td>${rt_esc(r.dong)}</td><td><span class="rt-apt" onclick="rt_focus(this.textContent)">${rt_esc(r.apt)}</span></td><td class="num">${rt_esc(r.area)}</td><td class="num">${rt_esc(r.floor)}</td><td>${rt_esc(r.date)}</td><td class="num">${rt_num(r.amt)}</td></tr>`
+    : `<tr><td>${rt_esc(r.dong)}</td><td><span class="rt-apt" onclick="rt_focus(this.textContent)">${rt_esc(r.apt)}</span></td><td class="num">${rt_esc(r.area)}</td><td class="num">${rt_esc(r.floor)}</td><td>${rt_esc(r.date)}</td><td class="num">${rt_num(r.amt)}</td><td class="num">${r.amt2?rt_num(r.amt2):'—'}</td></tr>`;
+
+  let body;
+  if(rt_focusApt){
+    const groups = {};
+    rows.forEach(r => { const k = rt_areaKey(r.area); (groups[k] = groups[k] || []).push(r); });
+    body = Object.keys(groups).sort((a,b) => Number(a) - Number(b)).map(k => {
+      const g = groups[k];
+      const mid = rt_median(g.map(r => Number(r.amt)).filter(n => n > 0));
+      return `<tr class="rt-grp"><td colspan="${cols}">전용 ${k}㎡ — ${g.length}건 · 중간값 ${mid?mid.toLocaleString():'—'}만원</td></tr>` + g.map(rowHtml).join('');
+    }).join('');
+  } else {
+    body = rows.map(rowHtml).join('');
+  }
+
+  rt_$('rt_resTbl').querySelector('thead').innerHTML = th;
+  rt_$('rt_resTbl').querySelector('tbody').innerHTML = body;
+  rt_$('rt_resCount').textContent = `${rows.length}건${filter?` · 필터 ${filter}`:''}${rt_focusApt?` · 단지 ${rt_focusApt}`:''}`;
+  rt_$('rt_resCard').style.display = '';
+  rt_$('rt_backBtn').style.display = rt_focusApt ? '' : 'none';
+
+  rt_buildSummary(rows, type, filter);
+}
+
+function rt_areaKey(a){ const n = Number(a); return isFinite(n) ? (Math.round(n*10)/10).toFixed(1) : String(a||'-'); }
+function rt_num(v){ const n = Number(v); return isFinite(n) ? n.toLocaleString() : rt_esc(v); }
+function rt_median(arr){ if(!arr.length) return 0; const s = [...arr].sort((a,b)=>a-b); return s[Math.floor(s.length/2)]; }
+
+/* ── 단지 클릭 상세 ── */
+function rt_focus(apt){ rt_focusApt = String(apt||'').trim(); rt_render(); }
+function rt_clearAptFocus(){ rt_focusApt = ''; rt_render(); }
+
+/* ── 요약 생성 ── */
+function rt_buildSummary(rows, type, filter){
+  const box = rt_$('rt_sumBox');
+  if(!rows.length){ box.style.display = 'none'; rt_summary = ''; return; }
+  const amts = rows.map(r => Number(r.amt)).filter(n => n > 0).sort((a,b) => a-b);
+  if(!amts.length){ box.style.display = 'none'; rt_summary = ''; return; }
+  const lo = amts[0], hi = amts[amts.length-1], mid = rt_median(amts);
+  const label = type==='trade' ? '매매' : '전월세 보증금';
+  const manual = rt_$('rt_lawdManual').value.trim();
+  const sggName = manual ? `법정동코드 ${manual}` : (rt_$('rt_sgg').selectedOptions[0]?.textContent.split(' (')[0] || '');
+  const scope = rt_focusApt ? ` · 단지 ${rt_focusApt}` : (filter ? ` (${filter})` : '');
+
+  let extra = '';
+  if(rt_focusApt){
+    const groups = {};
+    rows.forEach(r => { const k = rt_areaKey(r.area); (groups[k] = groups[k] || []).push(r); });
+    extra = ' / 면적별 ' + Object.keys(groups).sort((a,b)=>Number(a)-Number(b)).map(k => {
+      const gm = rt_median(groups[k].map(r => Number(r.amt)).filter(n => n > 0));
+      return `${k}㎡ ${groups[k].length}건 중간값 ${gm?gm.toLocaleString():'—'}만원`;
+    }).join(', ');
+  }
+
+  rt_summary = `[실거래가 대조] ${rt_$('rt_sido').value} ${sggName}${scope} · ${rt_$('rt_ym').value} 계약분 ${label} ${rows.length}건: 최저 ${lo.toLocaleString()}만원 ~ 최고 ${hi.toLocaleString()}만원, 중간값 ${mid.toLocaleString()}만원${extra} (국토부 실거래가 공개시스템, 조회일 ${new Date().toISOString().slice(0,10)})`;
+  rt_$('rt_sumText').textContent = rt_summary;
+  box.style.display = '';
+}
+
+function rt_copySummary(){
+  if(!rt_summary){ alert('복사할 요약이 없습니다.'); return; }
+  navigator.clipboard.writeText(rt_summary).then(
+    () => rt_setStatus('요약이 복사되었습니다.'),
+    () => alert('복사 실패 — 요약을 드래그해 직접 복사하세요.')
+  );
+}
+
+/* ── 사례 내용란 삽입 (append만 — 자동 분석·점수 반영 없음) ── */
+function rt_insertToSrc(){
+  const ta = document.getElementById('src');
+  if(!ta){ alert('사례 내용란을 찾을 수 없습니다.'); return; }
+  if(!rt_summary){ alert('삽입할 요약이 없습니다. 먼저 조회하세요.'); return; }
+  const cur = ta.value.replace(/\s+$/,'');
+  ta.value = (cur ? cur + '\n\n' : '') + rt_summary;
+  ta.dispatchEvent(new Event('input', {bubbles:true}));
+  rt_setStatus('사례 내용란 말미에 요약을 삽입했습니다. 점수 반영 여부는 담당자가 판단합니다.');
+}
+
+rt_fillSido();
+rt_keyStatus();
 </script>
 </body>
 </html>

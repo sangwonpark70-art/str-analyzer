@@ -555,7 +555,9 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
-const STR_WORKER_URL = 'https://str-proxy.sangwonpark70.workers.dev';
+// v3.3.3d(2026-08-23): 백엔드를 Deno Deploy로 전환 — CF Worker HKG 콜로 차단(세션 ~50% 실패) 해소.
+// 구 CF Worker(str-proxy)는 백업 존치. API 계약 동일.
+const STR_WORKER_URL = 'https://weird-hippo-7289.sangwonpark70-art.deno.net';
 const STR_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
 // 자체사례 폴더 ID 직접 지정 (40_프로그램개발\\STR자동화\\사례DB\\자체사례)
 // 탐색 없이 이 폴더에 바로 저장 → 중복 폴더 생성 문제 원천 차단
@@ -2145,7 +2147,7 @@ rt_keyStatus();
 <script>
 (function(){
   var KEY = 'STR_MEAS_v1';
-  var U = (typeof STR_WORKER_URL !== 'undefined') ? STR_WORKER_URL : 'https://str-proxy.sangwonpark70.workers.dev';
+  var U = (typeof STR_WORKER_URL !== 'undefined') ? STR_WORKER_URL : 'https://weird-hippo-7289.sangwonpark70-art.deno.net';
   var rows = [];
   try { rows = JSON.parse(localStorage.getItem(KEY)) || []; } catch(e) { rows = []; }
   function save(){ try { localStorage.setItem(KEY, JSON.stringify(rows)); } catch(e) {} }

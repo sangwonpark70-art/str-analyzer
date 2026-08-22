@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.3</title>
+<title>STR 사례 분석기 v3.3.3</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -211,7 +211,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.3</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.3.3</span></h1>
     <p class="sub">0~100 점수 엔진 + 등급 + 고객사 척도 환산. 트리아지(1차)↔세부분석 전환. 개인정보는 비식별화 후 분석.</p>
     <span class="badge"><i></i> PII 비식별화 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -425,7 +425,7 @@
       <textarea id="src" placeholder="고객·거래·특이사항을 편하게 적으세요. 개인정보는 자동 비식별화됩니다."></textarea>
       <div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <button class="btn-sm" onclick="autoFillFromText()" style="font-size:12px;padding:6px 12px">✨ 입력 자동채움</button>
-        <span id="autoFillStatus" style="font-size:11.5px;color:var(--faint)">사례 내용에서 이름·생년월일·거래일·금액·유형 추출 → 빈 칸만 채움</span>
+        <span id="autoFillStatus" style="font-size:11.5px;color:var(--faint)">사례 내용에서 이름·생년월일·거래일·금액·유형 추출 → 빈 칸 채움 · 이름은 추가 · 값이 다르면 제안</span>
       </div>
 
       <details id="rt_panel">
@@ -543,7 +543,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.3 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.3.3 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -1022,8 +1022,9 @@ const SECTOR_GUIDANCE = {
 - 업권 특정이 불분명한 거래는 자금경로·자금원천 미확인 여부를 핵심 판단축으로 삼는다.
 - [복합 조합 가중] A1(고액거래)+C1(소득대비 불일치)=가중, B1(차명)+C4(제재·PEP)=강한 의심.`
 };
-function buildSystemPrompt(sector){
+function buildSystemPrompt(sector, phase, prior){
   sector = sector || '보험';
+  phase = phase || 1;
   const label = SECTOR_LABEL[sector] || '금융회사';
   const typology = SECTOR_TYPOLOGY[sector] || SECTOR_TYPOLOGY['기타'];
   const guidance = SECTOR_GUIDANCE[sector] || SECTOR_GUIDANCE['기타'];
@@ -1052,7 +1053,11 @@ ${guidance}
 - 60~65점 경계구간: 보고와 추가확인 병행 가능하나, 소명 완료 전까지 의심 판단을 유보하지 말 것.
 - 이 원칙은 회사 내부정책이 아닌 범용 AML 원칙이므로 opinion에 명시할 것.
 
-반드시 아래 JSON만 출력. 코드펜스·서론 금지. 모든 서술에서 토큰 유지.
+${ (phase===2) ? SCHEMA_P2_FN(prior) : SCHEMA_P1 }`;
+}
+
+/* ── v3.3.3 2단 분리: 1차/2차 스키마 (설계문서 v2.2 §3.1.4~3.1.5) ── */
+const SCHEMA_P1 = `반드시 아래 JSON만 출력. 코드펜스·서론 금지. 모든 서술에서 토큰 유지.
 {
  "risk_score": 0~100 정수,
  "suggested_type": "사례에 가장 부합하는 거래유형(목록 중 하나)",
@@ -1061,18 +1066,31 @@ ${guidance}
  "handoff": "심화분석팀 이관용 요약 1~2문장(다음단계가 무엇을 봐야 하는지)",
  "profile": "프로필 개요 2~4문장",
  "brief": "입력용 요약의견 3~4문장. 사실(거래내용) → 근거(위험요인) → 결론(보고/추가확인/제외 권고) 순. STR 시스템 입력란에 바로 붙여넣을 수 있는 간결한 문체. 중복·수식어 제거.",
- "opinion": "보고서용 전체 의견. 위험요인·완화요인 종합 → 의심수준(낮음/중간/높음) → 결론·근거 → 경계구간 해당 시 원칙 명시. 4~6문장.",
- "monitoring": "향후 모니터링·재검토 조건(없으면 빈 문자열)",
- "cdd_check": "고객확인(CDD) 시점·범위 점검 결과(해당 시 1~2문장, 없으면 빈 문자열)",
- "missing_info": ["추가 확인 권장 정보"],
  "subject_kind": "주 대상자가 개인이면 \\"개인\\", 법인이면 \\"법인\\", 개인사업자면 \\"개인사업자\\"",
  "subject_name": "주 대상자(계약자) 명칭 — 개인이면 한글 실명, 법인이면 법인명(예: (주)동원주택). 토큰이 아닌 원문 표기. 없으면 빈 문자열",
  "subject_age": "개인인 경우만 나이 숫자(예: 71). 법인이면 빈 문자열",
  "tx_date": "이 건의 핵심 거래일(STR 산출 트리거가 된 거래일). YYYY-MM-DD 또는 원문 표기. 없으면 빈 문자열"
 }
 
-[출력 형식 — 반드시 준수] 위 JSON 객체 하나만 출력하라. 코드블록(\`\`\`), 마크다운 표, 설명 문장을 일절 붙이지 말 것. 응답은 { 로 시작해 } 로 끝나야 한다.`;
+[출력 형식 — 반드시 준수] 위 JSON 객체 하나만 출력하라. 코드블록, 마크다운 표, 설명 문장을 일절 붙이지 말 것. 응답은 { 로 시작해 } 로 끝나야 한다.`;
+
+function SCHEMA_P2_FN(prior){ return `[2차 분석 — 확정값 재산출 금지]
+아래 1차 분석 결과는 이미 확정된 값이다. 위험도 점수·매칭 유형(typologies)·추정 거래유형은 이 값을 전제로 삼되, 다시 계산하거나 출력하지 마라. 1차와 다른 점수·유형을 제시해서는 안 된다.
+
+[1차 분석 결과(확정)]
+${prior || '{}'}
+
+위 확정값을 전제로, 보고·이관 단계에 필요한 아래 항목만 생성하라.
+
+반드시 아래 JSON만 출력. 코드펜스·서론 금지. 모든 서술에서 토큰 유지.
+{
+ "opinion": "보고서용 전체 의견. 위험요인·완화요인 종합 → 의심수준(낮음/중간/높음) → 결론·근거 → 경계구간 해당 시 원칙 명시. 4~6문장. 1차 확정 점수와 모순되지 않을 것.",
+ "monitoring": "향후 모니터링·재검토 조건(없으면 빈 문자열)",
+ "cdd_check": "고객확인(CDD) 시점·범위 점검 결과(해당 시 1~2문장, 없으면 빈 문자열)",
+ "missing_info": ["추가 확인 권장 정보"]
 }
+
+[출력 형식 — 반드시 준수] 위 JSON 객체 하나만 출력하라. 코드블록, 마크다운 표, 설명 문장을 일절 붙이지 말 것. 응답은 { 로 시작해 } 로 끝나야 한다.`; }
 
 async function analyze(){
   const src=document.getElementById('src').value.trim();
@@ -1083,35 +1101,20 @@ async function analyze(){
   const btn=document.getElementById('goBtn');btn.disabled=true;btn.textContent='분석 중…';
   document.getElementById('result').innerHTML='<div class="loading"><div class="spin"></div>AI가 비식별 데이터를 분석 중입니다…</div>';
 
-  const sys=buildSystemPrompt(LAST.sector);
+  const sys=buildSystemPrompt(LAST.sector,1);
 
   try{
-    const ac=new AbortController(); const tid=setTimeout(()=>ac.abort(),120000);
-    const res=await fetch(STR_WORKER_URL,{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({prompt: sys+"\n\n"+ctx()}),
-      signal:ac.signal
-    });
-    clearTimeout(tid);
-    if(!res.ok) throw new Error("Worker "+res.status);
-    const data=await res.json();
-    if(data.error) throw new Error(data.error);
-    let txt=(data.text||"").replace(/```json|```/g,"").trim();
-    // 모델이 JSON 앞뒤로 설명·표를 붙여도 본문만 추출
-    const fb=txt.indexOf('{'), lb=txt.lastIndexOf('}');
-    if(fb>=0 && lb>fb) txt=txt.slice(fb,lb+1);
-    const j=JSON.parse(txt);
+    const j=await callWorker(sys+"\n\n"+ctx(), 1);
     RES={
       score:Math.max(0,Math.min(100,parseInt(j.risk_score)||0)),
       suggested_type:restore(j.suggested_type),
       typologies:(j.typologies||[]),
       key_basis:restore(j.key_basis), handoff:restore(j.handoff),
       profile:restore(j.profile),
-      brief:restore(j.brief||''),          // 신규: 입력용 요약의견
-      suspicion:restore(j.suspicion||''),  // 하위호환: 구버전 JSON 불러오기 시 표시
-      opinion:restore(j.opinion), monitoring:restore(j.monitoring),
-      cdd_check:restore(j.cdd_check),
-      missing:(j.missing_info||[]).map(restore),
+      brief:restore(j.brief||''),          // 입력용 요약의견
+      suspicion:'',                        // 폐기 필드(구버전 JSON 불러오기 시에만 값 존재)
+      opinion:'', monitoring:'', cdd_check:'', missing:[],   // v3.3.3: 2차 수신 시 채움
+      phase:1,
       subject_kind:(j.subject_kind||'').trim(),
       subject_name:restore(j.subject_name||''),
       subject_age:String(j.subject_age||'').replace(/[^0-9]/g,''),
@@ -1121,8 +1124,61 @@ async function analyze(){
     // AI 추천 유형·대상자·거래일·나이를 입력칸에 자동 반영
     autoApplyType();
     autoApplyExtract();
-  }catch(e){ renderFallback(); }
-  finally{btn.disabled=false;btn.textContent='분석 실행';}
+    btn.disabled=false; btn.textContent='분석 실행';
+    // 세부분석 모드는 1차 표시 직후 2차를 자동 연속 호출(트리아지는 버튼 수동)
+    if(MODE==='full') analyzePhase2();
+  }catch(e){ renderFallback(); btn.disabled=false; btn.textContent='분석 실행'; }
+}
+
+/* ── v3.3.3: Worker 호출 공통부 (phase는 계측 구분용, Worker는 prompt만 사용) ── */
+async function callWorker(prompt, phase){
+  const ac=new AbortController(); const tid=setTimeout(()=>ac.abort(),120000);
+  let res;
+  try{
+    res=await fetch(STR_WORKER_URL,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({prompt: prompt, phase: phase||1}),
+      signal:ac.signal
+    });
+  } finally { clearTimeout(tid); }
+  if(!res.ok) throw new Error("Worker "+res.status);
+  const data=await res.json();
+  if(data.error) throw new Error(data.error);
+  let txt=(data.text||"").replace(/```json|```/g,"").trim();
+  const fb=txt.indexOf('{'), lb=txt.lastIndexOf('}');
+  if(fb>=0 && lb>fb) txt=txt.slice(fb,lb+1);
+  return JSON.parse(txt);
+}
+
+/* ── v3.3.3: 2차 분석 — 1차 확정값 동봉, 결과는 덧붙임(실패해도 1차 보존) ── */
+let P2_RUNNING=false;
+async function analyzePhase2(){
+  if(!RES){alert('먼저 분석을 실행하세요.');return;}
+  if(RES.phase>=2 || P2_RUNNING) return;
+  P2_RUNNING=true;
+  const st=document.getElementById('p2status');
+  if(st){ st.innerHTML='<span class="spin" style="width:13px;height:13px;border-width:2px;display:inline-block;vertical-align:-2px"></span> 상세 분석 생성 중…'; }
+  // 2차에 넘길 1차 확정값(토큰 상태 그대로 — 원문 대조 일관성 유지)
+  const prior=JSON.stringify({
+    risk_score:RES.score, suggested_type:RES.suggested_type,
+    typologies:RES.typologies, key_basis:RES.key_basis,
+    handoff:RES.handoff, profile:RES.profile, brief:RES.brief
+  });
+  try{
+    const sys=buildSystemPrompt(LAST.sector,2,prior);
+    const j=await callWorker(sys+"\n\n"+ctx(), 2);
+    // ★ 2차 응답에 score·typologies가 있어도 무시한다(스키마 제외 + 코드 차단 이중화)
+    RES.opinion=restore(j.opinion||'');
+    RES.monitoring=restore(j.monitoring||'');
+    RES.cdd_check=restore(j.cdd_check||'');
+    RES.missing=(j.missing_info||[]).map(restore);
+    RES.phase=2;
+    draw();
+  }catch(e){
+    // 1차 결과는 보존 — 화면 재그리기 없이 상태줄만 갱신
+    const s2=document.getElementById('p2status');
+    if(s2) s2.innerHTML='<span style="color:var(--rep)">⚠ 상세 분석 실패 — 1차 결과는 유지됩니다. 다시 시도하세요.</span>';
+  } finally { P2_RUNNING=false; }
 }
 
 // 거래일 정규화: 다양한 표기 → YYYY-MM-DD (실패 시 원문 유지)
@@ -1242,21 +1298,33 @@ function draw(){
       html+=`<div class="sec">요약 의견 <span style="font-size:11px;font-weight:500;color:var(--faint)">입력용</span></div><div class="block">${esc(RES.brief)}</div>`;
     if(RES.suspicion&&RES.suspicion.trim()&&!(RES.brief&&RES.brief.trim()))
       html+=`<div class="sec">의심 가능성</div><div class="block">${esc(RES.suspicion)}</div>`;
-    html+=`<div class="sec">의견 <span style="font-size:11px;font-weight:500;color:var(--faint)">보고서용</span></div><div class="block">${esc(RES.opinion)}</div>`;
-    if(RES.monitoring&&RES.monitoring.trim())
-      html+=`<div class="monitor"><b>🔭 향후 모니터링·재검토 조건</b><br>${esc(RES.monitoring)}</div>`;
-    if(RES.missing&&RES.missing.length)
-      html+=`<div class="missing"><b>📋 추가 확인 권장 정보</b><ul>`+RES.missing.map(m=>`<li>${esc(m)}</li>`).join('')+`</ul></div>`;
   } else {
     if(RES.brief&&RES.brief.trim())
       html+=`<div class="handoff" style="margin-top:14px;background:#f0f7f4;border-color:var(--primary-line);color:var(--ink)"><b>📝 요약 의견 (입력용)</b><br>${esc(RES.brief)}</div>`;
+  }
+  // v3.3.3: 2차 수신분은 모드와 무관하게 표시(트리아지에서 이어받은 경우 포함). 미수신 시 빈 칸을 그리지 않는다
+  if(RES.opinion&&RES.opinion.trim())
+    html+=`<div class="sec">의견 <span style="font-size:11px;font-weight:500;color:var(--faint)">보고서용</span></div><div class="block">${esc(RES.opinion)}</div>`;
+  if(RES.monitoring&&RES.monitoring.trim())
+    html+=`<div class="monitor"><b>🔭 향후 모니터링·재검토 조건</b><br>${esc(RES.monitoring)}</div>`;
+  if(RES.missing&&RES.missing.length)
+    html+=`<div class="missing"><b>📋 추가 확인 권장 정보</b><ul>`+RES.missing.map(m=>`<li>${esc(m)}</li>`).join('')+`</ul></div>`;
+  // v3.3.3: 2차(상세 분석) 상태·트리거
+  if((RES.phase||1)<2){
+    html+=`<div class="convert" style="margin-top:14px"><div class="cv" style="background:var(--field);text-align:left">
+      <b>상세 분석 (2차)</b> — 보고서용 의견 · 모니터링 조건 · CDD 점검 · 추가확인 정보
+      <div style="margin-top:8px"><button class="btn-sm" onclick="analyzePhase2()">▶ 상세 분석 이어받기</button>
+      <span id="p2status" style="font-size:11.5px;color:var(--faint);margin-left:8px"></span></div>
+      <div style="margin-top:6px;font-size:11px;color:var(--faint)">점수·유형은 1차 확정값을 그대로 유지합니다(재산출 없음).</div></div></div>`;
+  } else {
+    html+=`<div style="margin-top:10px;font-size:11.5px;color:var(--faint)">✔ 상세 분석(2차) 반영됨 <span id="p2status"></span></div>`;
   }
   html+=`<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
     <button class="btn-sm" onclick="openOpinion()">📄 의견서 보기·복사</button>
     <button class="btn-sm" onclick="copyOut()">📋 바로 복사</button>
     <button class="btn-sm" onclick="exportJSON()">💾 사례 파일저장</button>
     <span id="cp" class="copied"></span>
-    <span style="font-size:11px;color:var(--faint)">모드: ${MODE==='tri'?'트리아지':'세부분석'}</span></div>`;
+    <span style="font-size:11px;color:var(--faint)">모드: ${MODE==='tri'?'트리아지':'세부분석'} · 단계: ${(RES.phase||1)===2?'1차+2차':'1차'}</span></div>`;
   document.getElementById('result').innerHTML=html;
   setTimeout(()=>{const f=document.querySelector('.barfill');if(f)f.style.width=s+'%';},60);
 }
@@ -1365,32 +1433,51 @@ function applyExtractedText(text, mode){
 
 // ── 자동 채움 (사례 내용 → 입력 필드 초안) ──
 // 비용 0, Worker 호출 없음. 빈 칸만 채움(기존 입력 덮어쓰기 안 함). 분석 전 확인·수정 필수.
+let AF_SUGGEST=[], AF_FILLED=[];
 function autoFillFromText(){
   const src=document.getElementById('src').value;
   if(!src.trim()){
     document.getElementById('autoFillStatus').textContent='⚠ 사례 내용을 먼저 입력하세요.';
     return;
   }
-  const filled=[];
+  AF_SUGGEST=[]; AF_FILLED=[];
+  const filled=AF_FILLED;
 
-  // ── 헬퍼 ──
-  const setIfEmpty=(id,v)=>{
+  // ── 헬퍼 (v3.3.2) — 빈 칸은 채우고, 값이 있으면 덮지 않고 제안으로 모은다 ──
+  const setIfEmpty=(id,v,label)=>{
     if(!v) return false;
     const el=document.getElementById(id);
-    if(el&&!el.value.trim()){el.value=v; return true;}
+    if(!el) return false;
+    if(!el.value.trim()){ el.value=v; return true; }
+    if(el.value.trim()!==String(v).trim())
+      AF_SUGGEST.push({id:id,val:String(v),label:label||id,cur:el.value.trim()});
     return false;
   };
-  const setSelectIfEmpty=(id,v)=>{
+  const setSelectIfEmpty=(id,v,label)=>{
     if(!v) return false;
     const el=document.getElementById(id);
-    if(el&&el.selectedIndex===0){
-      for(const op of el.options){
-        if(op.value&&(op.value===v||op.value.includes(v)||v.includes(op.value.replace(/[()（）]/g,'').split('·')[0]))){
-          el.value=op.value; return true;
-        }
+    if(!el) return false;
+    let target='';
+    for(const op of el.options){
+      if(op.value&&(op.value===v||op.value.includes(v)||v.includes(op.value.replace(/[()（）]/g,'').split('·')[0]))){
+        target=op.value; break;
       }
     }
+    if(!target) return false;
+    if(el.selectedIndex===0){ el.value=target; return true; }
+    if(el.value!==target)
+      AF_SUGGEST.push({id:id,val:target,label:label||id,cur:el.value});
     return false;
+  };
+  // 이름은 다중값(쉼표) — 덮어쓰지 않고 없는 것만 덧붙인다
+  const mergeNames=(list)=>{
+    const el=document.getElementById('names');
+    if(!el||!list.length) return [];
+    const cur=el.value.split(',').map(x=>x.trim()).filter(Boolean);
+    const added=[];
+    list.forEach(n=>{ if(n&&cur.indexOf(n)<0){ cur.push(n); added.push(n); } });
+    if(added.length) el.value=cur.join(', ');
+    return added;
   };
 
   // 1) 이름 — 레이블 뒤, 씨/님, 서술형 괄호/조사 패턴
@@ -1411,13 +1498,28 @@ function autoFillFromText(){
     // 문장 첫머리: 줄 시작 한글 2~4자 + 조사/괄호
     /(?:^|[.\n]\s*)([가-힣]{2,4})(?=\s*[\(\uff08은는이가의을를])/m,
   ];
-  const nameStop=/^(고객|계약|보험|거래|대상|수익|해지|환급|납입|미상|불명|확인|점검|검토|번호|성명|이름|생년|월일|주소|직업|국적)/;
-  let foundName='';
-  for(const re of namePatterns){
-    const m=src.match(re);
-    if(m && !nameStop.test(m[1])){foundName=m[1]; break;}
+  const nameStop=/^(고객|계약|보험|거래|대상|수익|해지|환급|납입|미상|불명|확인|점검|검토|번호|성명|이름|생년|월일|주소|직업|국적|모친|부친|배우자|본인|법인|대표|남편|아내|자녀|형제|자매|장남|차남|장녀|차녀|상속|친권|법정|당사|해당)/;
+  // v3.3.2 — 정밀도 높은 레이블/호칭 패턴만 전건 수집(다중 대상자 대응). 관계어(모친 등)는 건너뛰고 뒤 이름을 잡는다.
+  const REL='(?:모친|부친|배우자|남편|아내|자녀|장남|차남|장녀|차녀|형제|자매|본인|대표이사|대표)?';
+  const nameHi=[
+    new RegExp('(?:계약자|피보험자|고객명|성명|이름|대상자|수익자|보험계약자|주계약자)[:\uff1a\\s]*'+REL+'\\s*([A-Za-z]{2,}(?:\\s+[A-Za-z]{2,}){0,3})','g'),
+    new RegExp('(?:계약자|피보험자|고객명|성명|이름|대상자|수익자|보험계약자|주계약자)[:\uff1a\\s]*'+REL+'\\s*([가-힣]{2,4})(?=[\\s,\u00b7\\n\\(\uff08\\.\\)]|$)','g'),
+    /([가-힣]{2,4})\s*(?:씨|님)(?=[\s,\u00b7\n은는이가의을를께]|$)/g
+  ];
+  let foundNames=[];
+  for(const re of nameHi){
+    let m; re.lastIndex=0;
+    while((m=re.exec(src))!==null){ const c=(m[1]||'').trim(); if(c&&!nameStop.test(c)) foundNames.push(c); }
   }
-  if(foundName && setIfEmpty('names', foundName)) filled.push('이름');
+  if(!foundNames.length){
+    for(const re of namePatterns){
+      const m=src.match(re);
+      if(m && !nameStop.test(m[1])){ foundNames.push(m[1].trim()); break; }
+    }
+  }
+  foundNames=foundNames.filter((v,i,a)=>a.indexOf(v)===i);
+  const addedNames=mergeNames(foundNames);
+  if(addedNames.length) filled.push('이름('+addedNames.join('·')+')');
 
   // 2) 생년월일 — 다양한 패턴 → YYYY-MM-DD 정규화
   const birthPatterns=[
@@ -1432,7 +1534,7 @@ function autoFillFromText(){
   ];
   for(const {re,fn} of birthPatterns){
     const m=src.match(re);
-    if(m){ if(setIfEmpty('birth',fn(m))) filled.push('생년월일'); break; }
+    if(m){ if(setIfEmpty('birth',fn(m),'생년월일')) filled.push('생년월일'); break; }
   }
 
   // 3) 거래일 — YYYY-MM-DD 또는 한국식
@@ -1444,7 +1546,7 @@ function autoFillFromText(){
   ];
   for(const {re,fn} of datePatterns){
     const m=src.match(re);
-    if(m){ if(setIfEmpty('txdate',fn(m))) filled.push('거래일'); break; }
+    if(m){ if(setIfEmpty('txdate',fn(m),'거래일')) filled.push('거래일'); break; }
   }
 
   // 4) 누적보험료 — "누적보험료 1억5천만" 레이블 뒤 금액 (거래금액보다 먼저 처리)
@@ -1452,7 +1554,7 @@ function autoFillFromText(){
   let srcForAmt=src;
   const ntotM=src.match(new RegExp('누적\\s*보험료(?:\\(원\\))?[：:\\s]*(?:신규\\s*포함\\s*)?'+AMT_RE));
   if(ntotM){
-    if(setIfEmpty('ntot',ntotM[1].replace(/\s+/g,''))) filled.push('누적보험료');
+    if(setIfEmpty('ntot',ntotM[1].replace(/\s+/g,''),'누적보험료')) filled.push('누적보험료');
     srcForAmt=src.replace(ntotM[0],'');  // 거래금액 추출에서 제외
   }
 
@@ -1460,7 +1562,7 @@ function autoFillFromText(){
   const amtM=srcForAmt.match(/(\d+(?:\.\d+)?)\s*억\s*(?:(\d+)\s*천?\s*만)?\s*원?|(\d+(?:,\d{3})*)\s*만\s*원?|(\d{7,})\s*원/);
   if(amtM){
     const raw=amtM[0].replace(/\s+/g,'');
-    if(setIfEmpty('amt',raw)) filled.push('거래금액');
+    if(setIfEmpty('amt',raw,'거래금액')) filled.push('거래금액');
   }
 
   // 5) 거래유형 — 키워드 매칭
@@ -1476,49 +1578,74 @@ function autoFillFromText(){
   ];
   for(const {keys,val} of typeMap){
     if(keys.some(k=>src.includes(k))){
-      if(setSelectIfEmpty('ttype',val)) filled.push('거래유형'); break;
+      if(setSelectIfEmpty('ttype',val,'거래유형')) filled.push('거래유형'); break;
     }
   }
 
   // 6) 고객번호 — 레이블 뒤 영숫자 패턴
   const cnoM=src.match(/(?:고객번호|계약번호|고객\s*ID)[：:\s]*([A-Za-z0-9\-]{4,20})/);
-  if(cnoM){ if(setIfEmpty('custno',cnoM[1].trim())) filled.push('고객번호'); }
+  if(cnoM){ if(setIfEmpty('custno',cnoM[1].trim(),'고객번호')) filled.push('고객번호'); }
 
   // 7) 자금 경로 — 본인계좌·리얼타임·자동이체 키워드 → 본인 명의 계좌
   if(/본인\s*계좌|본인\s*명의|리얼타임|자동이체|자동\s*이체/.test(src)){
-    if(setSelectIfEmpty('fpath','본인 명의 계좌')) filled.push('자금경로');
+    if(setSelectIfEmpty('fpath','본인 명의 계좌','자금경로')) filled.push('자금경로');
   } else if(/타인\s*계좌|타인\s*명의|제3자\s*계좌/.test(src)){
-    if(setSelectIfEmpty('fpath','타인 명의 계좌')) filled.push('자금경로');
+    if(setSelectIfEmpty('fpath','타인 명의 계좌','자금경로')) filled.push('자금경로');
   } else if(/현금\s*(?:입금|납입|지급|수납)/.test(src)){
-    if(setSelectIfEmpty('fpath','현금')) filled.push('자금경로');
+    if(setSelectIfEmpty('fpath','현금','자금경로')) filled.push('자금경로');
   }
 
   // 8) 보유계약 건수 — "보유계약 3건", "총 보유계약건수 19건", "계약 3건(종신2, 연금1)"
   const ncntM=src.match(/(?:총\s*)?보유\s*계약\s*(?:건수)?[：:\s]*(\d{1,3})\s*건|계약\s*(\d{1,3})\s*건/);
   if(ncntM){
     const n=ncntM[1]||ncntM[2];
-    if(setIfEmpty('ncnt',n)) filled.push('보유계약건수');
+    if(setIfEmpty('ncnt',n,'보유계약건수')) filled.push('보유계약건수');
   }
 
   // 식별코드 재생성 (이름·생년월일 채워졌을 수 있으므로)
   genIdCode();
 
-  // 결과 안내
-  const st=document.getElementById('autoFillStatus');
-  if(filled.length){
-    st.style.color='var(--primary-d)';
-    st.textContent=`✅ ${filled.join('·')} 채움 완료 — 확인·수정 후 분석 실행하세요.`;
-  } else {
-    st.style.color='var(--faint)';
-    st.textContent='추출 가능한 항목을 찾지 못했습니다. 직접 입력해주세요.';
-  }
+  afRender();
 }
+
+// ── v3.3.2 자동채움 결과·제안 표시 ──
+function afRender(){
+  const st=document.getElementById('autoFillStatus');
+  if(!st) return;
+  st.style.color='var(--faint)';
+  let h='';
+  if(AF_FILLED.length){
+    h+=`<span style="color:var(--primary-d)">✅ ${esc(AF_FILLED.join('·'))} 반영</span>`;
+  } else if(!AF_SUGGEST.length){
+    h+='추출 가능한 새 항목이 없습니다. 직접 입력해주세요.';
+  }
+  if(AF_SUGGEST.length){
+    h+='<div style="margin-top:6px">기존 값과 달라 그대로 두었습니다 — 바꾸려면 적용을 누르세요.</div>';
+    AF_SUGGEST.forEach((sg,i)=>{
+      h+=`<div style="margin-top:4px">· ${esc(sg.label)}: <b>${esc(sg.cur)}</b> → <b>${esc(sg.val)}</b> `
+       + `<button class="btn-sm" style="font-size:11px;padding:2px 8px" onclick="afApply(${i})">적용</button></div>`;
+    });
+    if(AF_SUGGEST.length>1)
+      h+='<div style="margin-top:5px"><button class="btn-sm" style="font-size:11px;padding:2px 8px" onclick="afApplyAll()">전체 적용</button></div>';
+  }
+  st.innerHTML=h;
+}
+function afApply(i){
+  const sg=AF_SUGGEST[i]; if(!sg) return;
+  const el=document.getElementById(sg.id);
+  if(el){ el.value=sg.val; AF_FILLED.push(sg.label); }
+  AF_SUGGEST.splice(i,1);
+  genIdCode();
+  afRender();
+}
+function afApplyAll(){ while(AF_SUGGEST.length) afApply(0); }
 
 function resetForm(){
   RES=null; MAP={}; LAST={};
   LOADED_FROM=null; hideReevalBanner();
   const st=document.getElementById('autoFillStatus');
-  if(st){st.style.color='var(--faint)';st.textContent='사례 내용에서 이름·생년월일·거래일·금액·유형 추출 → 빈 칸만 채움';}
+  AF_SUGGEST=[]; AF_FILLED=[];
+  if(st){st.style.color='var(--faint)';st.innerHTML='사례 내용에서 이름·생년월일·거래일·금액·유형 추출 → 빈 칸 채움 · 이름은 추가 · 값이 다르면 제안';}
   ['caseno','txdate','birth','custno','amt','ncnt','ntot','names','src'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';}); genIdCode();
   ['ttype','ctype','fpath','fsrc','scale'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;});
   ['f_sanc','f_third','f_refuse','f_fraud','f_cash'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
@@ -1634,7 +1761,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.3'};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.3.3',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   const rec={meta,input:curInput(),deid:LAST.deid||'',result:RES,map:MAP};
@@ -2011,6 +2138,126 @@ function rt_insertToSrc(){
 
 rt_fillSido();
 rt_keyStatus();
+</script>
+<!-- ===== 계측 모듈 (2026-08-18 신설, A안 2+3 고정 오버헤드 실측용) =====
+     Worker 왕복 시각·입력자수·응답자수를 자동 기록. 앱 동작에는 관여하지 않음.
+     기록은 브라우저 로컬에 남아 새로고침·재접속에도 유지됨. 측정 종료 후 이 블록 제거 가능. -->
+<script>
+(function(){
+  var KEY = 'STR_MEAS_v1';
+  var U = (typeof STR_WORKER_URL !== 'undefined') ? STR_WORKER_URL : 'https://str-proxy.sangwonpark70.workers.dev';
+  var rows = [];
+  try { rows = JSON.parse(localStorage.getItem(KEY)) || []; } catch(e) { rows = []; }
+  function save(){ try { localStorage.setItem(KEY, JSON.stringify(rows)); } catch(e) {} }
+
+  var origFetch = window.fetch;
+  window.fetch = function(){
+    var args = arguments;
+    var url = (typeof args[0] === 'string') ? args[0] : ((args[0] && args[0].url) || '');
+    if (url.indexOf(U) !== 0) return origFetch.apply(this, args);
+
+    var body = {};
+    try { body = JSON.parse(args[1].body); } catch(e) {}
+    var kind   = (body.task === 'vision_extract') ? '사진인식'
+               : (body.phase === 2) ? '분석2'
+               : (body.phase === 1) ? '분석1' : '분석';
+    var inLen  = (body.prompt || '').length;
+    var sector = '';
+    try { sector = (document.getElementById('sector') || {}).value || ''; } catch(e) {}
+    var t0 = performance.now();
+
+    function rec(status, outLen){
+      rows.push({
+        no: rows.length + 1,
+        ts: new Date().toLocaleString('ko-KR'),
+        kind: kind, sector: sector,
+        sec: +((performance.now() - t0) / 1000).toFixed(2),
+        status: status, inLen: inLen, outLen: outLen
+      });
+      save(); render();
+    }
+
+    return origFetch.apply(this, args).then(function(res){
+      res.clone().text().then(function(t){ rec(res.status, t.length); },
+                             function(){ rec(res.status, 0); });
+      return res;
+    }, function(err){
+      rec('ERR:' + ((err && err.message) || ''), 0);
+      throw err;
+    });
+  };
+
+  var box, tbl, btn;
+  function build(){
+    btn = document.createElement('div');
+    btn.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:99998;background:#1f2937;color:#fff;'
+      + 'padding:8px 12px;border-radius:20px;font:600 12px/1 system-ui,sans-serif;cursor:pointer;'
+      + 'box-shadow:0 2px 8px rgba(0,0,0,.3);user-select:none';
+    btn.onclick = function(){ box.style.display = (box.style.display === 'none') ? 'block' : 'none'; };
+    document.body.appendChild(btn);
+
+    box = document.createElement('div');
+    box.style.cssText = 'position:fixed;right:12px;bottom:52px;z-index:99999;background:#fff;color:#111;'
+      + 'border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.25);'
+      + 'max-width:min(94vw,560px);max-height:60vh;overflow:auto;padding:10px;display:none;'
+      + 'font:12px/1.5 system-ui,sans-serif';
+    document.body.appendChild(box);
+  }
+
+  function stats(){
+    // v3.3.3: 일괄('분석'=08-18 대조군)·분석1·분석2를 섞지 않고 각각 집계
+    var out = [];
+    ['분석','분석1','분석2'].forEach(function(k){
+      var a = rows.filter(function(r){ return r.kind === k && typeof r.status === 'number' && r.status === 200; })
+                  .map(function(r){ return r.sec; });
+      if (!a.length) return;
+      var sum = a.reduce(function(s,v){ return s+v; }, 0);
+      out.push((k === '분석' ? '일괄' : k) + ' ' + a.length + '건 평균 ' + (sum/a.length).toFixed(2)
+             + '초 (최소 ' + Math.min.apply(null,a) + ' / 최대 ' + Math.max.apply(null,a) + ')');
+    });
+    return out.join('<br>');
+  }
+
+  function render(){
+    if (!btn) return;
+    btn.textContent = '측정 ' + rows.length + '건';
+    var h = '<div style="font-weight:700;margin-bottom:6px">Worker 왕복 측정</div>';
+    h += '<div style="margin-bottom:6px;color:#334155">' + (stats() || '아직 기록 없음') + '</div>';
+    h += '<table style="border-collapse:collapse;width:100%"><tr style="background:#f1f5f9">'
+       + ['#','시각','구분','업권','초','상태','입력자수','응답자수'].map(function(t){
+           return '<th style="border:1px solid #e2e8f0;padding:3px 5px;white-space:nowrap">' + t + '</th>';
+         }).join('') + '</tr>';
+    rows.forEach(function(r){
+      h += '<tr>' + [r.no, r.ts, r.kind, r.sector, r.sec, r.status, r.inLen, r.outLen].map(function(v){
+             return '<td style="border:1px solid #e2e8f0;padding:3px 5px;white-space:nowrap">' + v + '</td>';
+           }).join('') + '</tr>';
+    });
+    h += '</table><div style="margin-top:8px">'
+       + '<button id="measCsv" style="margin-right:6px">CSV 저장</button>'
+       + '<button id="measClr">기록 초기화</button></div>';
+    box.innerHTML = h;
+    box.querySelector('#measCsv').onclick = csv;
+    box.querySelector('#measClr').onclick = function(){
+      if (confirm('측정 기록을 모두 지웁니다.')) { rows = []; save(); render(); }
+    };
+  }
+
+  function csv(){
+    var head = ['no','ts','kind','sector','sec','status','inLen','outLen'];
+    var lines = [head.join(',')].concat(rows.map(function(r){
+      return head.map(function(k){ return '"' + String(r[k]).replace(/"/g,'""') + '"'; }).join(',');
+    }));
+    var blob = new Blob(['\ufeff' + lines.join('\r\n')], {type:'text/csv;charset=utf-8'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'STR_meas_' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '.csv';
+    a.click();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ build(); render(); });
+  } else { build(); render(); }
+})();
 </script>
 </body>
 </html>

@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.3.3</title>
+<title>STR 사례 분석기 v3.3.12</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -59,7 +59,7 @@
   .tag{font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;letter-spacing:.02em}
   .tag.local{background:var(--primary-bg);color:var(--primary-d);border:1px solid var(--primary-line)}
   label.l{display:block;font-size:12.5px;color:var(--dim);margin:15px 0 6px;font-weight:700}
-  label.l .opt{color:var(--faint);font-weight:500}
+  label.l .opt,.sec .opt{color:var(--faint);font-weight:500}
   select,input,textarea{width:100%;background:var(--field);border:1px solid var(--line2);border-radius:10px;color:var(--ink);font-family:var(--kr);font-size:13.5px;padding:11px 12px;transition:.15s}
   select:hover,input:hover,textarea:hover{border-color:#aeb9c8}
   textarea{font-family:var(--mono);min-height:140px;resize:vertical;line-height:1.65}
@@ -211,7 +211,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.3.3</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.3.12</span></h1>
     <p class="sub">0~100 점수 엔진 + 등급 + 고객사 척도 환산. 트리아지(1차)↔세부분석 전환. 개인정보는 비식별화 후 분석.</p>
     <span class="badge"><i></i> PII 비식별화 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -400,14 +400,12 @@
           <select id="fsrc"><option>미확인</option><option>자가진술 확보</option><option>증빙 확인</option></select></div>
       </div>
 
-      <label class="l">위험 플래그</label>
-      <div class="flags">
-        <label><input type="checkbox" id="f_sanc">제재·PEP 연계</label>
-        <label><input type="checkbox" id="f_third">타인계약(계약자≠수익자)</label>
-        <label><input type="checkbox" id="f_refuse">설명·확인 비협조</label>
-        <label><input type="checkbox" id="f_fraud">사기·증서위변조 인지</label>
-        <label><input type="checkbox" id="f_cash">1천만원↑ 현금지급(환급 등)</label>
-        <label><input type="checkbox" id="f_recheck">재이행 사유 해당(중요거래·정보변경·계좌운영변화·정보불충분)</label>
+      <!-- v3.3.9 신설: 고객확인 진행 상태. 누설 금지(업무규정 §44-2) 사유로 확인을 중단한 상태를 fsrc와 분리해 받는 축.
+           조문 좌표는 사례분석방 회신 기재이며 STR 원문 미실측(CLAUDE_STR §11-55 2항). -->
+      <div class="twocol">
+        <div><label class="l">고객확인 진행 상태 <span class="opt">(누설 우려 시)</span></label>
+          <select id="cdd_status"><option>해당없음</option><option>누설 우려로 확인 중단</option></select></div>
+        <div></div>
       </div>
 
       <label class="l">📷 사진 인식 <span class="opt">(AML 화면·서류 사진 → 아래 사례 내용에 자동 입력)</span></label>
@@ -426,6 +424,17 @@
       <div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <button class="btn-sm" onclick="autoFillFromText()" style="font-size:12px;padding:6px 12px">✨ 입력 자동채움</button>
         <span id="autoFillStatus" style="font-size:11.5px;color:var(--faint)">사례 내용에서 이름·생년월일·거래일·금액·유형 추출 → 빈 칸 채움 · 이름은 추가 · 값이 다르면 제안</span>
+      </div>
+
+      <div class="sec">위험 플래그 <span class="opt">(해당 항목만 체크 · 자동채움 대상 아님)</span></div>
+      <div class="flags">
+        <label><input type="checkbox" id="f_sanc">제재·PEP 연계</label>
+        <label><input type="checkbox" id="f_third">타인계약(계약자≠피보험자≠수익자)</label>
+        <label><input type="checkbox" id="f_refuse">자금원천 소명 거부·회피</label>
+        <label><input type="checkbox" id="f_cddref">고객확인 자체 거부(신원확인·검증 거부)</label>
+        <label><input type="checkbox" id="f_fraud">사기·증서위변조 인지</label>
+        <label><input type="checkbox" id="f_cash">1천만원 이상 현금지급(환급 등)</label>
+        <label><input type="checkbox" id="f_recheck">재이행 사유 해당(중요거래·정보변경·계좌운영변화·정보불충분)</label>
       </div>
 
       <details id="rt_panel">
@@ -543,7 +552,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.3.3 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.3.12 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -555,6 +564,34 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.3.12(2026-08-30): 프롬프트를 v3.3.8(49FACA3F)로 회귀 + 규칙 2건을 코드로 이관 + C3 후처리 필터.
+//   프롬프트 4블록 제거([C3 제한]·핵심 판단원칙 2행·basis_field 라벨 1종·ctx 1행) → v3.3.8과 68건 전건 문자열 동일.
+//   코드 이관: f_cddref → 의무 발동 경고 블록 / cdd_status='누설 우려로 확인 중단' → 접촉 전제 추가확인 안내(블록 은닉 없음).
+//   basis_field 폴백 신설 — 필드근거 항목이 화면·의견서에서 빈 괄호로 나오던 결함 해소(CLAUDE_STR §11-59 8항 ⓐ).
+// v3.3.11(2026-08-30): filterTypologies 신설 — C3 가 basis_field [자금원천 확인] 단독이면 응답 후처리에서 제거.
+//   68건 전수 실측: 유형 0종 0건 · c3제거 25건/25사례. 프롬프트 규약이 아니라 코드로 강제한 첫 판.
+// v3.3.10(2026-08-30): [C3 제한] 블록에 「C3만 빼고 나머지는 그대로 출력하라」 3행 추가 — 기각.
+//   강O건 4/4 유형 0종. 문면 추가로 억제가 오히려 강화됐다(CLAUDE_STR §11-59).
+// v3.3.9(2026-08-28): 입력 층 개편 3층 (CLAUDE_STR §11-55 8항 · §11-56 5항).
+//   1층 가시성 : 위험 플래그 블록을 사례 내용 아래로 이동, label.l 을 .sec 로 위계 승격, .opt 부연 신설.
+//   2층 정합   : f_recheck 수집·초기화 누락 2건 수정, 라벨/프롬프트 문자열 3종 정합.
+//               f_third 는 보험권 STR 유형라이브러리 v0.2 원문 「B1 타인계약(계약자≠피보험자≠수익자)」에 맞춤.
+//   3층 회피축 : f_refuse 재정의(자금원천 소명 거부·회피) + f_cddref 신설(고객확인 자체 거부),
+//               cdd_status 신설(누설 금지 사유 확인 중단), basis_field 라벨 21종을 22종으로,
+//               SCHEMA_P1 에 [C3 제한] 규약 신설, 핵심 판단원칙 2행 추가.
+//   v3.3.8 실측 근거: basis_field 67건(상한 8의 8.4배), 그중 C3 51건은 48건이 본문 근거 없음.
+// v3.3.8(2026-08-27): typologies 에 basis_field 도입(1단계) — 머리 항목 근거는 quote 가 아니라 라벨명으로 지목한다.
+//   v3.3.7 실측 근거: 실재율 278/284(97.9%), JSON 파싱 실패 0건(v3.3.6 2건에서 해소, 개정 ① 성공).
+//   필드블록 인용 4건은 v3.3.6과 동일(개정 ② 무효). 인용 대상은 전 측정에서 [자금원천 확인] 단독.
+//   근거: fsrc=미확인 58건 중 50건이 C1/C3 산출, 그중 머리 항목 인용은 4건뿐. 나머지 46건은 본문 근거로 성립.
+// v3.3.7(2026-08-27): JSON 문자열 내 raw 개행 금지(\n 이스케이프 의무)를 1차·2차 출력 형식 조항에 동시 명시 + typologies 규칙 경합 해소.
+//   v3.3.6 실측 근거: 실재율 272/279(97.5%), 회귀 JSON 파싱 실패 2건(문자열 내 제어문자). v3.3.6 L1086 줄바꿈 허용의 부작용.
+//   불일치 5건 = 필드블록 인용 4건(C3 3건·C1 1건) + 비연속 결합 1건(A6). 분자 272는 v3.3.5의 272/287과 우연히 같을 뿐이니 분모를 함께 읽을 것.
+// v3.3.6(2026-08-26): quote 출처를 [사례(비식별)] 블록으로 한정 + 비연속 결합 금지(줄바꿈은 허용).
+//   v3.3.5 실측 근거: 실재율 272/287(94.8%). 실패 15건 = 필드블록 인용 9건(전부 C3) + 비연속 결합 4건 + 단일 변형 2건.
+// v3.3.5(2026-08-26): typologies 3필드 분리(code/quote/reason) — quote verbatim 구속·reason 분리.
+//   v3.3.4 실측 근거: 인용 실재율 0/25(0%), em대시 접합 19/25, 그중 14건은 최장일치=좌변 전체.
+// v3.3.4(2026-08-23): typologies 결정성 규약 — 근거 인용 가능 유형만·code 오름차순·개수 상한 없음(설계문서 v2.3 §3.1.5).
 // v3.3.3d(2026-08-23): 백엔드를 Deno Deploy로 전환 — CF Worker HKG 콜로 차단(세션 ~50% 실패) 해소.
 // 구 CF Worker(str-proxy)는 백업 존치. API 계약 동일.
 const STR_WORKER_URL = 'https://weird-hippo-7289.sangwonpark70-art.deno.net';
@@ -857,7 +894,7 @@ async function loadDriveCase(fileId, fname){
     const i=rec.input||{};
     const setv=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v;};
     setv('sector', i.sector || '보험'); onSectorChange();
-    ['caseno','txdate','birth','custno','ttype','ctype','amt','ncnt','ntot','fpath','fsrc','names','scale'].forEach(k=>setv(k,i[k])); genIdCode();
+    ['caseno','txdate','birth','custno','ttype','ctype','amt','ncnt','ntot','fpath','fsrc','cdd_status','names','scale'].forEach(k=>setv(k,i[k])); genIdCode();
     if(i.sectorFields){
       const sf=i.sectorFields;
       setv('ins_cdd_stage',sf.cdd_stage); setv('ins_surrender',sf.surrender);
@@ -871,7 +908,7 @@ async function loadDriveCase(fileId, fname){
       if(sf.q4!=null)document.getElementById('sec_q4').checked=!!sf.q4;
     }
     if(i.src!=null)document.getElementById('src').value=i.src;
-    if(i.sancFlags){document.getElementById('f_sanc').checked=!!i.sancFlags.sanc;document.getElementById('f_third').checked=!!i.sancFlags.third;document.getElementById('f_refuse').checked=!!i.sancFlags.refuse;document.getElementById('f_fraud').checked=!!i.sancFlags.fraud;document.getElementById('f_cash').checked=!!i.sancFlags.cash;document.getElementById('f_recheck').checked=!!i.sancFlags.recheck;}
+    if(i.sancFlags){document.getElementById('f_sanc').checked=!!i.sancFlags.sanc;document.getElementById('f_third').checked=!!i.sancFlags.third;document.getElementById('f_refuse').checked=!!i.sancFlags.refuse;document.getElementById('f_cddref').checked=!!i.sancFlags.cddref;document.getElementById('f_fraud').checked=!!i.sancFlags.fraud;document.getElementById('f_cash').checked=!!i.sancFlags.cash;document.getElementById('f_recheck').checked=!!i.sancFlags.recheck;}
     if(i.opts){['rrn','phone','acct','biz','email'].forEach(k=>{const el=document.getElementById('o_'+k);if(el)el.checked=!!i.opts[k];});}
     MAP=rec.map||{}; LAST=Object.assign({},LAST,{deid:rec.deid||''});
     if(rec.deid)renderDeid(rec.deid);
@@ -950,7 +987,7 @@ function deidentify(){
 function restore(s){s=String(s||'');Object.keys(MAP).sort((a,b)=>b.length-a.length).forEach(tok=>{s=s.split(tok).join(MAP[tok].value);});return s;}
 function renderDeid(t){document.getElementById('deid').innerHTML=esc(t).replace(/\[[가-힣A-Za-z]+\d+\]/g,m=>`<span class="tok">${m}</span>`)||'<span style="color:var(--faint)">치환 내용 없음</span>';}
 
-function flags(){const a=[];if(chk('f_sanc'))a.push('제재·PEP 연계');if(chk('f_third'))a.push('타인계약(계약자≠피보험자)');if(chk('f_refuse'))a.push('설명·확인 비협조');if(chk('f_fraud'))a.push('보험사기·증서 위변조 인지');if(chk('f_cash'))a.push('1천만원 이상 현금지급');return a.length?a.join(', '):'없음';}
+function flags(){const a=[];if(chk('f_sanc'))a.push('제재·PEP 연계');if(chk('f_third'))a.push('타인계약(계약자≠피보험자≠수익자)');if(chk('f_refuse'))a.push('자금원천 소명 거부·회피');if(chk('f_cddref'))a.push('고객확인 자체 거부(신원확인·검증 거부)');if(chk('f_fraud'))a.push('사기·증서위변조 인지');if(chk('f_cash'))a.push('1천만원 이상 현금지급(환급 등)');if(chk('f_recheck'))a.push('재이행 사유 해당(중요거래·정보변경·계좌운영변화·정보불충분)');return a.length?a.join(', '):'없음';}
 function ctx(){
   return `[업권] ${LAST.sector}\n[거래유형] ${LAST.ttype||'미선택(AI 추천 요청)'}\n[고객유형] ${LAST.ctype}\n[거래금액] ${LAST.amt||'미입력'}\n${sectorCtxLine()}[자금 경로] ${LAST.fpath}\n[자금원천 확인] ${LAST.fsrc}\n[위험 플래그] ${LAST.flags}\n[사례(비식별)]\n${LAST.deid}`;
 }
@@ -1063,7 +1100,8 @@ const SCHEMA_P1 = `반드시 아래 JSON만 출력. 코드펜스·서론 금지.
 {
  "risk_score": 0~100 정수,
  "suggested_type": "사례에 가장 부합하는 거래유형(목록 중 하나)",
- "typologies": [{"code":"A1","text":"해당 유형이 사례에서 어떻게 나타나는지 한 줄"}],
+ "typologies": [{"code":"A1","quote":"[사례(비식별)] 블록에 있는 그대로의 연속 구간","reason":"그 구간이 이 유형에 해당하는 이유"},
+                {"code":"C3","basis_field":"자금원천 확인","reason":"그 입력값이 이 유형에 해당하는 이유"}],
  "key_basis": "점수의 핵심 근거 1~2문장(트리아지용)",
  "handoff": "심화분석팀 이관용 요약 1~2문장(다음단계가 무엇을 봐야 하는지)",
  "profile": "프로필 개요 2~4문장",
@@ -1074,7 +1112,37 @@ const SCHEMA_P1 = `반드시 아래 JSON만 출력. 코드펜스·서론 금지.
  "tx_date": "이 건의 핵심 거래일(STR 산출 트리거가 된 거래일). YYYY-MM-DD 또는 원문 표기. 없으면 빈 문자열"
 }
 
-[출력 형식 — 반드시 준수] 위 JSON 객체 하나만 출력하라. 코드블록, 마크다운 표, 설명 문장을 일절 붙이지 말 것. 응답은 { 로 시작해 } 로 끝나야 한다.`;
+[typologies 선정 규칙 — 반드시 준수]
+- quote는 위 [사례(비식별)] 블록 안에 실제로 있는 연속된 한 구간을 그대로 옮긴 것이다. 한 글자도 바꾸지 마라.
+  요약·생략·말줄임(…)·어순 변경·조사 수정을 금지한다. 토큰([이름1] 등)도 본문 표기 그대로 둔다.
+  떨어져 있는 두 곳을 이어 붙이지 마라. 근거가 여럿이면 각각을 별도 항목으로 나눠라.
+  단 한 구간이 여러 줄에 걸쳐 있으면 줄바꿈을 포함해 그대로 옮긴다. 연속이기만 하면 줄바꿈은 무방하다.
+- [사례(비식별)] 앞의 머리 항목은 담당자가 고른 입력값이지 사례 서술이 아니다.
+  그 문자열을 quote로 쓰지 마라. 머리 항목이 근거라면 quote 대신 basis_field에 라벨명만 적는다.
+  quote와 basis_field는 상호 배타다. 한 항목에 둘 다 넣거나 둘 다 비우지 마라.
+  basis_field에는 대괄호·값·설명을 붙이지 말고 라벨명 그대로만 쓴다. 예: "자금원천 확인"
+  아래 목록 밖의 값, 그리고 이 프롬프트의 머리 블록에 실제로 실리지 않은 라벨은 쓰지 마라.
+  [사용 가능한 basis_field 값]
+  공통 : 업권 · 거래유형 · 고객유형 · 거래금액 · 자금 경로 · 자금원천 확인 · 위험 플래그
+  보험 : 보유계약 건수 · 누적 보험료(신규포함) · 수익자 CDD 단계 · 중도해지환급금 발생여부
+  은행 : 업무라인 · 거래흐름 구분 · 대출 신규/연장
+  저축은행 : 연체이력 여부 · 대출한도 대비 실행비율
+  상호금융공제 : 조합원 여부 · 출자좌수
+  증권 : 역외펀드 위험도 · 운용지시 유무 · 외국인통합계좌 4요건
+- quote에는 판단·평가·해설을 일절 덧붙이지 마라. 그런 서술은 전부 reason에 쓴다.
+- reason은 그 구간이 해당 유형에 해당하는 이유다. 유형의 일반적 정의를 옮겨 적지 마라.
+- reason에 em대시(—)를 쓰지 마라.
+- 뒷받침할 구간을 [사례(비식별)] 블록에서 지목할 수 없고 머리 항목도 근거가 되지 않으면
+  그 code를 출력하지 마라(추정·연상으로 넣지 말 것).
+- 한 구간이 여러 유형을 동시에 뒷받침하면, 각 유형에 동일한 quote를 그대로 재사용한다. reason만 유형에 맞게 달리 쓴다.
+- code 오름차순으로 정렬해 출력한다.
+- 개수 상한은 없다. 위 기준을 충족하는 유형은 전부 포함하고, 하나도 충족하지 않으면 빈 배열로 둔다.
+- 두 규칙이 부딪히면 「근거 없으면 출력하지 않는다」가 「전부 포함한다」보다 우선한다.
+  다만 머리 항목이 실제 근거라면 그것은 근거 없음이 아니다. basis_field로 적어라.
+  본문에도 머리 항목에도 댈 것이 없을 때만 그 유형을 뺀다. 유형을 빠뜨리는 것보다
+  근거 없는 유형을 넣는 것이 더 나쁘다.
+
+[출력 형식 — 반드시 준수] 위 JSON 객체 하나만 출력하라. 코드블록, 마크다운 표, 설명 문장을 일절 붙이지 말 것. 응답은 { 로 시작해 } 로 끝나야 한다. 문자열 값 안에 줄바꿈이 들어갈 때는 반드시 \\n으로 이스케이프하라. raw 개행을 그대로 넣지 마라. JSON 문자열 안의 제어문자는 파싱을 통째로 실패시킨다.`;
 
 function SCHEMA_P2_FN(prior){ return `[2차 분석 — 확정값 재산출 금지]
 아래 1차 분석 결과는 이미 확정된 값이다. 위험도 점수·매칭 유형(typologies)·추정 거래유형은 이 값을 전제로 삼되, 다시 계산하거나 출력하지 마라. 1차와 다른 점수·유형을 제시해서는 안 된다.
@@ -1092,14 +1160,14 @@ ${prior || '{}'}
  "missing_info": ["추가 확인 권장 정보"]
 }
 
-[출력 형식 — 반드시 준수] 위 JSON 객체 하나만 출력하라. 코드블록, 마크다운 표, 설명 문장을 일절 붙이지 말 것. 응답은 { 로 시작해 } 로 끝나야 한다.`; }
+[출력 형식 — 반드시 준수] 위 JSON 객체 하나만 출력하라. 코드블록, 마크다운 표, 설명 문장을 일절 붙이지 말 것. 응답은 { 로 시작해 } 로 끝나야 한다. 문자열 값 안에 줄바꿈이 들어갈 때는 반드시 \\n으로 이스케이프하라. raw 개행을 그대로 넣지 마라. JSON 문자열 안의 제어문자는 파싱을 통째로 실패시킨다.`; }
 
 async function analyze(){
   const src=document.getElementById('src').value.trim();
   if(!src){alert('사례 내용을 입력하세요.');return;}
   setStep(2);
   const deid=deidentify(); renderDeid(deid);
-  LAST={deid,sector:val('sector'),ttype:val('ttype'),ctype:val('ctype'),amt:val('amt'),ncnt:val('ncnt'),ntot:val('ntot'),fpath:val('fpath'),fsrc:val('fsrc'),flags:flags(),cash:chk('f_cash'),fraud:chk('f_fraud'),sectorFields:sectorFieldValues()};
+  LAST={deid,sector:val('sector'),ttype:val('ttype'),ctype:val('ctype'),amt:val('amt'),ncnt:val('ncnt'),ntot:val('ntot'),fpath:val('fpath'),fsrc:val('fsrc'),cddstatus:val('cdd_status'),flags:flags(),cash:chk('f_cash'),cddref:chk('f_cddref'),fraud:chk('f_fraud'),sectorFields:sectorFieldValues()};
   const btn=document.getElementById('goBtn');btn.disabled=true;btn.textContent='분석 중…';
   document.getElementById('result').innerHTML='<div class="loading"><div class="spin"></div>AI가 비식별 데이터를 분석 중입니다…</div>';
 
@@ -1107,10 +1175,12 @@ async function analyze(){
 
   try{
     const j=await callWorker(sys+"\n\n"+ctx(), 1);
+    const _f=filterTypologies(j.typologies||[], LAST.flags);
     RES={
       score:Math.max(0,Math.min(100,parseInt(j.risk_score)||0)),
       suggested_type:restore(j.suggested_type),
-      typologies:(j.typologies||[]),
+      typologies:_f.kept,
+      c3_dropped:_f.dropped,
       key_basis:restore(j.key_basis), handoff:restore(j.handoff),
       profile:restore(j.profile),
       brief:restore(j.brief||''),          // 입력용 요약의견
@@ -1150,6 +1220,27 @@ async function callWorker(prompt, phase){
   const fb=txt.indexOf('{'), lb=txt.lastIndexOf('}');
   if(fb>=0 && lb>fb) txt=txt.slice(fb,lb+1);
   return JSON.parse(txt);
+}
+
+/* ── v3.3.11: C3 후처리 필터 (설계 단일 출처 — 러너도 이 정의를 추출해 쓴다) ── */
+function filterTypologies(arr, flagsStr){
+  var INVALID='자금원천 확인', RISK='위험 플래그';
+  var noFlag=(String(flagsStr||'')==='없음');
+  var kept=[], dropped=[];
+  (arr||[]).forEach(function(t){
+    var code=String((t&&t.code)||'').trim().toUpperCase();
+    if(code!=='C3'){ kept.push(t); return; }
+    var q=String((t&&(t.quote||t.text))||'').trim();
+    if(q){ kept.push(t); return; }
+    var toks=String((t&&t.basis_field)||'').split(/[,·]/).map(function(s){return s.trim();}).filter(Boolean);
+    var valid=toks.filter(function(s){
+      if(s===INVALID) return false;
+      if(s===RISK) return !noFlag;
+      return true;
+    });
+    if(valid.length>0) kept.push(t); else dropped.push(t);
+  });
+  return {kept:kept, dropped:dropped};
 }
 
 /* ── v3.3.3: 2차 분석 — 1차 확정값 동봉, 결과는 덧붙임(실패해도 1차 보존) ── */
@@ -1284,11 +1375,13 @@ function draw(){
   }
 
   if(RES.typologies&&RES.typologies.length){
-    html+=`<div class="chips">`+RES.typologies.map(t=>{const c=(t.code||'').trim();return `<span class="chip" title="${esc(restore(t.text||''))}">${esc(c)} ${esc(TYPENAME[c]||'')}</span>`;}).join('')+`</div>`;
+    html+=`<div class="chips">`+RES.typologies.map(t=>{const c=(t.code||'').trim();var q=restore(t.quote||t.text||'');const rs=restore(t.reason||'');const bf=String(t.basis_field||'').trim();if(!q&&bf)q='입력항목: '+bf;return `<span class="chip" title="${esc(rs?rs+'\n「'+q+'」':q)}">${esc(c)} ${esc(TYPENAME[c]||'')}</span>`;}).join('')+`</div>`;
   }
   html+=`<div class="sec">핵심 근거</div><div class="block">${esc(RES.key_basis)}</div>`;
   html+=`<div class="handoff" style="margin-top:14px"><b>▶ 심화분석팀 이관 요약</b><br>${esc(RES.handoff)}</div>`;
 
+  if(LAST.cddref)
+    html+=`<div class="monitor" style="background:var(--rep-bg);border-color:var(--rep-line);color:#7a1c1c"><b>⚠ 고객확인 자체 거부 — 의무 발동 검토</b><br>위험 플래그에 고객확인 자체 거부가 있다. 유형 코드 분류와 별개로 거래거절·거래종료 검토와 보고 의무가 발동할 수 있다. 이행 여부를 의견서에 명시할 것.</div>`;
   if(LAST.cash)
     html+=`<div class="monitor" style="background:var(--rep-bg);border-color:var(--rep-line);color:#7a1c1c"><b>⚠ 고액현금거래보고(CTR) 별도 검토</b><br>1천만원 이상 현금 지급(환급 등)은 STR과 별개로 CTR 대상일 수 있습니다. (FIU 유권해석 사례 14)</div>`;
   if(RES.cdd_check&&RES.cdd_check.trim())
@@ -1309,6 +1402,8 @@ function draw(){
     html+=`<div class="sec">의견 <span style="font-size:11px;font-weight:500;color:var(--faint)">보고서용</span></div><div class="block">${esc(RES.opinion)}</div>`;
   if(RES.monitoring&&RES.monitoring.trim())
     html+=`<div class="monitor"><b>🔭 향후 모니터링·재검토 조건</b><br>${esc(RES.monitoring)}</div>`;
+  if(LAST.cddstatus==='누설 우려로 확인 중단')
+    html+=`<div class="monitor"><b>ℹ 누설 금지에 따른 확인 중단 건</b><br>고객 접촉을 전제한 추가확인은 권고 대상이 아니다. 아래 권장 정보 중 고객 접촉이 필요한 항목은 수행하지 말고 보고 절차를 진행할 것.</div>`;
   if(RES.missing&&RES.missing.length)
     html+=`<div class="missing"><b>📋 추가 확인 권장 정보</b><ul>`+RES.missing.map(m=>`<li>${esc(m)}</li>`).join('')+`</ul></div>`;
   // v3.3.3: 2차(상세 분석) 상태·트리거
@@ -1649,8 +1744,8 @@ function resetForm(){
   AF_SUGGEST=[]; AF_FILLED=[];
   if(st){st.style.color='var(--faint)';st.innerHTML='사례 내용에서 이름·생년월일·거래일·금액·유형 추출 → 빈 칸 채움 · 이름은 추가 · 값이 다르면 제안';}
   ['caseno','txdate','birth','custno','amt','ncnt','ntot','names','src'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';}); genIdCode();
-  ['ttype','ctype','fpath','fsrc','scale'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;});
-  ['f_sanc','f_third','f_refuse','f_fraud','f_cash'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
+  ['ttype','ctype','fpath','fsrc','cdd_status','scale'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;});
+  ['f_sanc','f_third','f_refuse','f_cddref','f_fraud','f_cash','f_recheck'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
   ['o_rrn','o_phone','o_acct','o_biz','o_email'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=true;});
   setMode('tri');
   setStep(1);
@@ -1689,7 +1784,7 @@ function genIdCode(){
   else { el.textContent='—'; }
   return code;
 }
-function curInput(){return {caseno:val('caseno'),txdate:val('txdate'),birth:val('birth'),custno:val('custno'),idcode:genIdCode(),sector:val('sector'),ttype:val('ttype'),ctype:val('ctype'),amt:val('amt'),ncnt:val('ncnt'),ntot:val('ntot'),fpath:val('fpath'),fsrc:val('fsrc'),names:val('names'),src:document.getElementById('src').value,flags:flags(),scale:val('scale'),opts:{rrn:chk('o_rrn'),phone:chk('o_phone'),acct:chk('o_acct'),biz:chk('o_biz'),email:chk('o_email')},sancFlags:{sanc:chk('f_sanc'),third:chk('f_third'),refuse:chk('f_refuse'),fraud:chk('f_fraud'),cash:chk('f_cash'),recheck:chk('f_recheck')},sectorFields:sectorFieldValues()};}
+function curInput(){return {caseno:val('caseno'),txdate:val('txdate'),birth:val('birth'),custno:val('custno'),idcode:genIdCode(),sector:val('sector'),ttype:val('ttype'),ctype:val('ctype'),amt:val('amt'),ncnt:val('ncnt'),ntot:val('ntot'),fpath:val('fpath'),fsrc:val('fsrc'),cdd_status:val('cdd_status'),names:val('names'),src:document.getElementById('src').value,flags:flags(),scale:val('scale'),opts:{rrn:chk('o_rrn'),phone:chk('o_phone'),acct:chk('o_acct'),biz:chk('o_biz'),email:chk('o_email')},sancFlags:{sanc:chk('f_sanc'),third:chk('f_third'),refuse:chk('f_refuse'),cddref:chk('f_cddref'),fraud:chk('f_fraud'),cash:chk('f_cash'),recheck:chk('f_recheck')},sectorFields:sectorFieldValues()};}
 
 // ── v3.2 업권 드롭다운 ──
 const SECTOR_TTYPE = {
@@ -1763,7 +1858,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.3.3',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.3.12',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   const rec={meta,input:curInput(),deid:LAST.deid||'',result:RES,map:MAP};
@@ -1787,7 +1882,7 @@ function importJSON(ev){
       const setv=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v;};
       // sector 먼저 설정 → ttype 옵션 동적 생성 → ttype 값 채우기 (순서 중요, 구버전은 sector 없으므로 '보험' 기본값)
       setv('sector', i.sector || '보험'); onSectorChange();
-      ['caseno','txdate','birth','custno','ttype','ctype','amt','ncnt','ntot','fpath','fsrc','names','scale'].forEach(k=>setv(k,i[k])); genIdCode();
+      ['caseno','txdate','birth','custno','ttype','ctype','amt','ncnt','ntot','fpath','fsrc','cdd_status','names','scale'].forEach(k=>setv(k,i[k])); genIdCode();
       if(i.sectorFields){
         const sf=i.sectorFields;
         setv('ins_cdd_stage',sf.cdd_stage); setv('ins_surrender',sf.surrender);
@@ -1801,7 +1896,7 @@ function importJSON(ev){
         if(sf.q4!=null)document.getElementById('sec_q4').checked=!!sf.q4;
       }
       if(i.src!=null)document.getElementById('src').value=i.src;
-      if(i.sancFlags){document.getElementById('f_sanc').checked=!!i.sancFlags.sanc;document.getElementById('f_third').checked=!!i.sancFlags.third;document.getElementById('f_refuse').checked=!!i.sancFlags.refuse;document.getElementById('f_fraud').checked=!!i.sancFlags.fraud;document.getElementById('f_cash').checked=!!i.sancFlags.cash;document.getElementById('f_recheck').checked=!!i.sancFlags.recheck;}
+      if(i.sancFlags){document.getElementById('f_sanc').checked=!!i.sancFlags.sanc;document.getElementById('f_third').checked=!!i.sancFlags.third;document.getElementById('f_refuse').checked=!!i.sancFlags.refuse;document.getElementById('f_cddref').checked=!!i.sancFlags.cddref;document.getElementById('f_fraud').checked=!!i.sancFlags.fraud;document.getElementById('f_cash').checked=!!i.sancFlags.cash;document.getElementById('f_recheck').checked=!!i.sancFlags.recheck;}
       if(i.opts){['rrn','phone','acct','biz','email'].forEach(k=>{const el=document.getElementById('o_'+k);if(el)el.checked=!!i.opts[k];});}
       MAP=rec.map||{}; LAST=Object.assign({},LAST,{deid:rec.deid||''});
       if(rec.deid)renderDeid(rec.deid);
@@ -1865,8 +1960,9 @@ function buildOpinionText(){
     RES.typologies.forEach(x=>{
       const c=(x.code||'').trim();
       const nm=TYPENAME[c]||'';
-      const desc=restore(x.text||'').trim();
-      t+=`· ${c} ${nm}${desc?` — ${desc}`:''}\n`;
+      var q=restore(x.quote||x.text||'').trim();const bf=String(x.basis_field||'').trim();if(!q&&bf)q='입력항목: '+bf;
+      const rs=restore(x.reason||'').trim();
+      t+=`· ${c} ${nm}${rs?` — ${rs}`:''}${q?`\n    근거: 「${q}」`:''}\n`;
     });
   }
 
@@ -1880,6 +1976,8 @@ function buildOpinionText(){
   t+=`\n\n[심화분석팀 이관 요약]\n${RES.handoff}`;
   if(RES.cdd_check&&RES.cdd_check.trim()) t+=`\n\n[CDD 점검]\n${RES.cdd_check}`;
   if(RES.monitoring&&RES.monitoring.trim()) t+=`\n\n[모니터링·재검토 조건]\n${RES.monitoring}`;
+  if(LAST.cddref) t+=`\n\n[고객확인 자체 거부] 유형 코드와 별개로 거래거절·거래종료 검토와 보고 의무가 발동할 수 있다. 이행 여부를 명시할 것.`;
+  if(LAST.cddstatus==='누설 우려로 확인 중단') t+=`\n\n[누설 금지에 따른 확인 중단] 고객 접촉을 전제한 추가확인은 권고 대상이 아니다. 접촉이 필요한 항목은 수행하지 말고 보고 절차를 진행할 것.`;
   if(RES.missing&&RES.missing.length) t+=`\n\n[추가확인 권장]\n- ${RES.missing.join('\n- ')}`;
   t+=`\n\n※ 본 의견은 트리아지 보조 결과이며 최종 판단은 담당자 책임입니다.`;
   return t;

@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.3.12</title>
+<title>STR 사례 분석기 v3.3.13</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -211,7 +211,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.3.12</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.3.13</span></h1>
     <p class="sub">0~100 점수 엔진 + 등급 + 고객사 척도 환산. 트리아지(1차)↔세부분석 전환. 개인정보는 비식별화 후 분석.</p>
     <span class="badge"><i></i> PII 비식별화 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -400,7 +400,7 @@
           <select id="fsrc"><option>미확인</option><option>자가진술 확보</option><option>증빙 확인</option></select></div>
       </div>
 
-      <!-- v3.3.9 신설: 고객확인 진행 상태. 누설 금지(업무규정 §44-2) 사유로 확인을 중단한 상태를 fsrc와 분리해 받는 축.
+      <!-- v3.3.9 신설: 고객확인 진행 상태. 누설 금지(업무규정 제44조의2) 사유로 확인을 중단한 상태를 fsrc와 분리해 받는 축.
            조문 좌표는 사례분석방 회신 기재이며 STR 원문 미실측(CLAUDE_STR §11-55 2항). -->
       <div class="twocol">
         <div><label class="l">고객확인 진행 상태 <span class="opt">(누설 우려 시)</span></label>
@@ -552,7 +552,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.3.12 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.3.13 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -564,6 +564,8 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.3.13(2026-08-31): ⓐⓑ 안내 문구에 근거 조문 삽입 — 누설 금지 중단 안내=업무규정 제44조의2 / 고객확인 자체 거부 경고=업무규정 제44조①② · 법 제4조.
+//   화면 draw() 2곳 + 의견서 buildOpinionText() 2곳 + DOM 주석 1곳(§44-2 약칭→정식 표기). 프롬프트 경로 무변경(CLAUDE_STR §11-61).
 // v3.3.12(2026-08-30): 프롬프트를 v3.3.8(49FACA3F)로 회귀 + 규칙 2건을 코드로 이관 + C3 후처리 필터.
 //   프롬프트 4블록 제거([C3 제한]·핵심 판단원칙 2행·basis_field 라벨 1종·ctx 1행) → v3.3.8과 68건 전건 문자열 동일.
 //   코드 이관: f_cddref → 의무 발동 경고 블록 / cdd_status='누설 우려로 확인 중단' → 접촉 전제 추가확인 안내(블록 은닉 없음).
@@ -1381,7 +1383,7 @@ function draw(){
   html+=`<div class="handoff" style="margin-top:14px"><b>▶ 심화분석팀 이관 요약</b><br>${esc(RES.handoff)}</div>`;
 
   if(LAST.cddref)
-    html+=`<div class="monitor" style="background:var(--rep-bg);border-color:var(--rep-line);color:#7a1c1c"><b>⚠ 고객확인 자체 거부 — 의무 발동 검토</b><br>위험 플래그에 고객확인 자체 거부가 있다. 유형 코드 분류와 별개로 거래거절·거래종료 검토와 보고 의무가 발동할 수 있다. 이행 여부를 의견서에 명시할 것.</div>`;
+    html+=`<div class="monitor" style="background:var(--rep-bg);border-color:var(--rep-line);color:#7a1c1c"><b>⚠ 고객확인 자체 거부 — 의무 발동 검토</b><br>위험 플래그에 고객확인 자체 거부가 있다. 유형 코드 분류와 별개로 거래거절·거래종료 검토와 보고 의무가 발동할 수 있다(업무규정 제44조①② · 법 제4조). 이행 여부를 의견서에 명시할 것.</div>`;
   if(LAST.cash)
     html+=`<div class="monitor" style="background:var(--rep-bg);border-color:var(--rep-line);color:#7a1c1c"><b>⚠ 고액현금거래보고(CTR) 별도 검토</b><br>1천만원 이상 현금 지급(환급 등)은 STR과 별개로 CTR 대상일 수 있습니다. (FIU 유권해석 사례 14)</div>`;
   if(RES.cdd_check&&RES.cdd_check.trim())
@@ -1403,7 +1405,7 @@ function draw(){
   if(RES.monitoring&&RES.monitoring.trim())
     html+=`<div class="monitor"><b>🔭 향후 모니터링·재검토 조건</b><br>${esc(RES.monitoring)}</div>`;
   if(LAST.cddstatus==='누설 우려로 확인 중단')
-    html+=`<div class="monitor"><b>ℹ 누설 금지에 따른 확인 중단 건</b><br>고객 접촉을 전제한 추가확인은 권고 대상이 아니다. 아래 권장 정보 중 고객 접촉이 필요한 항목은 수행하지 말고 보고 절차를 진행할 것.</div>`;
+    html+=`<div class="monitor"><b>ℹ 누설 금지에 따른 확인 중단 건</b><br>고객 접촉을 전제한 추가확인은 권고 대상이 아니다(업무규정 제44조의2). 아래 권장 정보 중 고객 접촉이 필요한 항목은 수행하지 말고 보고 절차를 진행할 것.</div>`;
   if(RES.missing&&RES.missing.length)
     html+=`<div class="missing"><b>📋 추가 확인 권장 정보</b><ul>`+RES.missing.map(m=>`<li>${esc(m)}</li>`).join('')+`</ul></div>`;
   // v3.3.3: 2차(상세 분석) 상태·트리거
@@ -1858,7 +1860,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.3.12',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.3.13',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   const rec={meta,input:curInput(),deid:LAST.deid||'',result:RES,map:MAP};
@@ -1976,8 +1978,8 @@ function buildOpinionText(){
   t+=`\n\n[심화분석팀 이관 요약]\n${RES.handoff}`;
   if(RES.cdd_check&&RES.cdd_check.trim()) t+=`\n\n[CDD 점검]\n${RES.cdd_check}`;
   if(RES.monitoring&&RES.monitoring.trim()) t+=`\n\n[모니터링·재검토 조건]\n${RES.monitoring}`;
-  if(LAST.cddref) t+=`\n\n[고객확인 자체 거부] 유형 코드와 별개로 거래거절·거래종료 검토와 보고 의무가 발동할 수 있다. 이행 여부를 명시할 것.`;
-  if(LAST.cddstatus==='누설 우려로 확인 중단') t+=`\n\n[누설 금지에 따른 확인 중단] 고객 접촉을 전제한 추가확인은 권고 대상이 아니다. 접촉이 필요한 항목은 수행하지 말고 보고 절차를 진행할 것.`;
+  if(LAST.cddref) t+=`\n\n[고객확인 자체 거부] 유형 코드와 별개로 거래거절·거래종료 검토와 보고 의무가 발동할 수 있다(업무규정 제44조①② · 법 제4조). 이행 여부를 명시할 것.`;
+  if(LAST.cddstatus==='누설 우려로 확인 중단') t+=`\n\n[누설 금지에 따른 확인 중단] 고객 접촉을 전제한 추가확인은 권고 대상이 아니다(업무규정 제44조의2). 접촉이 필요한 항목은 수행하지 말고 보고 절차를 진행할 것.`;
   if(RES.missing&&RES.missing.length) t+=`\n\n[추가확인 권장]\n- ${RES.missing.join('\n- ')}`;
   t+=`\n\n※ 본 의견은 트리아지 보조 결과이며 최종 판단은 담당자 책임입니다.`;
   return t;

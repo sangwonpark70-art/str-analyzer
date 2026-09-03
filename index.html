@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.3.13</title>
+<title>STR 사례 분석기 v3.3.14</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -211,7 +211,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.3.13</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.3.14</span></h1>
     <p class="sub">0~100 점수 엔진 + 등급 + 고객사 척도 환산. 트리아지(1차)↔세부분석 전환. 개인정보는 비식별화 후 분석.</p>
     <span class="badge"><i></i> PII 비식별화 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -552,7 +552,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.3.13 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.3.14 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -564,6 +564,8 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.3.14(2026-09-03): ⓟ TYPENAME 업권화 — 보험 고정 라벨 15종 상수를 SECTOR_TYPOLOGY 파싱(typeNames/typeName)으로 대체.
+//   칩 draw() 1곳 + 의견서 buildOpinionText() 1곳. 업권=LAST.sector→드롭다운 폴백. 프롬프트 경로 무변경(CLAUDE_STR §11-71 7항).
 // v3.3.13(2026-08-31): ⓐⓑ 안내 문구에 근거 조문 삽입 — 누설 금지 중단 안내=업무규정 제44조의2 / 고객확인 자체 거부 경고=업무규정 제44조①② · 법 제4조.
 //   화면 draw() 2곳 + 의견서 buildOpinionText() 2곳 + DOM 주석 1곳(§44-2 약칭→정식 표기). 프롬프트 경로 무변경(CLAUDE_STR §11-61).
 // v3.3.12(2026-08-30): 프롬프트를 v3.3.8(49FACA3F)로 회귀 + 규칙 2건을 코드로 이관 + C3 후처리 필터.
@@ -957,7 +959,16 @@ window.addEventListener('load',()=>{
 let MAP={},counters={},LAST={},RES=null,MODE='tri';
 // 재호출 상태: 불러온 사례 정보 보관 (null=신규, 객체=재평가 모드)
 let LOADED_FROM=null; // {idcode, fname, fileId}
-const TYPENAME={A1:'고액 일시납',A2:'단기 해지·중도인출',A3:'보험계약대출',A4:'분산가입',A5:'가상계좌·즉시이체',A6:'현금성 납입',B1:'타인계약',B2:'수익자 변경',B3:'명의대여·차명',B4:'법인 실소유자 불일치',C1:'소득대비 불일치',C2:'거래패턴 급변',C3:'설명·확인 회피',C4:'제재·PEP·고위험국',C5:'취약계층·범죄 연계'};
+// v3.3.14: 유형 라벨을 업권별로 — 원천은 SECTOR_TYPOLOGY 텍스트(단일 출처) 파싱·캐시. ⓑ' 시 FIU_CODEMAP.def로 일원화 예정.
+const TYPENAME_CACHE={};
+function typeNames(sector){
+  const sec=(SECTOR_TYPOLOGY[sector]?sector:'기타');
+  if(TYPENAME_CACHE[sec])return TYPENAME_CACHE[sec];
+  const m={};
+  String(SECTOR_TYPOLOGY[sec]||'').split('\n').forEach(line=>{line.split(' / ').forEach(seg=>{const r=/^\s*([ABC]\d)\s+(.+?)\s*$/.exec(seg);if(r)m[r[1]]=r[2];});});
+  TYPENAME_CACHE[sec]=m;return m;
+}
+function typeName(c){let sec='';try{sec=(LAST&&LAST.sector)||val('sector')||'';}catch(e){}return typeNames(sec||'보험')[c]||'';}
 function tokenFor(value,type,label){for(const t in MAP){if(MAP[t].value===value)return t;}counters[type]=(counters[type]||0)+1;const tok=`[${label}${counters[type]}]`;MAP[tok]={value,type:label};return tok;}
 function chk(id){return document.getElementById(id).checked;}
 function val(id){return document.getElementById(id).value.trim();}
@@ -1377,7 +1388,7 @@ function draw(){
   }
 
   if(RES.typologies&&RES.typologies.length){
-    html+=`<div class="chips">`+RES.typologies.map(t=>{const c=(t.code||'').trim();var q=restore(t.quote||t.text||'');const rs=restore(t.reason||'');const bf=String(t.basis_field||'').trim();if(!q&&bf)q='입력항목: '+bf;return `<span class="chip" title="${esc(rs?rs+'\n「'+q+'」':q)}">${esc(c)} ${esc(TYPENAME[c]||'')}</span>`;}).join('')+`</div>`;
+    html+=`<div class="chips">`+RES.typologies.map(t=>{const c=(t.code||'').trim();var q=restore(t.quote||t.text||'');const rs=restore(t.reason||'');const bf=String(t.basis_field||'').trim();if(!q&&bf)q='입력항목: '+bf;return `<span class="chip" title="${esc(rs?rs+'\n「'+q+'」':q)}">${esc(c)} ${esc(typeName(c))}</span>`;}).join('')+`</div>`;
   }
   html+=`<div class="sec">핵심 근거</div><div class="block">${esc(RES.key_basis)}</div>`;
   html+=`<div class="handoff" style="margin-top:14px"><b>▶ 심화분석팀 이관 요약</b><br>${esc(RES.handoff)}</div>`;
@@ -1860,7 +1871,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.3.13',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.3.14',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   const rec={meta,input:curInput(),deid:LAST.deid||'',result:RES,map:MAP};
@@ -1961,7 +1972,7 @@ function buildOpinionText(){
     t+=`\n[매칭 위험유형]\n`;
     RES.typologies.forEach(x=>{
       const c=(x.code||'').trim();
-      const nm=TYPENAME[c]||'';
+      const nm=typeName(c);
       var q=restore(x.quote||x.text||'').trim();const bf=String(x.basis_field||'').trim();if(!q&&bf)q='입력항목: '+bf;
       const rs=restore(x.reason||'').trim();
       t+=`· ${c} ${nm}${rs?` — ${rs}`:''}${q?`\n    근거: 「${q}」`:''}\n`;

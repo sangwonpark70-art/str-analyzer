@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.3.14</title>
+<title>STR 사례 분석기 v3.4</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -110,6 +110,16 @@
   .cv b{color:var(--primary-d);font-size:14px}
   .cv.main{background:var(--primary-bg);border-color:var(--primary-line)}
   .chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+  .fiuprod{font-size:11.5px;color:var(--faint);margin:4px 0 2px;line-height:1.5}
+  .fiurow{border-top:1px dashed var(--line);padding:8px 0;margin:0}
+  .fiurow:first-child{border-top:0}
+  .fiuline{font-size:13px;line-height:1.7;margin:3px 0}
+  .fiuline.mut{color:var(--faint)}
+  .fiugrade{font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:99px;margin-left:6px;white-space:nowrap}
+  .fiugrade.d{background:var(--primary-bg);color:var(--primary-d);border:1px solid var(--primary-line)}
+  .fiugrade.j{background:#f1f1f1;color:#6b6b6b;border:1px solid #ddd}
+  .fiugrade.o{background:var(--chk-bg);color:#7a4d06;border:1px solid var(--chk-line)}
+  .fiunote{font-size:11.5px;color:var(--faint);margin:2px 0 0 18px;line-height:1.55}
   .chip{font-size:11px;font-weight:700;padding:4px 9px;border-radius:99px;background:#eef4ff;color:#1b3a72;border:1px solid #bcd0f5}
   .sec{font-size:11px;font-weight:800;color:var(--primary-d);letter-spacing:.07em;margin:18px 0 8px;text-transform:uppercase;display:flex;align-items:center;gap:7px}
   .sec::before{content:"";width:3px;height:13px;background:var(--primary);border-radius:2px}
@@ -211,7 +221,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.3.14</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.4</span></h1>
     <p class="sub">0~100 점수 엔진 + 등급 + 고객사 척도 환산. 트리아지(1차)↔세부분석 전환. 개인정보는 비식별화 후 분석.</p>
     <span class="badge"><i></i> PII 비식별화 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -298,6 +308,7 @@
         <option value="증권">증권·투자</option>
         <option value="기타">기타</option>
       </select>
+      <div id="fiuProd" class="fiuprod"></div>
 
       <label class="l">거래 유형</label>
       <select id="ttype"></select>
@@ -552,7 +563,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.3.14 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.4 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -564,6 +575,9 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.4(2026-09-03): ⓑ' 조회·렌더링층 — FIU_CODEMAP(정본 _scripts\fiu_codemap.js DC3B722B) 축자 인라인 + 렌더링층.
+//   ① 마커 구간 인라인 ② draw() 칩 직후 FIU 후보 섹션(§6-9 분기 4갈래) ③ onSectorChange III-38 축
+//   ④ 의견서 미반영(v3.4.1) ⑤ verify_codemap.js 인라인 대조 확장. report_only(III-43/44·IV-2)는 v3.4.1.
 // v3.3.14(2026-09-03): ⓟ TYPENAME 업권화 — 보험 고정 라벨 15종 상수를 SECTOR_TYPOLOGY 파싱(typeNames/typeName)으로 대체.
 //   칩 draw() 1곳 + 의견서 buildOpinionText() 1곳. 업권=LAST.sector→드롭다운 폴백. 프롬프트 경로 무변경(CLAUDE_STR §11-71 7항).
 // v3.3.13(2026-08-31): ⓐⓑ 안내 문구에 근거 조문 삽입 — 누설 금지 중단 안내=업무규정 제44조의2 / 고객확인 자체 거부 경고=업무규정 제44조①② · 법 제4조.
@@ -1019,6 +1033,328 @@ function buildPrompt(){
 
 // ── v3.2 업권별 시스템 프롬프트 ──
 const SECTOR_LABEL = {보험:'보험회사', 은행:'은행', 저축은행:'저축은행', 상호금융공제:'상호금융·공제조합', 증권:'증권·금융투자회사', 기타:'금융회사'};
+/* ── FIU_CODEMAP 인라인 사본 ─────────────────────────────────────────────
+ * 정본: _scripts\fiu_codemap.js  DC3B722B / 20,037B / 256행
+ * ★ 아래 두 마커 사이는 정본의 축자 사본이다. 수정은 정본에서 하고 재인라인한다.
+ *   verify_codemap.js가 마커 구간을 정본과 바이트 대조한다(§11-71 8항 ⑤).
+ * ─────────────────────────────────────────────────────────────────────── */
+// FIU_CODEMAP_INLINE_BEGIN
+/* FIU_CODEMAP v0.1 — 앱 유형코드 → FIU 별지 제1호 서식 코드 변환테이블 (데이터층)
+ * 유래: STR_FIU_codemap_v0_1.md  27311C94 / 21,013B / 207행  (§2~§5 표 전량)
+ * 앱 원 소스: STR_analyzer_v3_3_13.html  8EEAF0DA  SECTOR_TYPOLOGY (75조합)
+ * 규격: codemap §6-6(3층) · §6-7(targets[] 5필드) · §6-8(state 4종) · §6-9(렌더링 분기)
+ * 생성 2026-09-02. 본 파일은 데이터만 보유한다 — 렌더링·조회 로직은 별도 층.
+ *
+ * state: mapped | unmapped | operator | ungraded   (§6-8)
+ * grade: '직접' | '판단' | null
+ * target: { field, value, grade, state, note }     (§6-7)
+ *   field  : 'III-37' | 'III-38' | 'VI-2' | 'VI-3' | 'VI-4'
+ *   value  : [{code,label}] — 스칼라 금지(§6-7 ※2). extra=부대조건, alt=조건부 후보
+ */
+'use strict';
+
+const FIU_CODEMAP = {
+  meta: {
+    version: 'v0.1',
+    source: { codemap: '27311C94', app: '8EEAF0DA' },
+    basis: 'FIU고시 제2024-1호 별지 제1호 서식',
+    generated: '2026-09-02'
+  },
+
+  /* ── 1층: bySector — 키 (업권, 코드). §3 A그룹 29 + §4 B그룹 16 = 45 ───────── */
+  bySector: {
+    '보험': {
+      A1: { def: '고액 일시납', targets: [
+        { field: 'III-37', value: [{ code: '20', label: '보험료납입' }], grade: '직접', state: 'mapped', note: '' },
+        { field: 'VI-4', value: null, grade: null, state: 'unmapped', note: '금액은 유형이 아님' }
+      ]},
+      A2: { def: '단기 해지·중도인출', targets: [
+        { field: 'III-37', value: [{ code: '19', label: '해지' }], grade: '직접', state: 'mapped', note: '' },
+        { field: 'VI-3', value: [{ code: '13', label: '의심스러운 계약/계좌 해지' }], grade: '직접', state: 'mapped', note: '★ A그룹이나 VI-3으로 감(§6-7 예외 5건)' }
+      ]},
+      A3: { def: '보험계약대출 활용', targets: [
+        { field: 'III-37', value: [{ code: '6', label: '융자' }], grade: '직접', state: 'mapped', note: '' },
+        { field: 'VI-4', value: [{ code: '23', label: '보험계약 즉시 약관대출' }], grade: '직접', state: 'mapped', note: '' }
+      ]},
+      A4: { def: '분산가입·분할납입', targets: [
+        { field: 'III-37', value: [{ code: '18', label: '계약' }, { code: '20', label: '보험료납입' }], grade: '판단', state: 'mapped', note: '' },
+        { field: 'VI-4', value: [{ code: '18', label: '분할거래' }], grade: '판단', state: 'mapped', note: '2026-09-01 재분류(직접→판단): 원문 "분할거래"=보고회피 목적 분할행위 일반, "분할납입"=정상 회차납입과 문면상 미구분' }
+      ]},
+      A5: { def: '가상계좌·즉시이체 고액', targets: [
+        { field: 'III-37', value: [{ code: '8', label: '이체영수' }], grade: '판단', state: 'mapped', note: '' },
+        { field: 'VI-4', value: [{ code: '26', label: '빈번한 입출금' }], grade: '판단', state: 'mapped', note: '' }
+      ]},
+      A6: { def: '현금성 납입', targets: [
+        { field: 'III-37', value: [{ code: '20', label: '보험료납입' }], extra: [{ field: 'III-36', code: '1', label: '현금' }], grade: '직접', state: 'mapped', note: '' },
+        { field: 'VI-4', value: [{ code: '19', label: '현금집착' }], grade: '직접', state: 'mapped', note: '' }
+      ]},
+      B1: { def: '타인계약', targets: [
+        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '직접', state: 'mapped', note: 'report_only 연동: 명의일치 미확인 시 담당자 확인 촉구(§4 rev.1)' }
+      ]},
+      B2: { def: '수익자 빈번변경', targets: [
+        { field: 'VI-2', value: [{ code: '10', label: '계약자·수익자의 빈번·갑작스런 변경' }], grade: '직접', state: 'mapped', note: '★ B그룹이나 VI-2로 감(§6-7 예외 5건)' }
+      ]},
+      B3: { row: 'B-명의대여차명', def: '명의대여·차명', targets: [
+        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '직접', state: 'mapped', note: 'report_only 연동(§4 rev.1)' }
+      ]},
+      B4: { row: 'B-법인실소유자불일치', def: '법인 실제소유자 불일치', targets: [
+        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '판단', state: 'mapped', note: '서식에 실소유자 항목 없음 — VI-5 31) 서술 병행 권장' }
+      ]}
+    },
+
+    '은행': {
+      A1: { def: '고액 현금 입출금', targets: [
+        { field: 'III-37', value: [{ code: '1', label: '입금' }, { code: '2', label: '출금' }], extra: [{ field: 'III-36', code: '1', label: '현금' }], grade: '직접', state: 'mapped', note: '2026-09-01 신규 등급(원문 대조)' },
+        { field: 'VI-4', value: [{ code: '19', label: '현금집착' }, { code: '20', label: '거액입금 후 당일·익일 인출' }], grade: '직접', state: 'mapped', note: '2026-09-01 신규 등급(원문 문언 일치, 해석 개입 없음)' }
+      ]},
+      A2: { def: '해외송금·환전', targets: [
+        { field: 'III-37', value: [{ code: '3', label: '환전' }, { code: '5', label: '송금' }], grade: '직접', state: 'mapped', note: '' },
+        { field: 'VI-4', value: [{ code: '22', label: '계좌개설 없이 거액환전·해외송금' }], grade: '판단', state: 'mapped', note: '2026-09-02 재분류(직접→판단): 앱 정의에 계좌 유무·금액 조건 부재, FIU 22)는 2중 조건부 — 조건 충족은 담당자 판단' }
+      ]},
+      A3: { def: '대출 실행·조기상환', targets: [
+        { field: 'III-37', value: [{ code: '6', label: '융자' }, { code: '7', label: '상환' }], grade: '직접', state: 'mapped', note: '' },
+        { field: 'VI-4', value: [{ code: '23', label: '의심스러운 담보대출' }], grade: '판단', state: 'mapped', note: '' }
+      ]},
+      A4: { def: '가상계좌·오픈뱅킹 이체', targets: [
+        { field: 'III-37', value: [{ code: '8', label: '이체영수' }, { code: '9', label: '이체송금' }], grade: '직접', state: 'mapped', note: '' },
+        { field: 'VI-4', value: [{ code: '26', label: '빈번한 입출금' }], grade: '판단', state: 'mapped', note: '' }
+      ]},
+      A5: { def: '방카슈랑스 연계거래', targets: [
+        { field: 'III-37', value: [{ code: '18', label: '계약' }, { code: '20', label: '보험료납입' }], extra: [{ field: 'III-33', code: '11', label: '방카슈랑스' }], grade: '직접', state: 'mapped', note: '' },
+        { field: 'VI-4', value: null, grade: null, state: 'unmapped', note: '' }
+      ]},
+      A6: { def: '대리인 다수계좌 개설', targets: [
+        { field: 'III-37', value: null, grade: null, state: 'unmapped', note: '개설행위는 III-37에 대응 코드 없음(구조적 공백)' },
+        { field: 'VI-3', value: [{ code: '12', label: '특별사유 없는 복수계좌 개설' }], extra: [{ field: '45', code: '1', label: '거래대리인 존재' }], grade: '직접', state: 'mapped', note: '★ A그룹이나 VI-3으로 감(§6-7 예외 5건)' }
+      ]},
+      B1: { def: '단절거래(현금개입 후 재발행)', targets: [
+        { field: 'VI-4', value: [{ code: '17', label: '교환거래' }], grade: '판단', state: 'mapped', note: '★ B그룹이나 VI-4로 감(§6-7 예외 5건)' }
+      ]},
+      B2: { row: 'B-명의대여차명', def: '명의대여·차명', targets: [
+        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '직접', state: 'mapped', note: 'report_only 연동(§4 rev.1)' }
+      ]},
+      B3: { row: 'B-법인실소유자불일치', def: '법인 실제소유자 불일치', targets: [
+        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '판단', state: 'mapped', note: '서식에 실소유자 항목 없음 — VI-5 31) 서술 병행 권장' }
+      ]}
+    },
+
+    '저축은행': {
+      A1: { def: '고액 예금·적금 가입', targets: [
+        { field: 'III-37', value: [{ code: '1', label: '입금' }], grade: '직접', state: 'mapped', note: '' },
+        { field: 'VI-4', value: null, grade: null, state: 'unmapped', note: '' }
+      ]},
+      A2: { def: '후순위·고금리 대출 실행', targets: [
+        { field: 'III-37', value: [{ code: '6', label: '융자' }], grade: '직접', state: 'mapped', note: '' },
+        { field: 'VI-4', value: [{ code: '23', label: '의심스러운 담보대출' }], grade: '판단', state: 'mapped', note: '' }
+      ]},
+      A3: { def: '가상계좌 발급·이체', targets: [
+        { field: 'III-37', value: [{ code: '8', label: '이체영수' }, { code: '9', label: '이체송금' }], grade: '판단', state: 'mapped', note: '' },
+        { field: 'VI-4', value: [{ code: '26', label: '빈번한 입출금' }], grade: '판단', state: 'mapped', note: '' }
+      ]},
+      A4: { def: '보험대리 연계', targets: [
+        { field: 'III-37', value: [{ code: '20', label: '보험료납입' }], extra: [{ field: 'III-33', code: '9', label: '보험대리점' }], grade: '직접', state: 'mapped', note: '' },
+        { field: 'VI-4', value: null, grade: null, state: 'unmapped', note: '' }
+      ]},
+      B1: { row: 'B-명의대여차명', def: '명의대여·차명', targets: [
+        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '직접', state: 'mapped', note: 'report_only 연동(§4 rev.1)' }
+      ]},
+      B2: { row: 'B-법인실소유자불일치', def: '법인 실제소유자 불일치', targets: [
+        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '판단', state: 'mapped', note: '서식에 실소유자 항목 없음 — VI-5 31) 서술 병행 권장' }
+      ]}
+    },
+
+    '상호금융공제': {
+      A1: { def: '출자금 고액 납입·인출', targets: [
+        { field: 'III-37', value: [{ code: '1', label: '입금' }, { code: '2', label: '출금' }], grade: '판단', state: 'mapped', note: '' },
+        { field: 'VI-4', value: null, grade: null, state: 'unmapped', note: '' }
+      ]},
+      A2: { def: '공제금 지급 이상패턴', targets: [
+        { field: 'III-37', value: [{ code: '21', label: '보험금지급' }], grade: '판단', state: 'mapped', note: '공제금을 보험금에 준용' },
+        { field: 'VI-4', value: [{ code: '15', label: '갑작스런 거래패턴 변화' }],
+          alt: [{ code: '29', label: '무관업종·의심재산 보험청약', cond: '청약 단계 무관업종·의심재산 정황 동반 시' }],
+          grade: '판단', state: 'mapped', note: '2026-09-02 코드 교체 29)→15): 앱 원 소스가 지급 단계를 명시, 29)는 청약 단계라 생애주기 불일치' }
+      ]},
+      A3: { def: '조합원 대출', targets: [
+        { field: 'III-37', value: [{ code: '6', label: '융자' }], grade: '직접', state: 'mapped', note: '' },
+        { field: 'VI-4', value: [{ code: '23', label: '의심스러운 담보대출' }], grade: '판단', state: 'mapped', note: '' }
+      ]},
+      A4: { def: '비조합원 의심거래', targets: [
+        { field: 'III-37', value: null, grade: null, state: 'operator', note: '상황별 — 담당자 선택' },
+        { field: 'VI-4', value: [{ code: '16', label: '원격지거래' }], grade: '판단', state: 'mapped', note: '' }
+      ]},
+      B1: { row: 'B-명의대여차명', def: '명의대여·차명', targets: [
+        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '직접', state: 'mapped', note: 'report_only 연동(§4 rev.1)' }
+      ]},
+      B2: { row: 'B-법인실소유자불일치', def: '법인 실제소유자 불일치', targets: [
+        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '판단', state: 'mapped', note: '서식에 실소유자 항목 없음 — VI-5 31) 서술 병행 권장' }
+      ]}
+    },
+
+    '증권': {
+      A1: { def: '고액 계좌입출금', targets: [
+        { field: 'III-37', value: [{ code: '1', label: '입금' }, { code: '2', label: '출금' }], grade: '직접', state: 'mapped', note: '' },
+        { field: 'VI-4', value: [{ code: '20', label: '거액입금 후 당일·익일 인출' }], grade: '판단', state: 'mapped', note: '' }
+      ]},
+      A2: { def: '펀드 간접판매 이상패턴', targets: [
+        { field: 'III-37', value: [{ code: '10', label: '매수' }, { code: '11', label: '매도' }], grade: '판단', state: 'mapped', note: '' },
+        { field: 'VI-4', value: [{ code: '15', label: '갑작스런 거래패턴 변화' }], grade: '판단', state: 'mapped', note: '' }
+      ]},
+      A3: { def: '투자일임 이상패턴', targets: [
+        { field: 'III-37', value: [{ code: '10', label: '매수' }, { code: '11', label: '매도' }], grade: '판단', state: 'mapped', note: '' },
+        { field: 'VI-4', value: [{ code: '15', label: '갑작스런 거래패턴 변화' }], grade: '판단', state: 'mapped', note: '' }
+      ]},
+      A4: { def: '역외펀드·해외계좌', targets: [
+        { field: 'III-37', value: [{ code: '5', label: '송금' }], grade: '판단', state: 'mapped', note: '' },
+        { field: 'VI-4', value: [{ code: '16', label: '원격지거래' }], grade: '판단', state: 'mapped', note: '2026-09-01 재분류(직접→판단): "원격지"=거리 개념, "역외·해외"=국가 개념으로 축이 다름' }
+      ]},
+      A5: { def: '통합계좌(외국인) 이상', targets: [
+        { field: 'III-37', value: [{ code: '12', label: '입고' }, { code: '13', label: '출고' }], grade: '판단', state: 'mapped', note: '' },
+        { field: 'VI-4', value: [{ code: '17', label: '교환거래' }], grade: '판단', state: 'mapped', note: '' }
+      ]},
+      A6: { def: '불공정거래 연계 의심', targets: [
+        { field: 'III-37', value: [{ code: '10', label: '매수' }, { code: '11', label: '매도' }], grade: '판단', state: 'mapped', note: '' },
+        { field: 'VI-4', value: [{ code: '15', label: '갑작스런 거래패턴 변화' }],
+          alt: [{ code: 'VI-1 4', label: '조직범죄 관련', cond: 'VI-1 후보로도 검토' }],
+          grade: '판단', state: 'mapped', note: '' }
+      ]},
+      B1: { row: 'B-명의대여차명', def: '명의대여·차명', targets: [
+        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '직접', state: 'mapped', note: 'report_only 연동(§4 rev.1)' }
+      ]},
+      B2: { row: 'B-법인실소유자불일치', def: '법인 실제소유자 불일치', targets: [
+        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '판단', state: 'mapped', note: '서식에 실소유자 항목 없음 — VI-5 31) 서술 병행 권장' }
+      ]},
+      B3: { def: '실제소유자 25%+복수주주 오판정', targets: [
+        { field: 'VI-3', value: null, grade: null, state: 'unmapped', note: 'UBO 판정 이슈이지 FIU 유형이 아님 → VI-5 31) 서술' }
+      ]}
+    },
+
+    '기타': {
+      A1: { def: '고액거래', targets: [
+        { field: 'III-37', value: null, grade: null, state: 'operator', note: '담당자 선택' },
+        { field: 'VI-4', value: [{ code: '20', label: '거액입금 후 당일·익일 인출' }], grade: '판단', state: 'mapped', note: '' }
+      ]},
+      A2: { def: '이상거래패턴', targets: [
+        { field: 'III-37', value: null, grade: null, state: 'operator', note: '담당자 선택' },
+        { field: 'VI-4', value: [{ code: '15', label: '갑작스런 거래패턴 변화' }], grade: '직접', state: 'mapped', note: '' }
+      ]},
+      A3: { def: '가상계좌·전자금융 이상', targets: [
+        { field: 'III-37', value: [{ code: '8', label: '이체영수' }, { code: '9', label: '이체송금' }], grade: '판단', state: 'mapped', note: '' },
+        { field: 'VI-4', value: [{ code: '26', label: '빈번한 입출금' }], grade: '판단', state: 'mapped', note: '' }
+      ]},
+      B1: { row: 'B-명의대여차명', def: '명의대여·차명', targets: [
+        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '직접', state: 'mapped', note: 'report_only 연동(§4 rev.1)' }
+      ]},
+      B2: { row: 'B-법인실소유자불일치', def: '법인 실제소유자 불일치', targets: [
+        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '판단', state: 'mapped', note: '서식에 실소유자 항목 없음 — VI-5 31) 서술 병행 권장' }
+      ]}
+    }
+  },
+
+  /* ── 2층: byCode — 키 코드. §5 C그룹 5(전 6업권 공통) ────────────────────── */
+  byCode: {
+    C1: { def: '소득·직업 대비 거래규모 불일치', targets: [
+      { field: 'VI-2', value: [{ code: '3', label: '업력·규모·개인능력 대비 과다거래' }], grade: '판단', state: 'mapped', note: '2026-09-01 재분류(직접→판단): 원문은 업력·업체규모·개인능력 기준, 앱은 소득·직업 기준으로 판단축이 다름' }
+    ]},
+    C2: { def: '거래패턴 급변', targets: [
+      { field: 'VI-4', value: [{ code: '15', label: '갑작스런 거래패턴 변화' }], grade: '직접', state: 'mapped', note: '★ C그룹이나 VI-4로 감(§6-7 예외 5건)' }
+    ]},
+    C3: { def: '설명·확인 회피', targets: [
+      { field: 'VI-2', value: [{ code: '2', label: '합당한답변 불제공·자금출처 불분명' }],
+        alt: [{ code: '1', label: '실명노출기피·비밀요구' }, { code: '6', label: '어색·불안한 태도' }],
+        grade: '직접', state: 'mapped', note: '' }
+    ]},
+    C4: { def: '제재·PEP·고위험국 연계', targets: [
+      { field: 'VI-2', value: [{ code: '5', label: '중요인물 관련거래' }], grade: '직접', state: 'mapped', note: 'PEP만 직접 대응. 제재·고위험국은 대응 항목 없음 → VI-5 31) 병행(부분 미대응)' }
+    ]},
+    C5: { def: '취약계층·민생침해·초국경 범죄 연계', targets: [
+      { field: 'VI-2', value: null,
+        alt: [{ code: 'VI-1 4', label: '조직범죄', cond: '조건부' }, { code: 'VI-4 30', label: '테러자금 의심', cond: '조건부' }],
+        grade: null, state: 'unmapped', note: '기본은 VI-5 31) 서술' }
+    ]}
+  },
+
+  /* ── 3층: bySectorProduct — 키 업권. §2 III-38 거래상품 6 (등급 열 없음) ──── */
+  bySectorProduct: {
+    '보험':       { field: 'III-38', codes: ['61', '62', '63', '64', '65', '66'], rule: '계약 종류로 분기(보장/연금/저축/투자/일반손해/재보험). 앱 미보유 시 담당자 선택', state: 'operator' },
+    '은행':       { field: 'III-38', codes: ['1', '2', '3', '41', '42'], rule: '예금계 vs 대출계 — ttype으로 분기', state: 'mapped' },
+    '저축은행':   { field: 'III-38', codes: ['1', '2', '3', '41', '42'], rule: '은행과 동일', state: 'mapped' },
+    '상호금융공제': { field: 'III-38', codes: ['99', '61', '62', '63'], rule: '출자금은 대응 코드 없음 — 91은 주1) 단서상 부적합하여 99기타(기재란) 처리 권장(§2 ★). 공제는 보험계 준용(판단)', state: 'mapped' },
+    '증권':       { field: 'III-38', codes: ['21', '22', '23', '24', '25', '26', '11', '12'], rule: '주식·CMA·Wrap·증권저축·퇴직연금·신탁·투자신탁', state: 'mapped' },
+    '기타':       { field: 'III-38', codes: ['99'], rule: '', state: 'mapped' }
+  }
+};
+
+/* 조회 — bySector[업권][코드] → 없으면 byCode[코드]. 교집합 0건이라 우선순위 규칙 불요(§6-6) */
+function lookupFiuCodes(sector, code) {
+  const bs = FIU_CODEMAP.bySector[sector];
+  if (bs && bs[code]) return bs[code];
+  if (FIU_CODEMAP.byCode[code]) return FIU_CODEMAP.byCode[code];
+  return null;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { FIU_CODEMAP, lookupFiuCodes };
+}
+// FIU_CODEMAP_INLINE_END
+
+/* ── v3.4 조회·렌더링층 — codemap §6-9 분기표 ──────────────────────────────
+ * mapped×직접=체크 ON / mapped×판단·ungraded=회색 추천(선점 금지) /
+ * operator=담당자 입력 요구 / unmapped=VI-5 31) 서술로 흘림
+ * 의견서 본문 반영은 v3.4.1 — 추천이 확정처럼 읽힐 위험(§11-71 8항 ④). */
+function fiuValText(list){
+  return (list||[]).map(x=>x.code+') '+x.label).join(' · ');
+}
+function fiuSector(){
+  var sec='';
+  try{ sec=(LAST&&LAST.sector)||val('sector')||''; }catch(e){}
+  return FIU_CODEMAP.bySector[sec] ? sec : (sec||'보험');
+}
+function renderFiuProduct(){
+  const bsp=FIU_CODEMAP.bySectorProduct[fiuSector()];
+  if(!bsp) return '';
+  const op=(bsp.state==='operator');
+  return `<div class="fiuline"><b>${esc(bsp.field)}</b> 거래상품 후보 ${esc(bsp.codes.join(' · '))}`
+    + `<span class="fiugrade ${op?'o':'d'}">${op?'담당자 선택':'업권 결정'}</span>`
+    + `<div class="fiunote">${esc(bsp.rule)}</div></div>`;
+}
+function renderFiuCandidates(){
+  const sector=fiuSector();
+  const codes=(RES.typologies||[]).map(t=>String(t.code||'').trim()).filter(Boolean);
+  const seen={}; let rows=''; const narr=[];
+  codes.forEach(c=>{
+    if(seen[c]) return; seen[c]=1;
+    const ent=lookupFiuCodes(sector,c);
+    if(!ent){ narr.push(`${c} ${typeName(c)} — 변환표 미등재`); return; }
+    let lines='';
+    (ent.targets||[]).forEach((t,ix)=>{
+      const note=t.note?`<div class="fiunote">${esc(t.note)}</div>`:'';
+      const extra=(t.extra&&t.extra.length)?`<div class="fiunote">부대조건 — `
+        +esc(t.extra.map(x=>x.field+' '+x.code+') '+x.label).join(' · '))+`</div>`:'';
+      const alt=(t.alt&&t.alt.length)?`<div class="fiunote">조건부 후보 — `
+        +esc(t.alt.map(x=>x.code+') '+x.label+(x.cond?' ('+x.cond+')':'')).join(' · '))+`</div>`:'';
+      if(t.state==='mapped'||t.state==='ungraded'){
+        const direct=(t.state==='mapped'&&t.grade==='직접');
+        const tag=direct?'직접':(t.state==='ungraded'?'미등급 · 추천':'판단 · 추천');
+        lines+=`<div class="fiuline"><label><input type="checkbox" ${direct?'checked':''}> `
+          +`<b>${esc(t.field)}</b> ${esc(fiuValText(t.value))}</label>`
+          +`<span class="fiugrade ${direct?'d':'j'}">${tag}</span></div>${extra}${alt}${note}`;
+      } else if(t.state==='operator'){
+        lines+=`<div class="fiuline"><b>${esc(t.field)}</b> — 담당자 입력`
+          +`<span class="fiugrade o">담당자 입력</span></div>${extra}${alt}${note}`;
+      } else {
+        narr.push(`${c} ${typeName(c)} ${t.field}${t.note?' — '+t.note:''}`);
+        lines+=`<div class="fiuline mut"><b>${esc(t.field)}</b> — 서식 대응 없음 → VI-5 31) 서술</div>${note}`;
+      }
+    });
+    rows+=`<div class="fiurow"><span class="chip">${esc(c)} ${esc(typeName(c))}</span>${lines}</div>`;
+  });
+  if(!rows&&!narr.length) return '';
+  const tail=narr.length?`<div class="fiuline mut" style="margin-top:8px"><b>VI-5 31)</b> 서술 대상 ${narr.length}건 — ${esc(narr.join(' / '))}</div>`:'';
+  return `<div class="sec">FIU 서식 코드 후보 <span style="font-size:11px;font-weight:500;color:var(--faint)">별지 제1호 · 변환표 v0.1 · ${esc(sector)}</span></div>`
+    +`<div class="block" style="white-space:normal">${renderFiuProduct()}${rows}${tail}`
+    +`<div class="fiunote" style="margin-left:0;margin-top:10px">※ 「직접」만 선택 상태로 제시한다. 「판단」·「담당자 입력」은 추천이며 최종 선택은 담당자 몫이다(변환표 §6-9). 「서식 대응 없음」은 VI-5 31) 서술로 기재한다.</div></div>`;
+}
+
 const SECTOR_TYPOLOGY = {
   '보험': `[보험권 STR 유형 라이브러리] 아래 코드로 매칭하세요.
 A1 고액 일시납 / A2 단기 해지·중도인출 / A3 보험계약대출 활용 / A4 분산가입·분할납입 / A5 가상계좌·즉시이체 고액 / A6 현금성 납입
@@ -1390,6 +1726,7 @@ function draw(){
   if(RES.typologies&&RES.typologies.length){
     html+=`<div class="chips">`+RES.typologies.map(t=>{const c=(t.code||'').trim();var q=restore(t.quote||t.text||'');const rs=restore(t.reason||'');const bf=String(t.basis_field||'').trim();if(!q&&bf)q='입력항목: '+bf;return `<span class="chip" title="${esc(rs?rs+'\n「'+q+'」':q)}">${esc(c)} ${esc(typeName(c))}</span>`;}).join('')+`</div>`;
   }
+  html+=renderFiuCandidates();
   html+=`<div class="sec">핵심 근거</div><div class="block">${esc(RES.key_basis)}</div>`;
   html+=`<div class="handoff" style="margin-top:14px"><b>▶ 심화분석팀 이관 요약</b><br>${esc(RES.handoff)}</div>`;
 
@@ -1819,6 +2156,12 @@ function onSectorChange(){
     const el=document.getElementById('sectorFields_'+s);
     if(el) el.style.display=(s===sector)?'':'none';
   });
+  // v3.4: III-38 거래상품은 업권 단독 결정 축(코드 무관) — 변환표 §6-6
+  const prodEl=document.getElementById('fiuProd');
+  if(prodEl){
+    const bsp=FIU_CODEMAP.bySectorProduct[sector];
+    prodEl.textContent = bsp ? ('III-38 거래상품 후보: '+bsp.codes.join(' · ')+(bsp.state==='operator'?' (담당자 선택)':'')) : '';
+  }
 }
 function sectorFieldValues(){
   const sector=val('sector');
@@ -1871,7 +2214,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.3.14',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.4',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   const rec={meta,input:curInput(),deid:LAST.deid||'',result:RES,map:MAP};

@@ -1039,15 +1039,18 @@ const SECTOR_LABEL = {보험:'보험회사', 은행:'은행', 저축은행:'저�
  *   verify_codemap.js가 마커 구간을 정본과 바이트 대조한다(§11-71 8항 ⑤).
  * ─────────────────────────────────────────────────────────────────────── */
 // FIU_CODEMAP_INLINE_BEGIN
-/* FIU_CODEMAP v0.1 — 앱 유형코드 → FIU 별지 제1호 서식 코드 변환테이블 (데이터층)
+/* FIU_CODEMAP v0.2 — 앱 유형코드 → FIU 별지 제1호 서식 코드 변환테이블 (데이터층)
  * 유래: STR_FIU_codemap_v0_1.md  27311C94 / 21,013B / 207행  (§2~§5 표 전량)
  * 앱 원 소스: STR_analyzer_v3_3_13.html  8EEAF0DA  SECTOR_TYPOLOGY (75조합)
  * 규격: codemap §6-6(3층) · §6-7(targets[] 5필드) · §6-8(state 4종) · §6-9(렌더링 분기)
- * 생성 2026-09-02. 본 파일은 데이터만 보유한다 — 렌더링·조회 로직은 별도 층.
+ * 생성 2026-09-02 · v0.2 개정 2026-09-08 (note/hint 분리 — §11-76 3항 ⓐ).
+ * 본 파일은 데이터만 보유한다 — 렌더링·조회 로직은 별도 층.
  *
  * state: mapped | unmapped | operator | ungraded   (§6-8)
  * grade: '직접' | '판단' | null
- * target: { field, value, grade, state, note }     (§6-7)
+ * target: { field, value, grade, state, note, hint }  (§6-7)
+ *   note : 데이터층 이력·근거 메모 — 화면 비노출
+ *   hint : 담당자 안내 — 화면 노출(.fiunote)
  *   field  : 'III-37' | 'III-38' | 'VI-2' | 'VI-3' | 'VI-4'
  *   value  : [{code,label}] — 스칼라 금지(§6-7 ※2). extra=부대조건, alt=조건부 후보
  */
@@ -1055,7 +1058,7 @@ const SECTOR_LABEL = {보험:'보험회사', 은행:'은행', 저축은행:'저�
 
 const FIU_CODEMAP = {
   meta: {
-    version: 'v0.1',
+    version: 'v0.2',
     source: { codemap: '27311C94', app: '8EEAF0DA' },
     basis: 'FIU고시 제2024-1호 별지 제1호 서식',
     generated: '2026-09-02'
@@ -1066,7 +1069,7 @@ const FIU_CODEMAP = {
     '보험': {
       A1: { def: '고액 일시납', targets: [
         { field: 'III-37', value: [{ code: '20', label: '보험료납입' }], grade: '직접', state: 'mapped', note: '' },
-        { field: 'VI-4', value: null, grade: null, state: 'unmapped', note: '금액은 유형이 아님' }
+        { field: 'VI-4', value: null, grade: null, state: 'unmapped', hint: '금액은 유형이 아님' }
       ]},
       A2: { def: '단기 해지·중도인출', targets: [
         { field: 'III-37', value: [{ code: '19', label: '해지' }], grade: '직접', state: 'mapped', note: '' },
@@ -1089,7 +1092,7 @@ const FIU_CODEMAP = {
         { field: 'VI-4', value: [{ code: '19', label: '현금집착' }], grade: '직접', state: 'mapped', note: '' }
       ]},
       B1: { def: '타인계약', targets: [
-        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '직접', state: 'mapped', note: 'report_only 연동: 명의일치 미확인 시 담당자 확인 촉구(§4 rev.1)' }
+        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '직접', state: 'mapped', hint: '명의일치 미확인 시 담당자 확인 촉구' }
       ]},
       B2: { def: '수익자 빈번변경', targets: [
         { field: 'VI-2', value: [{ code: '10', label: '계약자·수익자의 빈번·갑작스런 변경' }], grade: '직접', state: 'mapped', note: '★ B그룹이나 VI-2로 감(§6-7 예외 5건)' }
@@ -1098,7 +1101,7 @@ const FIU_CODEMAP = {
         { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '직접', state: 'mapped', note: 'report_only 연동(§4 rev.1)' }
       ]},
       B4: { row: 'B-법인실소유자불일치', def: '법인 실제소유자 불일치', targets: [
-        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '판단', state: 'mapped', note: '서식에 실소유자 항목 없음 — VI-5 31) 서술 병행 권장' }
+        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '판단', state: 'mapped', hint: '서식에 실소유자 항목 없음 — VI-5 31) 서술 병행 권장' }
       ]}
     },
 
@@ -1124,7 +1127,7 @@ const FIU_CODEMAP = {
         { field: 'VI-4', value: null, grade: null, state: 'unmapped', note: '' }
       ]},
       A6: { def: '대리인 다수계좌 개설', targets: [
-        { field: 'III-37', value: null, grade: null, state: 'unmapped', note: '개설행위는 III-37에 대응 코드 없음(구조적 공백)' },
+        { field: 'III-37', value: null, grade: null, state: 'unmapped', hint: '개설행위는 III-37에 대응 코드 없음(구조적 공백)' },
         { field: 'VI-3', value: [{ code: '12', label: '특별사유 없는 복수계좌 개설' }], extra: [{ field: '45', code: '1', label: '거래대리인 존재' }], grade: '직접', state: 'mapped', note: '★ A그룹이나 VI-3으로 감(§6-7 예외 5건)' }
       ]},
       B1: { def: '단절거래(현금개입 후 재발행)', targets: [
@@ -1134,7 +1137,7 @@ const FIU_CODEMAP = {
         { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '직접', state: 'mapped', note: 'report_only 연동(§4 rev.1)' }
       ]},
       B3: { row: 'B-법인실소유자불일치', def: '법인 실제소유자 불일치', targets: [
-        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '판단', state: 'mapped', note: '서식에 실소유자 항목 없음 — VI-5 31) 서술 병행 권장' }
+        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '판단', state: 'mapped', hint: '서식에 실소유자 항목 없음 — VI-5 31) 서술 병행 권장' }
       ]}
     },
 
@@ -1159,7 +1162,7 @@ const FIU_CODEMAP = {
         { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '직접', state: 'mapped', note: 'report_only 연동(§4 rev.1)' }
       ]},
       B2: { row: 'B-법인실소유자불일치', def: '법인 실제소유자 불일치', targets: [
-        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '판단', state: 'mapped', note: '서식에 실소유자 항목 없음 — VI-5 31) 서술 병행 권장' }
+        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '판단', state: 'mapped', hint: '서식에 실소유자 항목 없음 — VI-5 31) 서술 병행 권장' }
       ]}
     },
 
@@ -1169,7 +1172,7 @@ const FIU_CODEMAP = {
         { field: 'VI-4', value: null, grade: null, state: 'unmapped', note: '' }
       ]},
       A2: { def: '공제금 지급 이상패턴', targets: [
-        { field: 'III-37', value: [{ code: '21', label: '보험금지급' }], grade: '판단', state: 'mapped', note: '공제금을 보험금에 준용' },
+        { field: 'III-37', value: [{ code: '21', label: '보험금지급' }], grade: '판단', state: 'mapped', hint: '공제금을 보험금에 준용' },
         { field: 'VI-4', value: [{ code: '15', label: '갑작스런 거래패턴 변화' }],
           alt: [{ code: '29', label: '무관업종·의심재산 보험청약', cond: '청약 단계 무관업종·의심재산 정황 동반 시' }],
           grade: '판단', state: 'mapped', note: '2026-09-02 코드 교체 29)→15): 앱 원 소스가 지급 단계를 명시, 29)는 청약 단계라 생애주기 불일치' }
@@ -1179,14 +1182,14 @@ const FIU_CODEMAP = {
         { field: 'VI-4', value: [{ code: '23', label: '의심스러운 담보대출' }], grade: '판단', state: 'mapped', note: '' }
       ]},
       A4: { def: '비조합원 의심거래', targets: [
-        { field: 'III-37', value: null, grade: null, state: 'operator', note: '상황별 — 담당자 선택' },
+        { field: 'III-37', value: null, grade: null, state: 'operator', hint: '상황별 — 담당자 선택' },
         { field: 'VI-4', value: [{ code: '16', label: '원격지거래' }], grade: '판단', state: 'mapped', note: '' }
       ]},
       B1: { row: 'B-명의대여차명', def: '명의대여·차명', targets: [
         { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '직접', state: 'mapped', note: 'report_only 연동(§4 rev.1)' }
       ]},
       B2: { row: 'B-법인실소유자불일치', def: '법인 실제소유자 불일치', targets: [
-        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '판단', state: 'mapped', note: '서식에 실소유자 항목 없음 — VI-5 31) 서술 병행 권장' }
+        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '판단', state: 'mapped', hint: '서식에 실소유자 항목 없음 — VI-5 31) 서술 병행 권장' }
       ]}
     },
 
@@ -1221,20 +1224,20 @@ const FIU_CODEMAP = {
         { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '직접', state: 'mapped', note: 'report_only 연동(§4 rev.1)' }
       ]},
       B2: { row: 'B-법인실소유자불일치', def: '법인 실제소유자 불일치', targets: [
-        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '판단', state: 'mapped', note: '서식에 실소유자 항목 없음 — VI-5 31) 서술 병행 권장' }
+        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '판단', state: 'mapped', hint: '서식에 실소유자 항목 없음 — VI-5 31) 서술 병행 권장' }
       ]},
       B3: { def: '실제소유자 25%+복수주주 오판정', targets: [
-        { field: 'VI-3', value: null, grade: null, state: 'unmapped', note: 'UBO 판정 이슈이지 FIU 유형이 아님 → VI-5 31) 서술' }
+        { field: 'VI-3', value: null, grade: null, state: 'unmapped', hint: 'UBO 판정 이슈이지 FIU 유형이 아님 → VI-5 31) 서술' }
       ]}
     },
 
     '기타': {
       A1: { def: '고액거래', targets: [
-        { field: 'III-37', value: null, grade: null, state: 'operator', note: '담당자 선택' },
+        { field: 'III-37', value: null, grade: null, state: 'operator', hint: '담당자 선택' },
         { field: 'VI-4', value: [{ code: '20', label: '거액입금 후 당일·익일 인출' }], grade: '판단', state: 'mapped', note: '' }
       ]},
       A2: { def: '이상거래패턴', targets: [
-        { field: 'III-37', value: null, grade: null, state: 'operator', note: '담당자 선택' },
+        { field: 'III-37', value: null, grade: null, state: 'operator', hint: '담당자 선택' },
         { field: 'VI-4', value: [{ code: '15', label: '갑작스런 거래패턴 변화' }], grade: '직접', state: 'mapped', note: '' }
       ]},
       A3: { def: '가상계좌·전자금융 이상', targets: [
@@ -1245,7 +1248,7 @@ const FIU_CODEMAP = {
         { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '직접', state: 'mapped', note: 'report_only 연동(§4 rev.1)' }
       ]},
       B2: { row: 'B-법인실소유자불일치', def: '법인 실제소유자 불일치', targets: [
-        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '판단', state: 'mapped', note: '서식에 실소유자 항목 없음 — VI-5 31) 서술 병행 권장' }
+        { field: 'VI-3', value: [{ code: '11', label: '타인 명의·계좌 이용' }], grade: '판단', state: 'mapped', hint: '서식에 실소유자 항목 없음 — VI-5 31) 서술 병행 권장' }
       ]}
     }
   },
@@ -1264,12 +1267,12 @@ const FIU_CODEMAP = {
         grade: '직접', state: 'mapped', note: '' }
     ]},
     C4: { def: '제재·PEP·고위험국 연계', targets: [
-      { field: 'VI-2', value: [{ code: '5', label: '중요인물 관련거래' }], grade: '직접', state: 'mapped', note: 'PEP만 직접 대응. 제재·고위험국은 대응 항목 없음 → VI-5 31) 병행(부분 미대응)' }
+      { field: 'VI-2', value: [{ code: '5', label: '중요인물 관련거래' }], grade: '직접', state: 'mapped', hint: 'PEP만 직접 대응. 제재·고위험국은 대응 항목 없음 → VI-5 31) 병행(부분 미대응)' }
     ]},
     C5: { def: '취약계층·민생침해·초국경 범죄 연계', targets: [
       { field: 'VI-2', value: null,
         alt: [{ code: 'VI-1 4', label: '조직범죄', cond: '조건부' }, { code: 'VI-4 30', label: '테러자금 의심', cond: '조건부' }],
-        grade: null, state: 'unmapped', note: '기본은 VI-5 31) 서술' }
+        grade: null, state: 'unmapped', hint: '기본은 VI-5 31) 서술' }
     ]}
   },
 
@@ -1317,6 +1320,7 @@ function renderFiuProduct(){
     + `<span class="fiugrade ${op?'o':'d'}">${op?'담당자 선택':'업권 결정'}</span>`
     + `<div class="fiunote">${esc(bsp.rule)}</div></div>`;
 }
+function codeLabel(c){const nm=typeName(c);return nm?`${c} ${nm}`:c;}
 function renderFiuCandidates(){
   const sector=fiuSector();
   const codes=(RES.typologies||[]).map(t=>String(t.code||'').trim()).filter(Boolean);
@@ -1324,10 +1328,10 @@ function renderFiuCandidates(){
   codes.forEach(c=>{
     if(seen[c]) return; seen[c]=1;
     const ent=lookupFiuCodes(sector,c);
-    if(!ent){ narr.push(`${c} ${typeName(c)} — 변환표 미등재`); return; }
+    if(!ent){ narr.push(`${codeLabel(c)} — 변환표 미등재`); return; }
     let lines='';
     (ent.targets||[]).forEach((t,ix)=>{
-      const note=t.note?`<div class="fiunote">${esc(t.note)}</div>`:'';
+      const hint=t.hint?`<div class="fiunote">${esc(t.hint)}</div>`:'';
       const extra=(t.extra&&t.extra.length)?`<div class="fiunote">부대조건 — `
         +esc(t.extra.map(x=>x.field+' '+x.code+') '+x.label).join(' · '))+`</div>`:'';
       const alt=(t.alt&&t.alt.length)?`<div class="fiunote">조건부 후보 — `
@@ -1337,20 +1341,20 @@ function renderFiuCandidates(){
         const tag=direct?'직접':(t.state==='ungraded'?'미등급 · 추천':'판단 · 추천');
         lines+=`<div class="fiuline"><label><input type="checkbox" ${direct?'checked':''}> `
           +`<b>${esc(t.field)}</b> ${esc(fiuValText(t.value))}</label>`
-          +`<span class="fiugrade ${direct?'d':'j'}">${tag}</span></div>${extra}${alt}${note}`;
+          +`<span class="fiugrade ${direct?'d':'j'}">${tag}</span></div>${extra}${alt}${hint}`;
       } else if(t.state==='operator'){
         lines+=`<div class="fiuline"><b>${esc(t.field)}</b> — 담당자 입력`
-          +`<span class="fiugrade o">담당자 입력</span></div>${extra}${alt}${note}`;
+          +`<span class="fiugrade o">담당자 입력</span></div>${extra}${alt}${hint}`;
       } else {
-        narr.push(`${c} ${typeName(c)} ${t.field}${t.note?' — '+t.note:''}`);
-        lines+=`<div class="fiuline mut"><b>${esc(t.field)}</b> — 서식 대응 없음 → VI-5 31) 서술</div>${note}`;
+        narr.push(`${codeLabel(c)} ${t.field}${t.hint?' — '+t.hint:''}`);
+        lines+=`<div class="fiuline mut"><b>${esc(t.field)}</b> — 서식 대응 없음 → VI-5 31) 서술</div>${hint}`;
       }
     });
-    rows+=`<div class="fiurow"><span class="chip">${esc(c)} ${esc(typeName(c))}</span>${lines}</div>`;
+    rows+=`<div class="fiurow"><span class="chip">${esc(codeLabel(c))}</span>${lines}</div>`;
   });
   if(!rows&&!narr.length) return '';
   const tail=narr.length?`<div class="fiuline mut" style="margin-top:8px"><b>VI-5 31)</b> 서술 대상 ${narr.length}건 — ${esc(narr.join(' / '))}</div>`:'';
-  return `<div class="sec">FIU 서식 코드 후보 <span style="font-size:11px;font-weight:500;color:var(--faint)">별지 제1호 · 변환표 v0.1 · ${esc(sector)}</span></div>`
+  return `<div class="sec">FIU 서식 코드 후보 <span style="font-size:11px;font-weight:500;color:var(--faint)">별지 제1호 · 변환표 v0.2 · ${esc(sector)}</span></div>`
     +`<div class="block" style="white-space:normal">${renderFiuProduct()}${rows}${tail}`
     +`<div class="fiunote" style="margin-left:0;margin-top:10px">※ 「직접」만 선택 상태로 제시한다. 「판단」·「담당자 입력」은 추천이며 최종 선택은 담당자 몫이다(변환표 §6-9). 「서식 대응 없음」은 VI-5 31) 서술로 기재한다.</div></div>`;
 }

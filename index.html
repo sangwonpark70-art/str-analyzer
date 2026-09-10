@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.4.1</title>
+<title>STR 사례 분석기 v3.4.2</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -221,7 +221,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.4.1</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.4.2</span></h1>
     <p class="sub">0~100 점수 엔진 + 등급 + 고객사 척도 환산. 트리아지(1차)↔세부분석 전환. 개인정보는 비식별화 후 분석.</p>
     <span class="badge"><i></i> PII 비식별화 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -277,6 +277,7 @@
       <div style="display:flex;gap:0;margin-bottom:10px;border:1px solid var(--line2);border-radius:9px;overflow:hidden">
         <button id="opTabBrief" onclick="event.stopPropagation();switchOpinion('brief')" style="flex:1;padding:8px;font-size:12.5px;font-weight:700;background:var(--primary);color:#fff;border:none;cursor:pointer">📝 입력용 (간략)</button>
         <button id="opTabFull"  onclick="event.stopPropagation();switchOpinion('full')"  style="flex:1;padding:8px;font-size:12.5px;font-weight:700;background:var(--field);color:var(--dim);border:none;cursor:pointer">📋 보고서용 (전체)</button>
+        <button id="opTabFiu"   onclick="event.stopPropagation();switchOpinion('fiu')"   style="flex:1;padding:8px;font-size:12.5px;font-weight:700;background:var(--field);color:var(--dim);border:none;cursor:pointer">🏛 FIU 4단</button>
       </div>
       <p id="opTabHint" style="font-size:11.5px;color:var(--faint);margin:-4px 0 10px">STR 시스템 입력란에 바로 붙여넣기 가능한 간략 버전입니다.</p>
       <textarea id="opinionText" style="width:100%;height:46vh;font-size:12.5px;line-height:1.7;padding:12px;border:1px solid var(--line);border-radius:10px;font-family:inherit;resize:vertical;white-space:pre-wrap"></textarea>
@@ -563,7 +564,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.4.1 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.4.2 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -2218,7 +2219,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.4.1',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.4.2',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   const rec={meta,input:curInput(),deid:LAST.deid||'',result:RES,map:MAP};
@@ -2292,7 +2293,8 @@ function buildOpinionBrief(){
 
 const OP_HINTS={
   brief:'STR 시스템 입력란에 바로 붙여넣기 가능한 간략 버전입니다.',
-  full:'전체 분석 내용을 포함한 보고서용 버전입니다.'
+  full:'전체 분석 내용을 포함한 보고서용 버전입니다.',
+  fiu:'별지 제1호 서식 VII 종합의견 4단 구성입니다. 작성 점검 결과가 함께 표시됩니다.'
 };
 function switchOpinion(mode){
   _opinionMode=mode;
@@ -2300,8 +2302,10 @@ function switchOpinion(mode){
   document.getElementById('opTabBrief').style.color=mode==='brief'?'#fff':'var(--dim)';
   document.getElementById('opTabFull').style.background=mode==='full'?'var(--primary)':'var(--field)';
   document.getElementById('opTabFull').style.color=mode==='full'?'#fff':'var(--dim)';
+  var _tf=document.getElementById('opTabFiu');
+  if(_tf){ _tf.style.background=mode==='fiu'?'var(--primary)':'var(--field)'; _tf.style.color=mode==='fiu'?'#fff':'var(--dim)'; }
   document.getElementById('opTabHint').textContent=OP_HINTS[mode];
-  document.getElementById('opinionText').value=mode==='brief'?buildOpinionBrief():buildOpinionText();
+  document.getElementById('opinionText').value=mode==='fiu'?buildOpinionFiu():(mode==='brief'?buildOpinionBrief():buildOpinionText());
 }
 
 function buildOpinionText(){
@@ -2340,6 +2344,126 @@ function buildOpinionText(){
   if(LAST.cddstatus==='누설 우려로 확인 중단') t+=`\n\n[누설 금지에 따른 확인 중단] 고객 접촉을 전제한 추가확인은 권고 대상이 아니다(업무규정 제44조의2). 접촉이 필요한 항목은 수행하지 말고 보고 절차를 진행할 것.`;
   if(RES.missing&&RES.missing.length) t+=`\n\n[추가확인 권장]\n- ${RES.missing.join('\n- ')}`;
   t+=`\n\n※ 본 의견은 트리아지 보조 결과이며 최종 판단은 담당자 책임입니다.`;
+  return t;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   FIU 4단 종합의견 (출력 타입 B) — v3.4.2 신설
+   근거: 「특정 금융거래정보 보고 및 감독규정」별지 제1호 서식
+         [의심스러운 거래보고서 작성방법] VII. 의심스러운 거래에 대한 서술부분
+         종합의견 4단 = 1.제목(추정되는 전제범죄 또는 의심유형) / 2.거래자 정보
+         / 3.거래내역 정보 / 4.의심되는 사유
+   ★출력 층 전용 — 프롬프트·스키마·입력·저장은 일절 건드리지 않는다.
+     기존 RES 필드만 재배열하며, 없는 값은 지어내지 않고 [미입력]으로 남긴다.
+   ─────────────────────────────────────────────────────────────── */
+var FIU_NA_RE = /\[미입력[^\]]*\]/;
+
+// 미흡 패턴 — 근거 없이 결론만 적은 문장 (컨설팅 자료 '미흡' 예시 계열)
+var FIU_WEAK = [
+  /비정상적(인|임)?\s*거래로\s*보임/, /비일상적인\s*거래로\s*판단됨/,
+  /자금세탁이\s*의심되어\s*보고/,     /정상적인\s*거래로\s*보임/,
+  /일상적인\s*거래로\s*판단됨/,       /자금세탁이\s*의심되지\s*않아\s*보고제외/
+];
+
+function fiuVal(v){ v=String(v==null?'':v).trim(); return v; }
+
+function buildOpinionFiu(){
+  if(!RES) return '';
+  var L = (typeof LAST==='object'&&LAST)?LAST:{};
+  var na = function(label){ return '[미입력: '+label+']'; };
+
+  // ── 1단 제목 ──
+  var sugg = fiuVal(RES.suggested_type);
+  var codes = [];
+  if(RES.typologies && RES.typologies.length){
+    RES.typologies.forEach(function(x){
+      var c=fiuVal(x.code); if(c) codes.push(c+' '+typeName(c));
+    });
+  }
+  var title = sugg || (codes.length?codes[0]:'') || na('추정 전제범죄·의심유형');
+
+  // ── 2단 거래자 정보 ──
+  var kind=fiuVal(RES.subject_kind), nm=fiuVal(RES.subject_name), age=fiuVal(RES.subject_age);
+  var who = (nm||na('거래자명')) + (kind?' ('+kind+(age?', '+age+'세':'')+')':'');
+  var prof = fiuVal(RES.profile) || na('거래자 개요');
+
+  // ── 3단 거래내역 정보 ──
+  var txd  = fiuVal(RES.tx_date) || na('거래발생일자');
+  var rows = [];
+  rows.push('거래발생일자 : '+txd);
+  rows.push('업권·거래유형 : '+(fiuVal(L.sector)||na('업권'))+' / '+(fiuVal(L.ttype)||na('거래유형')));
+  rows.push('거래금액 : '+(fiuVal(L.amt)||na('거래금액')));
+  rows.push('자금 경로 : '+(fiuVal(L.fpath)||na('자금 경로')));
+  rows.push('자금원천 확인 : '+(fiuVal(L.fsrc)||na('자금원천 확인')));
+  if(fiuVal(L.ncnt)||fiuVal(L.ntot))
+    rows.push('보유계약·누적 보험료 : '+(fiuVal(L.ncnt)||'-')+' / '+(fiuVal(L.ntot)||'-'));
+  rows.push('거래발생 장소(영업점) : '+na('영업점 — 도구 입력 항목 없음'));
+
+  // ── 4단 의심되는 사유 ──
+  var basis = fiuVal(RES.key_basis) || na('핵심 근거');
+  var det = [];
+  if(RES.typologies && RES.typologies.length){
+    RES.typologies.forEach(function(x){
+      var c=fiuVal(x.code), rs=restore(fiuVal(x.reason));
+      var q=restore(fiuVal(x.quote||x.text)); var bf=fiuVal(x.basis_field);
+      if(!q&&bf) q='입력항목: '+bf;
+      det.push('  · '+c+' '+typeName(c)+(rs?' — '+rs:'')+(q?'\n      근거: 「'+q+'」':''));
+    });
+  }
+  var op = fiuVal(RES.opinion);
+
+  var t='';
+  t+='━━━━━ FIU 종합의견 (별지 제1호 서식 VII · 4단) ━━━━━\n';
+  t+='판정: '+verdictShort()+'  |  위험도 '+RES.score+'/100\n\n';
+  t+='1. 제목 : '+title+'\n';
+  if(codes.length>1) t+='   (매칭 유형: '+codes.join(' · ')+')\n';
+  t+='\n2. 거래자 정보 관련 종합의견\n   '+who+'\n   '+prof.replace(/\n/g,'\n   ')+'\n';
+  t+='\n3. 거래내역 정보 관련 종합의견\n   '+rows.join('\n   ')+'\n';
+  t+='\n4. 의심되는 사유 관련 종합의견\n   '+basis.replace(/\n/g,'\n   ')+'\n';
+  if(det.length) t+=det.join('\n')+'\n';
+  if(op) t+='   '+op.replace(/\n/g,'\n   ')+'\n';
+  if(RES.missing && RES.missing.length) t+='\n   [추가확인 권장] '+RES.missing.join(' / ')+'\n';
+
+  t+='\n'+fiuGateText(t);
+  t+='\n※ 본 의견은 트리아지 보조 결과이며 최종 판단은 담당자 책임입니다.';
+  return t;
+}
+
+// 작성 점검 — 강제(원문 근거) / 권고(전언, 원문 미대조) / 미판정(입력 없음) 3층
+function fiuGateText(body){
+  var hard=[], soft=[], unk=[];
+
+  // [강제] 4단 결손 — 각 단에 [미입력]이 있으면 지목
+  var seg = body.split(/\n(?=[1-4]\. )/);
+  var names={'1':'제목','2':'거래자 정보','3':'거래내역 정보','4':'의심되는 사유'};
+  Object.keys(names).forEach(function(k){
+    var found=null;
+    seg.forEach(function(s){ if(s.indexOf(k+'. ')===0) found=s; });
+    if(found && FIU_NA_RE.test(found)) hard.push(k+'단('+names[k]+') 미입력 항목 있음');
+  });
+
+  // [강제] 미흡 패턴 — 근거 없이 결론만
+  var weakHit=[];
+  FIU_WEAK.forEach(function(re){ if(re.test(body)) weakHit.push(re.source); });
+  if(weakHit.length) hard.push('결론만 기재된 문장 '+weakHit.length+'건 — 무엇이 정상 패턴과 어떻게 다른지 근거를 덧붙일 것');
+
+  // [권고] 제목 길이 (KoFIU 지침 전언, 원문 미대조)
+  var m=body.match(/\n1\. 제목 : (.*)/);
+  if(m){
+    var tl=m[1].trim().length;
+    if(tl<10||tl>15) soft.push('제목 '+tl+'자 — 10~15자 권고 범위 밖');
+  }
+  // [권고] 금액 단위
+  if(/[0-9]{7,}\s*원/.test(body)) soft.push('원 단위 장문 금액 표기 — 서술부는 백만원 단위 권고');
+
+  // [미판정] 입력 자체가 없어 판정 불가한 축
+  unk.push('주요 입·출금 거래상대방 각 3명 — 입력 항목 없음');
+  unk.push('최근 3·6·12개월 누적 거래규모 — 입력 항목 없음');
+
+  var t='━━ 작성 점검 ━━\n';
+  t+= hard.length ? ('[보완 필요]\n- '+hard.join('\n- ')+'\n') : '[보완 필요] 없음 (관측 범위: 4단 결손 · 결론만 기재 패턴)\n';
+  t+= '[권고] ※KoFIU 지침 전언, 원문 미대조\n'+(soft.length?('- '+soft.join('\n- ')+'\n'):'- 해당 없음\n');
+  t+= '[미판정] ※0건이 아니라 입력 부재\n- '+unk.join('\n- ')+'\n';
   return t;
 }
 

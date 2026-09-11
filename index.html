@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.4.2</title>
+<title>STR 사례 분석기 v3.4.3</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -221,7 +221,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.4.2</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.4.3</span></h1>
     <p class="sub">0~100 점수 엔진 + 등급 + 고객사 척도 환산. 트리아지(1차)↔세부분석 전환. 개인정보는 비식별화 후 분석.</p>
     <span class="badge"><i></i> PII 비식별화 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -564,7 +564,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.4.2 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.4.3 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -2219,7 +2219,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.4.2',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.4.3',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   const rec={meta,input:curInput(),deid:LAST.deid||'',result:RES,map:MAP};
@@ -2374,17 +2374,27 @@ function buildOpinionFiu(){
 
   // ── 1단 제목 ──
   var sugg = fiuVal(RES.suggested_type);
-  var codes = [];
+  var codes = [], seenCode = {};
   if(RES.typologies && RES.typologies.length){
     RES.typologies.forEach(function(x){
-      var c=fiuVal(x.code); if(c) codes.push(c+' '+typeName(c));
+      var c=fiuVal(x.code);
+      if(c && !seenCode[c]){ seenCode[c]=1; codes.push(c+' '+typeName(c)); }   // v3.4.3 ③ 코드 중복 제거
     });
   }
   var title = sugg || (codes.length?codes[0]:'') || na('추정 전제범죄·의심유형');
 
   // ── 2단 거래자 정보 ──
   var kind=fiuVal(RES.subject_kind), nm=fiuVal(RES.subject_name), age=fiuVal(RES.subject_age);
-  var who = (nm||na('거래자명')) + (kind?' ('+kind+(age?', '+age+'세':'')+')':'');
+  // v3.4.3 ① subject_name 폴백 — 모델은 비식별 본문만 보므로 원문 실명을 산출할 수 없다.
+  //   지어내는 것이 아니라 담당자가 입력한 값을 가져온다. 출처를 표기해 AI 산출분과 구분한다.
+  var nmSrc = '';
+  if(!nm){
+    try{ if(typeof MAP==='object' && MAP && MAP['[이름1]'] && MAP['[이름1]'].value){ nm=fiuVal(MAP['[이름1]'].value); nmSrc=' ※입력 치환표'; } }catch(e){}
+  }
+  if(!nm){
+    try{ var nEl=document.getElementById('names'); if(nEl && nEl.value.trim()){ nm=fiuVal(nEl.value.split(/[,·]/)[0]); nmSrc=' ※입력 실명란'; } }catch(e){}
+  }
+  var who = (nm?nm+nmSrc:na('거래자명')) + (kind?' ('+kind+(age?', '+age+'세':'')+')':'');
   var prof = fiuVal(RES.profile) || na('거래자 개요');
 
   // ── 3단 거래내역 정보 ──
@@ -2397,7 +2407,8 @@ function buildOpinionFiu(){
   rows.push('자금원천 확인 : '+(fiuVal(L.fsrc)||na('자금원천 확인')));
   if(fiuVal(L.ncnt)||fiuVal(L.ntot))
     rows.push('보유계약·누적 보험료 : '+(fiuVal(L.ncnt)||'-')+' / '+(fiuVal(L.ntot)||'-'));
-  rows.push('거래발생 장소(영업점) : '+na('영업점 — 도구 입력 항목 없음'));
+  // v3.4.3 ⑤ 영업점은 도구에 입력란이 없다 — 담당자가 고칠 수 없으므로 [보완 필요]가 아니라 [미판정]으로 뺀다.
+  rows.push('거래발생 장소(영업점) : (도구 입력 항목 없음 — 미판정)');
 
   // ── 4단 의심되는 사유 ──
   var basis = fiuVal(RES.key_basis) || na('핵심 근거');
@@ -2408,6 +2419,14 @@ function buildOpinionFiu(){
       var q=restore(fiuVal(x.quote||x.text)); var bf=fiuVal(x.basis_field);
       if(!q&&bf) q='입력항목: '+bf;
       det.push('  · '+c+' '+typeName(c)+(rs?' — '+rs:'')+(q?'\n      근거: 「'+q+'」':''));
+    });
+  }
+  // v3.4.3 ② c3_dropped — 제외 사유가 「근거 없음」이 아니라 규약상 제한이므로 참고로 싣는다.
+  var dropped = [];
+  if(RES.c3_dropped && RES.c3_dropped.length){
+    RES.c3_dropped.forEach(function(x){
+      var c=fiuVal(x.code), rs=restore(fiuVal(x.reason)), bf=fiuVal(x.basis_field);
+      dropped.push('  · '+c+' '+typeName(c)+(bf?' [입력항목: '+bf+']':'')+(rs?' — '+rs:''));
     });
   }
   var op = fiuVal(RES.opinion);
@@ -2421,6 +2440,7 @@ function buildOpinionFiu(){
   t+='\n3. 거래내역 정보 관련 종합의견\n   '+rows.join('\n   ')+'\n';
   t+='\n4. 의심되는 사유 관련 종합의견\n   '+basis.replace(/\n/g,'\n   ')+'\n';
   if(det.length) t+=det.join('\n')+'\n';
+  if(dropped.length) t+='\n   [규약상 제외된 유형 — 참고]\n'+dropped.join('\n')+'\n';
   if(op) t+='   '+op.replace(/\n/g,'\n   ')+'\n';
   if(RES.missing && RES.missing.length) t+='\n   [추가확인 권장] '+RES.missing.join(' / ')+'\n';
 
@@ -2442,6 +2462,19 @@ function fiuGateText(body){
     if(found && FIU_NA_RE.test(found)) hard.push(k+'단('+names[k]+') 미입력 항목 있음');
   });
 
+  // v3.4.3 ④ 결손 어휘 — 칸은 찼으나 서술이 아닌 값. 별지 제1호는 6하 원칙 서술을 요구한다.
+  var vagueRe = /(미상|미확인|불명|모름|해당없음|해당 없음)/;
+  var seg3 = null;
+  seg.forEach(function(s){ if(s.indexOf('3. ')===0) seg3=s; });
+  if(seg3){
+    var vagueHit=[];
+    seg3.split('\n').forEach(function(ln){
+      var mm=ln.match(/^\s{3}([^:]+) : (.+)$/);
+      if(mm && vagueRe.test(mm[2]) && mm[1].indexOf('영업점')<0) vagueHit.push(mm[1].trim());
+    });
+    if(vagueHit.length) hard.push('3단 서술 미달 '+vagueHit.length+'건('+vagueHit.join(' · ')+') — 값이 「미상·미확인」이면 기재가 아니라 결손이다');
+  }
+
   // [강제] 미흡 패턴 — 근거 없이 결론만
   var weakHit=[];
   FIU_WEAK.forEach(function(re){ if(re.test(body)) weakHit.push(re.source); });
@@ -2457,6 +2490,7 @@ function fiuGateText(body){
   if(/[0-9]{7,}\s*원/.test(body)) soft.push('원 단위 장문 금액 표기 — 서술부는 백만원 단위 권고');
 
   // [미판정] 입력 자체가 없어 판정 불가한 축
+  unk.push('거래발생 장소(영업점) — 입력 항목 없음');
   unk.push('주요 입·출금 거래상대방 각 3명 — 입력 항목 없음');
   unk.push('최근 3·6·12개월 누적 거래규모 — 입력 항목 없음');
 

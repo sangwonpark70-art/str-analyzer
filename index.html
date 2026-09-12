@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.4.3</title>
+<title>STR 사례 분석기 v3.5.0</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -221,7 +221,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.4.3</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.0</span></h1>
     <p class="sub">0~100 점수 엔진 + 등급 + 고객사 척도 환산. 트리아지(1차)↔세부분석 전환. 개인정보는 비식별화 후 분석.</p>
     <span class="badge"><i></i> PII 비식별화 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -420,6 +420,32 @@
         <div></div>
       </div>
 
+      <!-- v3.5.0 ⓡ④ report_only — 분석(외부 전송) 경로에 진입하지 않는다. 보고서 출력 전용. -->
+      <div class="ro-sec" style="margin-top:14px;padding:11px 12px;border:1px solid var(--chk-line);border-radius:10px;background:#fffdf7">
+        <label class="l" style="margin-top:0">📋 보고서 전용 입력 <span class="opt">(별지 제1호 · 분석에 사용하지 않음 · 외부 미전송)</span></label>
+        <div class="twocol">
+          <div><label class="l">관측기간</label><input id="ro_period" placeholder="예: 2026-01-01~2026-05-31"></div>
+          <div><label class="l">거래횟수</label><input id="ro_txcnt" placeholder="예: 총 12회"></div>
+        </div>
+        <div class="twocol">
+          <div><label class="l">거래영업점명 <span class="opt">(III-35)</span></label><input id="ro_branch" placeholder="예: OO지점"></div>
+          <div><label class="l">관련계좌 존재 여부 <span class="opt">(III-43)</span></label>
+            <select id="ro_acct43" onchange="roSync()">
+              <option value="">미입력</option><option>1여(자행계좌)</option><option>1여(타행계좌)</option><option>2부</option></select></div>
+        </div>
+        <div class="twocol">
+          <div><label class="l">송금·수취계좌 존재 여부 <span class="opt">(III-44)</span></label>
+            <select id="ro_remit44">
+              <option value="">미입력</option><option>1여(자행계좌)</option><option>1여(타행계좌)</option><option>2부</option></select></div>
+          <div id="ro_matchBox"><label class="l">계좌주 명의일치 <span class="opt">(IV-2)</span></label>
+            <select id="ro_match" onchange="roSync()">
+              <option value="">미입력</option><option>일치</option><option>불일치</option><option>미확인</option></select></div>
+        </div>
+        <label class="l">계좌 관련 서술 <span class="opt">(필요한 만큼만)</span></label>
+        <input id="ro_note" placeholder="예: OO은행 가상계좌로 제3자 입금">
+        <div id="ro_hint" class="fiunote" style="display:none;margin-left:0;margin-top:6px"></div>
+      </div>
+
       <label class="l">📷 사진 인식 <span class="opt">(AML 화면·서류 사진 → 아래 사례 내용에 자동 입력)</span></label>
       <div class="ocrmode">
         <label><input type="radio" name="ocrm" value="ai" checked><span class="om"><b>🌐 외부 AI 인식</b><small>정확함 · 사진이 외부(Claude)로 전송됨</small></span></label>
@@ -564,7 +590,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.4.3 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.0 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -576,6 +602,13 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.0(2026-09-12): ⓡ ④ report_only 입력 필드 — 별지 제1호 원문(4A46F414) III-43/44 · IV-2 확정분.
+//   신설 7필드 ro_period·ro_txcnt·ro_branch·ro_acct43·ro_remit44·ro_match·ro_note.
+//   ★게이트 앞단 분리(mapping_v2 §3(6) rev.1) — ctx()/buildPrompt()에 진입하지 않는다. 사진 자동채움 대상 아님.
+//   계좌주 실명번호·주소·은행명·계좌번호는 정형 필드로 만들지 않는다(회사 코어시스템 몫, 이중입력 회피).
+//   4층: 입력 폼 / 저장(meta.report_only) / 복원(Drive·importJSON 2곳) / 출력(3단 rows + 게이트).
+//   게이트 이동 — 영업점·관측기간·거래횟수는 입력란이 생겼으므로 [미판정]에서 [보완 필요]로 옮긴다(3층 규율 ③).
+//   §4 rev.1 연동 — 명의일치=불일치면 VI-3 11) 후보 제시 / B1·B3 매칭 + 명의일치 미입력이면 확인 촉구.
 // v3.4(2026-09-03): ⓑ' 조회·렌더링층 — FIU_CODEMAP(정본 _scripts\fiu_codemap.js DC3B722B) 축자 인라인 + 렌더링층.
 //   ① 마커 구간 인라인 ② draw() 칩 직후 FIU 후보 섹션(§6-9 분기 4갈래) ③ onSectorChange III-38 축
 //   ④ 의견서 미반영(v3.4.1) ⑤ verify_codemap.js 인라인 대조 확장. report_only(III-43/44·IV-2)는 v3.4.1.
@@ -929,6 +962,7 @@ async function loadDriveCase(fileId, fname){
     if(i.src!=null)document.getElementById('src').value=i.src;
     if(i.sancFlags){document.getElementById('f_sanc').checked=!!i.sancFlags.sanc;document.getElementById('f_third').checked=!!i.sancFlags.third;document.getElementById('f_refuse').checked=!!i.sancFlags.refuse;document.getElementById('f_cddref').checked=!!i.sancFlags.cddref;document.getElementById('f_fraud').checked=!!i.sancFlags.fraud;document.getElementById('f_cash').checked=!!i.sancFlags.cash;document.getElementById('f_recheck').checked=!!i.sancFlags.recheck;}
     if(i.opts){['rrn','phone','acct','biz','email'].forEach(k=>{const el=document.getElementById('o_'+k);if(el)el.checked=!!i.opts[k];});}
+    roSetVals((rec.meta&&rec.meta.report_only)||null);   // v3.5.0
     MAP=rec.map||{}; LAST=Object.assign({},LAST,{deid:rec.deid||''});
     if(rec.deid)renderDeid(rec.deid);
     if(rec.result){RES=rec.result; draw();}
@@ -1353,6 +1387,20 @@ function renderFiuCandidates(){
     });
     rows+=`<div class="fiurow"><span class="chip">${esc(codeLabel(c))}</span>${lines}</div>`;
   });
+  // v3.5.0 ⓡ④ — report_only 명의일치 연동(변환표 §4 rev.1). 같은 사실의 앞뒷면을 양방향으로 잇는다.
+  var _ro = (typeof roVals==='function') ? roVals() : {};
+  var _link = '';
+  if(_ro.match==='불일치'){
+    _link += '<div class="fiuline"><b>VI-3</b> 11) 타인 명의·계좌 이용'
+      + '<span class="fiugrade j">판단 · 추천</span>'
+      + '<div class="fiunote">report_only 명의일치=불일치 연동(변환표 §4 rev.1). 선택은 담당자 몫이다.</div></div>';
+  }
+  var _bn = codes.filter(function(c){ return c==='B1'||c==='B3'; });
+  if(_bn.length && (!_ro.match || _ro.match==='미확인')){
+    _link += '<div class="fiuline mut"><b>확인 촉구</b> '+esc(_bn.join(' · '))
+      + ' 매칭 — 계좌주 명의일치가 미입력·미확인이다. 보고서 전용 입력에서 확정할 것(§4 rev.1).</div>';
+  }
+  if(_link) rows += '<div class="fiurow"><span class="chip">report_only</span>'+_link+'</div>';
   if(!rows&&!narr.length) return '';
   const tail=narr.length?`<div class="fiuline mut" style="margin-top:8px"><b>VI-5 31)</b> 서술 대상 ${narr.length}건 — ${esc(narr.join(' / '))}</div>`:'';
   return `<div class="sec">FIU 서식 코드 후보 <span style="font-size:11px;font-weight:500;color:var(--faint)">별지 제1호 · 변환표 v0.2 · ${esc(sector)}</span></div>`
@@ -2098,7 +2146,8 @@ function resetForm(){
   const st=document.getElementById('autoFillStatus');
   AF_SUGGEST=[]; AF_FILLED=[];
   if(st){st.style.color='var(--faint)';st.innerHTML='사례 내용에서 이름·생년월일·거래일·금액·유형 추출 → 빈 칸 채움 · 이름은 추가 · 값이 다르면 제안';}
-  ['caseno','txdate','birth','custno','amt','ncnt','ntot','names','src'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';}); genIdCode();
+  ['caseno','txdate','birth','custno','amt','ncnt','ntot','names','src','ro_period','ro_txcnt','ro_branch','ro_note'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';}); genIdCode();
+  ['ro_acct43','ro_remit44','ro_match'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;}); roSync();
   ['ttype','ctype','fpath','fsrc','cdd_status','scale'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;});
   ['f_sanc','f_third','f_refuse','f_cddref','f_fraud','f_cash','f_recheck'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
   ['o_rrn','o_phone','o_acct','o_biz','o_email'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=true;});
@@ -2138,6 +2187,28 @@ function genIdCode(){
   if(nm && bd.length>=6){ code='STR-'+hash36(bd+'|'+nm); el.textContent=code; }
   else { el.textContent='—'; }
   return code;
+}
+/* ── v3.5.0 ⓡ④ report_only ──────────────────────────────────────────────
+ * 게이트 앞단 분리: 이 값들은 deidentify()·ctx()·buildPrompt()에 진입하지 않는다.
+ * 저장은 meta.report_only 하위(입력 본체와 분리). 사진 자동채움 대상 아님. */
+const RO_IDS = ['ro_period','ro_txcnt','ro_branch','ro_acct43','ro_remit44','ro_match','ro_note'];
+function roVals(){
+  const o={};
+  RO_IDS.forEach(id=>{ const e=document.getElementById(id); o[id.slice(3)] = e ? String(e.value||'').trim() : ''; });
+  return o;
+}
+function roSetVals(v){
+  if(!v) return;
+  RO_IDS.forEach(id=>{ const e=document.getElementById(id); const k=id.slice(3); if(e && v[k]!=null) e.value=v[k]; });
+  roSync();
+}
+function roSync(){
+  const r=roVals(), h=document.getElementById('ro_hint');
+  if(!h) return;
+  let msg='';
+  if(r.match==='불일치') msg='입금 계좌·은행·입금자와 계약자의 관계를 아래 서술란에 기재하십시오.';
+  else if(/^1여/.test(r.acct43) && !r.match) msg='관련계좌 「여」이면 계좌주 명의일치는 필수 입력입니다(IV-2).';
+  h.textContent=msg; h.style.display=msg?'block':'none';
 }
 function curInput(){return {caseno:val('caseno'),txdate:val('txdate'),birth:val('birth'),custno:val('custno'),idcode:genIdCode(),sector:val('sector'),ttype:val('ttype'),ctype:val('ctype'),amt:val('amt'),ncnt:val('ncnt'),ntot:val('ntot'),fpath:val('fpath'),fsrc:val('fsrc'),cdd_status:val('cdd_status'),names:val('names'),src:document.getElementById('src').value,flags:flags(),scale:val('scale'),opts:{rrn:chk('o_rrn'),phone:chk('o_phone'),acct:chk('o_acct'),biz:chk('o_biz'),email:chk('o_email')},sancFlags:{sanc:chk('f_sanc'),third:chk('f_third'),refuse:chk('f_refuse'),cddref:chk('f_cddref'),fraud:chk('f_fraud'),cash:chk('f_cash'),recheck:chk('f_recheck')},sectorFields:sectorFieldValues()};}
 
@@ -2219,9 +2290,10 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.4.3',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.0',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
+  meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))
   const rec={meta,input:curInput(),deid:LAST.deid||'',result:RES,map:MAP};
   const blob=new Blob([JSON.stringify(rec,null,2)],{type:'application/json'});
   const a=document.createElement('a');
@@ -2259,6 +2331,7 @@ function importJSON(ev){
       if(i.src!=null)document.getElementById('src').value=i.src;
       if(i.sancFlags){document.getElementById('f_sanc').checked=!!i.sancFlags.sanc;document.getElementById('f_third').checked=!!i.sancFlags.third;document.getElementById('f_refuse').checked=!!i.sancFlags.refuse;document.getElementById('f_cddref').checked=!!i.sancFlags.cddref;document.getElementById('f_fraud').checked=!!i.sancFlags.fraud;document.getElementById('f_cash').checked=!!i.sancFlags.cash;document.getElementById('f_recheck').checked=!!i.sancFlags.recheck;}
       if(i.opts){['rrn','phone','acct','biz','email'].forEach(k=>{const el=document.getElementById('o_'+k);if(el)el.checked=!!i.opts[k];});}
+      roSetVals((rec.meta&&rec.meta.report_only)||null);   // v3.5.0
       MAP=rec.map||{}; LAST=Object.assign({},LAST,{deid:rec.deid||''});
       if(rec.deid)renderDeid(rec.deid);
       if(rec.result){RES=rec.result; draw();}
@@ -2407,8 +2480,16 @@ function buildOpinionFiu(){
   rows.push('자금원천 확인 : '+(fiuVal(L.fsrc)||na('자금원천 확인')));
   if(fiuVal(L.ncnt)||fiuVal(L.ntot))
     rows.push('보유계약·누적 보험료 : '+(fiuVal(L.ncnt)||'-')+' / '+(fiuVal(L.ntot)||'-'));
-  // v3.4.3 ⑤ 영업점은 도구에 입력란이 없다 — 담당자가 고칠 수 없으므로 [보완 필요]가 아니라 [미판정]으로 뺀다.
-  rows.push('거래발생 장소(영업점) : (도구 입력 항목 없음 — 미판정)');
+  // v3.5.0 ⓡ④ — 입력란이 생겼으므로 영업점은 [미판정]에서 내려오고 미입력이면 [보완 필요]로 잡힌다.
+  var RO = (typeof roVals==='function') ? roVals() : {};
+  rows.push('거래발생 장소(영업점) : '+(fiuVal(RO.branch)||na('거래발생 장소(영업점)')));
+  rows.push('관측기간 : '+(fiuVal(RO.period)||na('관측기간')));
+  rows.push('거래횟수 : '+(fiuVal(RO.txcnt)||na('거래횟수')));
+  rows.push('관련계좌 존재 여부(III-43) : '+(fiuVal(RO.acct43)||na('관련계좌 존재 여부')));
+  rows.push('송금·수취계좌 존재 여부(III-44) : '+(fiuVal(RO.remit44)||na('송금·수취계좌 존재 여부')));
+  if(/^1여/.test(fiuVal(RO.acct43)))
+    rows.push('계좌주 명의일치(IV-2) : '+(fiuVal(RO.match)||na('계좌주 명의일치')));
+  if(fiuVal(RO.note)) rows.push('계좌 관련 서술 : '+fiuVal(RO.note));
 
   // ── 4단 의심되는 사유 ──
   var basis = fiuVal(RES.key_basis) || na('핵심 근거');
@@ -2470,7 +2551,7 @@ function fiuGateText(body){
     var vagueHit=[];
     seg3.split('\n').forEach(function(ln){
       var mm=ln.match(/^\s{3}([^:]+) : (.+)$/);
-      if(mm && vagueRe.test(mm[2]) && mm[1].indexOf('영업점')<0) vagueHit.push(mm[1].trim());
+      if(mm && vagueRe.test(mm[2])) vagueHit.push(mm[1].trim());   // v3.5.0 영업점 예외 해제(입력란 신설)
     });
     if(vagueHit.length) hard.push('3단 서술 미달 '+vagueHit.length+'건('+vagueHit.join(' · ')+') — 값이 「미상·미확인」이면 기재가 아니라 결손이다');
   }
@@ -2490,7 +2571,8 @@ function fiuGateText(body){
   if(/[0-9]{7,}\s*원/.test(body)) soft.push('원 단위 장문 금액 표기 — 서술부는 백만원 단위 권고');
 
   // [미판정] 입력 자체가 없어 판정 불가한 축
-  unk.push('거래발생 장소(영업점) — 입력 항목 없음');
+  // v3.5.0 — 영업점·관측기간·거래횟수는 입력란 신설로 [미판정]에서 내려왔다(3층 규율 ③).
+  //   남은 2건은 여전히 입력 자체가 없는 축이다. 0건이 아니라 부재다.
   unk.push('주요 입·출금 거래상대방 각 3명 — 입력 항목 없음');
   unk.push('최근 3·6·12개월 누적 거래규모 — 입력 항목 없음');
 

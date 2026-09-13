@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.1</title>
+<title>STR 사례 분석기 v3.5.2</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -246,7 +246,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.1</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.2</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -432,14 +432,15 @@
         </details>
       </details>
 
-      <label class="l">가릴 이름 (치환표) <span class="opt">자동채움이 채움 · 빠진 이름은 쉼표로 추가</span></label>
-      <input id="names" placeholder="윤OO, 신한은행" oninput="genIdCode()">
+      <label class="l">가릴 이름·상호·지명 (치환표) <span class="opt">자동채움이 이름을 채움 · 상호·지명은 직접 추가하면 함께 가려집니다</span></label>
+      <input id="names" placeholder="예: 홍길동, 김철수, 해변떡집, 수영구" oninput="genIdCode()">
       <div class="opts"><span class="lab">자동탐지</span>
         <label><input type="checkbox" id="o_rrn" checked>주민번호</label>
         <label><input type="checkbox" id="o_phone" checked>전화</label>
         <label><input type="checkbox" id="o_acct" checked>계좌·카드</label>
         <label><input type="checkbox" id="o_biz" checked>사업자번호</label>
         <label><input type="checkbox" id="o_email" checked>이메일</label>
+        <label><input type="checkbox" id="o_birth" checked>생년월일</label>
       </div>
 
       <div id="step2" class="stepsec">
@@ -619,7 +620,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.1 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.2 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -631,6 +632,15 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.2(2026-09-12): ★비식별 결함 수정 — 생년월일이 원값 그대로 외부 전송되고 있었다.
+//   자동 치환 6종(주민·사업자·카드·전화·계좌·이메일) 중 어디에도 맨 6자리 생년월일이 걸리지 않았다.
+//   주민번호 규칙 \d{6}[-\s]?\d{7} 은 뒷 7자리를 요구하므로 「생년월일 750217」을 통과시킨다.
+//   적발 경로 — 업로드용 사례 사본 점검에서 .deid의 「성명 [이름1] … 생년월일 <원값>」 구조 발견.
+//   ★레이블 기반으로만 잡는다. 맨 6자리를 무조건 치환하면 금액·회차가 함께 사라진다
+//     (§11-91 5항 「사실 동반 삭제」의 재연 방지). 주민번호 치환 뒤에 실행해 앞 6자리만 먹는 사고를 막는다.
+//   준식별자(나이·거주 시군구·업체명)는 자동 치환 대상이 아니다 — 자유서술이라 패턴이 없고
+//     무리하게 지우면 판정 근거가 무너진다(거주지·업종은 C1 근거). 치환표 안내 강화로 유도한다.
+//     재식별 위험의 완전 해소는 상용화 전 온프레 정밀 비식별화 과제이며 본 판에서 닫히지 않는다.
 // v3.5.1(2026-09-12): UX 재배치 + 이름 게이트 + 출력 층 정리.
 //   ⓧ 입력 카드 STEP 1(업권·사진·본문·자동입력·치환표) / STEP 2(자동입력 확인, 기본 펼침) /
 //     STEP 3(위험플래그·report_only·실거래가·척도, 기본 접힘 · 자동입력이 채우면 펼침).
@@ -1000,7 +1010,7 @@ async function loadDriveCase(fileId, fname){
     }
     if(i.src!=null)document.getElementById('src').value=i.src;
     if(i.sancFlags){document.getElementById('f_sanc').checked=!!i.sancFlags.sanc;document.getElementById('f_third').checked=!!i.sancFlags.third;document.getElementById('f_refuse').checked=!!i.sancFlags.refuse;document.getElementById('f_cddref').checked=!!i.sancFlags.cddref;document.getElementById('f_fraud').checked=!!i.sancFlags.fraud;document.getElementById('f_cash').checked=!!i.sancFlags.cash;document.getElementById('f_recheck').checked=!!i.sancFlags.recheck;}
-    if(i.opts){['rrn','phone','acct','biz','email'].forEach(k=>{const el=document.getElementById('o_'+k);if(el)el.checked=!!i.opts[k];});}
+    if(i.opts){['rrn','phone','acct','biz','email','birth'].forEach(k=>{const el=document.getElementById('o_'+k);if(el)el.checked=!!i.opts[k];});}
     roSetVals((rec.meta&&rec.meta.report_only)||null);   // v3.5.0
     MAP=rec.map||{}; LAST=Object.assign({},LAST,{deid:rec.deid||''});
     if(rec.deid)renderDeid(rec.deid);
@@ -1083,6 +1093,13 @@ function deidentify(){
   if(chk('o_acct'))  rules.push([/\b\d{2,6}-\d{2,6}-\d{2,7}(?:-\d{1,6})?\b/g,'acct','계좌']);
   if(chk('o_email')) rules.push([/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/g,'email','이메일']);
   rules.forEach(([re,type,label])=>{text=text.replace(re,m=>{if(m.includes('\u0000'))return m;return '\u0000'+tokenFor(m.trim(),type,label)+'\u0000';});});
+  // v3.5.2 생년월일 — 레이블 뒤 6·8자리만. 정형 규칙(주민번호 등) 뒤에 두어 앞 6자리만 먹는 사고를 막는다.
+  //   맨 숫자를 무조건 잡지 않는 이유: 금액·회차·건수가 함께 사라지면 판정 근거가 무너진다.
+  if(chk('o_birth')){
+    text=text.replace(/(생년월일|생년|생일|출생일|출생)([\s:\uff1a]*)(\d{8}|\d{6})(?![\d\-\u0000])/g,
+      function(m,lab,sp,d){ if(m.indexOf('\u0000')>=0) return m;
+        return lab+sp+'\u0000'+tokenFor(d,'birth','생년')+'\u0000'; });
+  }
   return text.replace(/\u0000/g,'');
 }
 function restore(s){s=String(s||'');Object.keys(MAP).sort((a,b)=>b.length-a.length).forEach(tok=>{s=s.split(tok).join(MAP[tok].value);});return s;}
@@ -2245,7 +2262,7 @@ function resetForm(){
   ['ro_acct43','ro_remit44','ro_match'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;}); roSync();
   ['ttype','ctype','fpath','fsrc','cdd_status','scale'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;});
   ['f_sanc','f_third','f_refuse','f_cddref','f_fraud','f_cash','f_recheck'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
-  ['o_rrn','o_phone','o_acct','o_biz','o_email'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=true;});
+  ['o_rrn','o_phone','o_acct','o_biz','o_email','o_birth'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=true;});
   setMode('tri');
   setStep(1);
   document.getElementById('deid').innerHTML='<span style="color:var(--faint)">분석 시 자동 생성됩니다.</span>';
@@ -2305,7 +2322,7 @@ function roSync(){
   else if(/^1여/.test(r.acct43) && !r.match) msg='관련계좌 「여」이면 계좌주 명의일치는 필수 입력입니다(IV-2).';
   h.textContent=msg; h.style.display=msg?'block':'none';
 }
-function curInput(){return {caseno:val('caseno'),txdate:val('txdate'),birth:val('birth'),custno:val('custno'),idcode:genIdCode(),sector:val('sector'),ttype:val('ttype'),ctype:val('ctype'),amt:val('amt'),ncnt:val('ncnt'),ntot:val('ntot'),fpath:val('fpath'),fsrc:val('fsrc'),cdd_status:val('cdd_status'),names:val('names'),src:document.getElementById('src').value,flags:flags(),scale:val('scale'),opts:{rrn:chk('o_rrn'),phone:chk('o_phone'),acct:chk('o_acct'),biz:chk('o_biz'),email:chk('o_email')},sancFlags:{sanc:chk('f_sanc'),third:chk('f_third'),refuse:chk('f_refuse'),cddref:chk('f_cddref'),fraud:chk('f_fraud'),cash:chk('f_cash'),recheck:chk('f_recheck')},sectorFields:sectorFieldValues()};}
+function curInput(){return {caseno:val('caseno'),txdate:val('txdate'),birth:val('birth'),custno:val('custno'),idcode:genIdCode(),sector:val('sector'),ttype:val('ttype'),ctype:val('ctype'),amt:val('amt'),ncnt:val('ncnt'),ntot:val('ntot'),fpath:val('fpath'),fsrc:val('fsrc'),cdd_status:val('cdd_status'),names:val('names'),src:document.getElementById('src').value,flags:flags(),scale:val('scale'),opts:{rrn:chk('o_rrn'),phone:chk('o_phone'),acct:chk('o_acct'),biz:chk('o_biz'),email:chk('o_email'),birth:chk('o_birth')},sancFlags:{sanc:chk('f_sanc'),third:chk('f_third'),refuse:chk('f_refuse'),cddref:chk('f_cddref'),fraud:chk('f_fraud'),cash:chk('f_cash'),recheck:chk('f_recheck')},sectorFields:sectorFieldValues()};}
 
 // ── v3.2 업권 드롭다운 ──
 const SECTOR_TTYPE = {
@@ -2385,7 +2402,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.1',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.2',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))
@@ -2425,7 +2442,7 @@ function importJSON(ev){
       }
       if(i.src!=null)document.getElementById('src').value=i.src;
       if(i.sancFlags){document.getElementById('f_sanc').checked=!!i.sancFlags.sanc;document.getElementById('f_third').checked=!!i.sancFlags.third;document.getElementById('f_refuse').checked=!!i.sancFlags.refuse;document.getElementById('f_cddref').checked=!!i.sancFlags.cddref;document.getElementById('f_fraud').checked=!!i.sancFlags.fraud;document.getElementById('f_cash').checked=!!i.sancFlags.cash;document.getElementById('f_recheck').checked=!!i.sancFlags.recheck;}
-      if(i.opts){['rrn','phone','acct','biz','email'].forEach(k=>{const el=document.getElementById('o_'+k);if(el)el.checked=!!i.opts[k];});}
+      if(i.opts){['rrn','phone','acct','biz','email','birth'].forEach(k=>{const el=document.getElementById('o_'+k);if(el)el.checked=!!i.opts[k];});}
       roSetVals((rec.meta&&rec.meta.report_only)||null);   // v3.5.0
       MAP=rec.map||{}; LAST=Object.assign({},LAST,{deid:rec.deid||''});
       if(rec.deid)renderDeid(rec.deid);

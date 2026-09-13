@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.4</title>
+<title>STR 사례 분석기 v3.5.2</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -81,11 +81,36 @@
   .opts .lab{color:var(--faint);font-weight:700}
   .opts label{display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600}
   .opts input{width:auto;accent-color:var(--primary)}
+  .runrow{display:flex;gap:10px;align-items:stretch;margin-top:14px}
+  .runrow .modetoggle{margin-top:0;flex:0 0 auto}
+  .runrow .modetoggle button{white-space:nowrap;padding-left:12px;padding-right:12px}
+  .runrow .btn-go{width:auto;flex:1;margin-top:0;padding:12px 20px;font-size:14px}
   .modetoggle{display:flex;gap:0;margin-top:6px;border:1px solid var(--line2);border-radius:10px;overflow:hidden}
   .modetoggle button{flex:1;background:var(--field);color:var(--dim);padding:9px;font-size:12.5px;border-radius:0}
   .modetoggle button.on{background:var(--primary);color:#fff}
   button{font-family:var(--kr);font-weight:700;border:none;border-radius:11px;cursor:pointer;transition:.15s}
   .btn-go{background:var(--primary);color:#fff;width:100%;padding:14px;font-size:14.5px;margin-top:16px;box-shadow:var(--sh-sm);letter-spacing:.02em}
+  .stepbar{display:flex;align-items:center;gap:8px;margin:14px 0 2px}
+  .stepno{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:50%;
+    background:var(--field);color:var(--dim);font-size:11.5px;font-weight:700;flex:0 0 auto}
+  .stepno.on{background:var(--primary);color:#fff}
+  .stepbar b,details>summary>b{font-size:13px;color:var(--ink)}
+  .stephint{font-size:11.5px;color:var(--faint);font-weight:400}
+  .cardhead{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .cardhead h2{margin-bottom:0}
+  .cardtools{display:flex;gap:6px}
+  .btn-xs{font-size:11.5px;padding:5px 10px;border:1px solid var(--line2);border-radius:8px;background:#fff;color:var(--dim);cursor:pointer}
+  .btn-xs:hover{border-color:var(--primary);color:var(--primary)}
+  .afrow{display:flex;gap:8px;margin-top:8px}
+  .afrow .af{flex:1;font-size:12.5px;padding:8px 12px}
+  #rt_panel.rtdock>summary{display:none}
+  #rt_panel.rtdock:not([open]){display:none}
+  .stepsec{margin-top:14px;border:1px solid var(--line);border-radius:11px;padding:11px 13px;background:var(--field)}
+  .stephead{display:flex;align-items:baseline;gap:8px;margin:0 0 6px;flex-wrap:wrap}
+  .stephead b,details#step3>summary>b{white-space:nowrap}
+  details#step3>summary{display:flex;align-items:center;gap:8px;margin:0;padding:0;cursor:pointer}
+  details#step3{padding:11px 13px}
+  .af-hit{outline:2px solid var(--primary);outline-offset:1px;transition:outline-color .6s}
   .btn-go:hover{background:var(--primary-d)} .btn-go:disabled{opacity:.55;cursor:wait}
   .btn-sm{background:#fff;color:var(--ink);border:1px solid var(--line2);padding:8px 13px;font-size:12px}
   .btn-sm:hover{border-color:var(--primary);color:var(--primary-d)}
@@ -221,9 +246,9 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.4</span></h1>
-    <p class="sub">0~100 점수 엔진 + 등급 + 고객사 척도 환산. 트리아지(1차)↔세부분석 전환. 개인정보는 비식별화 후 분석.</p>
-    <span class="badge"><i></i> PII 비식별화 후 분석 · 결과에서 자동 복원</span>
+    <h1>STR 사례 분석기 <span class="v">v3.5.2</span></h1>
+    <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
+    <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
 
   <div class="steps">
@@ -277,6 +302,7 @@
       <div style="display:flex;gap:0;margin-bottom:10px;border:1px solid var(--line2);border-radius:9px;overflow:hidden">
         <button id="opTabBrief" onclick="event.stopPropagation();switchOpinion('brief')" style="flex:1;padding:8px;font-size:12.5px;font-weight:700;background:var(--primary);color:#fff;border:none;cursor:pointer">📝 입력용 (간략)</button>
         <button id="opTabFull"  onclick="event.stopPropagation();switchOpinion('full')"  style="flex:1;padding:8px;font-size:12.5px;font-weight:700;background:var(--field);color:var(--dim);border:none;cursor:pointer">📋 보고서용 (전체)</button>
+        <button id="opTabFiu"   onclick="event.stopPropagation();switchOpinion('fiu')"   style="flex:1;padding:8px;font-size:12.5px;font-weight:700;background:var(--field);color:var(--dim);border:none;cursor:pointer">🏛 FIU 4단</button>
       </div>
       <p id="opTabHint" style="font-size:11.5px;color:var(--faint);margin:-4px 0 10px">STR 시스템 입력란에 바로 붙여넣기 가능한 간략 버전입니다.</p>
       <textarea id="opinionText" style="width:100%;height:46vh;font-size:12.5px;line-height:1.7;padding:12px;border:1px solid var(--line);border-radius:10px;font-family:inherit;resize:vertical;white-space:pre-wrap"></textarea>
@@ -289,7 +315,7 @@
   </div>
 
   <!-- 재평가 모드 배너 — loadDriveCase/importJSON 후 표시, resetForm/새분석 완료 시 해제 -->
-  <div id="reevalBanner" style="display:none;margin-bottom:12px;padding:10px 14px;background:#fff4e0;border:1px solid var(--chk-line);border-radius:11px;font-size:12.5px;color:#7a4d06;display:flex;align-items:center;gap:10px">
+  <div id="reevalBanner" style="display:none;margin-bottom:12px;padding:10px 14px;background:#fff4e0;border:1px solid var(--chk-line);border-radius:11px;font-size:12.5px;color:#7a4d06;align-items:center;gap:10px">
     <span>🔄</span>
     <span id="reevalBannerText">과거 사례 재평가 중</span>
     <button onclick="resetForm()" style="margin-left:auto;font-size:11.5px;padding:4px 10px;border:1px solid var(--chk-line);border-radius:7px;background:#fff;color:#7a4d06;cursor:pointer;font-weight:700">✕ 새 사례로</button>
@@ -297,8 +323,15 @@
 
   <div class="grid">
     <section class="card">
-      <h2>사례 입력 <span class="tag local">로컬 처리</span></h2>
-
+      <div class="cardhead">
+        <h2>사례 입력 <span class="tag local">로컬 처리</span></h2>
+        <div class="cardtools">
+          <button class="btn-xs" onclick="document.getElementById('importFile').click()" title="저장해 둔 사례 JSON을 불러옵니다">📂 사례 불러오기</button>
+          <button class="btn-xs" onclick="resetForm()" title="화면을 비우고 새 사례를 시작합니다">🧹 초기화</button>
+          <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importJSON(event)">
+        </div>
+      </div>
+      <div class="stephint" style="margin:0 0 6px">본문을 붙여넣고 ✨ 자동채움 → 채워진 값 확인 → 분석 실행</div>
       <label class="l">업권 <span class="opt">(선택 시 거래유형·전용필드 자동 변경)</span></label>
       <select id="sector" onchange="onSectorChange()">
         <option value="보험">보험</option>
@@ -309,10 +342,111 @@
         <option value="기타">기타</option>
       </select>
       <div id="fiuProd" class="fiuprod"></div>
+      <label class="l">📷 사진 인식 <span class="opt">(AML 화면·서류 사진 → 아래 사례 내용에 자동 입력)</span></label>
+      <div class="ocrmode">
+        <label><input type="radio" name="ocrm" value="ai" checked><span class="om"><b>🌐 외부 AI 인식</b><small>정확함 · 사진이 외부(Claude)로 전송됨</small></span></label>
+        <label><input type="radio" name="ocrm" value="local"><span class="om"><b>💻 로컬 인식</b><small>사진 미전송 · 정확도 낮을 수 있음</small></span></label>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button class="btn-sm" style="flex:1" id="photoBtn" onclick="document.getElementById('photoFile').click()">📷 사진 선택·촬영 (최대 4장)</button>
+        <input type="file" id="photoFile" accept="image/*" multiple style="display:none" onchange="onPhotoSelect(event)">
+      </div>
+      <div id="photoStatus" style="display:none;margin-top:6px;font-size:12px;color:var(--faint);line-height:1.5"></div>
+      <label class="l">사례 내용 (자유 서술)</label>
+      <textarea id="src" placeholder="고객·거래·특이사항을 편하게 적으세요. 개인정보는 자동 비식별화됩니다."></textarea>
+      <div class="afrow">
+        <button class="btn-sm af" onclick="autoFillFromText()">✨ 입력 자동채움</button>
+        <button class="btn-sm af" id="rtToggleBtn" onclick="rtToggle()">🏢 실거래가 조회 <span class="tag ext">공공데이터</span></button>
+      </div>
+      <div id="autoFillStatus" style="margin-top:5px;font-size:11.5px;color:var(--faint)">본문에서 이름·생년월일·거래일·금액·유형을 뽑아 아래 칸을 채웁니다 · 부동산 사례는 실거래가를 바로 조회</div>
+      <details id="rt_panel" class="rtdock">
+        <summary>🏢 실거래가 조회 <span class="tag ext">외부 API</span></summary>
 
+        <div class="rt-in">
+          <label class="l" style="margin-top:0">공공데이터포털 인증키 <span id="rt_keyBadge" class="rt-badge rt-b-no">미저장</span></label>
+          <div class="rt-keyrow">
+            <input type="password" id="rt_svcKey" placeholder="일반 인증키(Decoding) 붙여넣기">
+            <button class="btn-sm" onclick="rt_saveKey()">저장</button>
+            <button class="btn-sm" onclick="rt_clearKey()">삭제</button>
+          </div>
+          <div class="rt-hint">키는 이 브라우저 localStorage에만 저장됩니다(외부 전송 없음 — 국토부 API 호출에만 사용). Encoding 키를 넣으면 자동으로 변환합니다.</div>
+        </div>
+
+        <div class="rt-in">
+          <div class="rt-row">
+            <div>
+              <label class="l" style="margin-top:0">구분</label>
+              <select id="rt_tradeType">
+                <option value="trade">매매</option>
+                <option value="rent">전월세</option>
+              </select>
+            </div>
+            <div>
+              <label class="l" style="margin-top:0">계약년월</label>
+              <input id="rt_ym" placeholder="YYYYMM (예: 202607)" maxlength="6" inputmode="numeric">
+            </div>
+          </div>
+          <div class="rt-row">
+            <div>
+              <label class="l">시도</label>
+              <select id="rt_sido" onchange="rt_fillSgg()"></select>
+            </div>
+            <div>
+              <label class="l">시군구</label>
+              <select id="rt_sgg"></select>
+            </div>
+          </div>
+          <label class="l">법정동코드 직접 입력 <span class="opt">(목록에 없는 지역)</span></label>
+          <input id="rt_lawdManual" placeholder="5자리 코드 (입력 시 드롭다운보다 우선)" maxlength="5" inputmode="numeric">
+          <label class="l">단지명 필터 <span class="opt">(선택 — 결과 내 검색)</span></label>
+          <input id="rt_aptFilter" placeholder="예: 한남하이츠">
+          <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+            <button class="btn-sm" id="rt_goBtn" onclick="rt_lookup()" style="padding:7px 16px">실거래가 조회</button>
+            <span class="opt" style="font-size:11px">국토부 API · 인증키 저장 후</span>
+          </div>
+          <div id="rt_status">대기 중 — 인증키 저장 후 조회하세요.</div>
+        </div>
+
+        <div class="rt-in" id="rt_resCard" style="display:none">
+          <label class="l" style="margin-top:0">조회 결과 <span id="rt_resCount" class="opt"></span></label>
+          <div class="rt-tblwrap"><table id="rt_resTbl"><thead></thead><tbody></tbody></table></div>
+          <div class="rt-hint">단지명을 클릭하면 그 단지만 면적별로 묶어 보여줍니다.</div>
+          <div class="rt-sum" id="rt_sumBox">
+            <div id="rt_sumText"></div>
+            <div class="rt-acts">
+              <button class="btn-sm" onclick="rt_copySummary()">📋 요약 복사</button>
+              <button class="btn-sm" onclick="rt_insertToSrc()">↳ 사례 내용란에 삽입</button>
+              <button class="btn-sm" id="rt_backBtn" onclick="rt_clearAptFocus()" style="display:none">↩ 전체 결과로</button>
+            </div>
+            <div class="rt-hint">삽입은 사례 내용란 말미에 텍스트로 덧붙일 뿐이며, 점수엔진 자동 반영은 하지 않습니다 — 담당자 판단 원칙.</div>
+          </div>
+        </div>
+
+        <details>
+          <summary>API 한계 고지 (조회 전 확인)</summary>
+          <div class="rt-hint" style="font-size:11.5px;margin-top:8px">
+            · <b>법정동코드 수기 확인 필요</b> — 주소 문자열 자동 변환은 지원하지 않습니다. 시도·시군구 드롭다운(수도권·광역시 수록) 또는 5자리 직접 입력으로 지정하세요.<br>
+            · <b>호수 비식별</b> — 동·호수는 제공되지 않아 개별 물건 특정은 불가합니다. 단지·전용면적·층 수준의 대조까지만 가능합니다.<br>
+            · <b>신고 지연</b> — 계약일로부터 신고기한(최대 30일)이 있어 최근 계약분은 누락될 수 있습니다. 미조회가 곧 미거래는 아닙니다.
+          </div>
+        </details>
+      </details>
+
+      <label class="l">가릴 이름·상호·지명 (치환표) <span class="opt">자동채움이 이름을 채움 · 상호·지명은 직접 추가하면 함께 가려집니다</span></label>
+      <input id="names" placeholder="예: 홍길동, 김철수, 해변떡집, 수영구" oninput="genIdCode()">
+      <div class="opts"><span class="lab">자동탐지</span>
+        <label><input type="checkbox" id="o_rrn" checked>주민번호</label>
+        <label><input type="checkbox" id="o_phone" checked>전화</label>
+        <label><input type="checkbox" id="o_acct" checked>계좌·카드</label>
+        <label><input type="checkbox" id="o_biz" checked>사업자번호</label>
+        <label><input type="checkbox" id="o_email" checked>이메일</label>
+        <label><input type="checkbox" id="o_birth" checked>생년월일</label>
+      </div>
+
+      <div id="step2" class="stepsec">
+        <div class="stephead"><b>자동입력 확인</b><span id="step2Hint" class="stephint">채워진 값을 확인·보정하세요 (빈 칸은 그대로 두어도 됨)</span></div>
       <label class="l">거래 유형</label>
       <select id="ttype"></select>
-
       <div class="twocol">
         <div><label class="l">사례번호 <span class="opt">(선택·메모용)</span></label><input id="caseno" placeholder="예: 004"></div>
         <div><label class="l">거래일 <span class="opt">(파일명에 사용)</span></label>
@@ -320,17 +454,17 @@
             <input id="txdate" placeholder="예: 20260519 또는 2026-05-19" style="flex:1" oninput="smartDateFmt(this)">
             <input type="date" id="txdate_picker" title="캘린더로 선택" style="width:36px;padding:4px 2px;border:1px solid var(--border);border-radius:6px;cursor:pointer;color:transparent;background:var(--surface)" onchange="if(this.value){document.getElementById('txdate').value=this.value;this.value=''}">
           </div>
-          <span style="font-size:10.5px;color:var(--faint)">20260519→2026-05-19 / 100120→2010-01-20 자동변환</span>
+          <span style="font-size:10.5px;color:var(--faint)">8자리 입력 시 자동 변환</span>
         </div>
       </div>
 
       <div class="twocol">
-        <div><label class="l">생년월일 <span class="opt">(식별코드 생성·기본키)</span></label>
+        <div><label class="l">생년월일 <span class="opt">(식별코드 생성 기준)</span></label>
           <div style="display:flex;gap:6px;align-items:center">
             <input id="birth" placeholder="예: 751203 또는 1975-12-03" style="flex:1" oninput="smartDateFmt(this);genIdCode()">
             <input type="date" id="birth_picker" title="캘린더로 선택" style="width:36px;padding:4px 2px;border:1px solid var(--border);border-radius:6px;cursor:pointer;color:transparent;background:var(--surface)" onchange="if(this.value){document.getElementById('birth').value=this.value;genIdCode();this.value=''}">
           </div>
-          <span style="font-size:10.5px;color:var(--faint)">751203→1975-12-03 / 19751203→1975-12-03 자동변환</span>
+          <span style="font-size:10.5px;color:var(--faint)">6·8자리 입력 시 자동 변환</span>
         </div>
         <div><label class="l">고객번호 <span class="opt">(회사 부여·검색 보조)</span></label><input id="custno" placeholder="예: C123456" oninput="genIdCode()"></div>
       </div>
@@ -349,7 +483,7 @@
           <div><label class="l">누적 보험료(원) <span class="opt">신규 포함</span></label><input id="ntot" placeholder="예: 1억5천만"></div>
         </div>
         <div class="twocol">
-          <div><label class="l">수익자 CDD 단계</label>
+          <div><label class="l">수익자 고객확인(CDD) 단계</label>
             <select id="ins_cdd_stage"><option value="">미상</option><option>지정시(간소화)</option><option>지급청구시(철저검증)</option></select></div>
           <div><label class="l">중도해지환급금 발생여부</label>
             <select id="ins_surrender"><option value="">미상</option><option>예</option><option>아니오</option></select></div>
@@ -403,14 +537,12 @@
       </div>
 
       <div id="sectorFields_기타" style="display:none"></div>
-
       <div class="twocol">
-        <div><label class="l">자금 경로</label>
+        <div><label class="l">돈이 오간 계좌 (자금 경로)</label>
           <select id="fpath"><option>미상</option><option>본인 명의 계좌</option><option>타인 명의 계좌</option><option>현금</option></select></div>
-        <div><label class="l">자금원천 확인</label>
+        <div><label class="l">돈의 출처 확인 (자금원천)</label>
           <select id="fsrc"><option>미확인</option><option>자가진술 확보</option><option>증빙 확인</option></select></div>
       </div>
-
       <!-- v3.3.9 신설: 고객확인 진행 상태. 누설 금지(업무규정 제44조의2) 사유로 확인을 중단한 상태를 fsrc와 분리해 받는 축.
            조문 좌표는 사례분석방 회신 기재이며 STR 원문 미실측(CLAUDE_STR §11-55 2항). -->
       <div class="twocol">
@@ -418,25 +550,10 @@
           <select id="cdd_status"><option>해당없음</option><option>누설 우려로 확인 중단</option></select></div>
         <div></div>
       </div>
-
-      <label class="l">📷 사진 인식 <span class="opt">(AML 화면·서류 사진 → 아래 사례 내용에 자동 입력)</span></label>
-      <div class="ocrmode">
-        <label><input type="radio" name="ocrm" value="ai" checked><span class="om"><b>🌐 외부 AI 인식</b><small>정확함 · 사진이 외부(Claude)로 전송됨</small></span></label>
-        <label><input type="radio" name="ocrm" value="local"><span class="om"><b>💻 로컬 인식</b><small>사진 미전송 · 정확도 낮을 수 있음</small></span></label>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:6px">
-        <button class="btn-sm" style="flex:1" id="photoBtn" onclick="document.getElementById('photoFile').click()">📷 사진 선택·촬영 (최대 4장)</button>
-        <input type="file" id="photoFile" accept="image/*" multiple style="display:none" onchange="onPhotoSelect(event)">
-      </div>
-      <div id="photoStatus" style="display:none;margin-top:6px;font-size:12px;color:var(--faint);line-height:1.5"></div>
-
-      <label class="l">사례 내용 (자유 서술)</label>
-      <textarea id="src" placeholder="고객·거래·특이사항을 편하게 적으세요. 개인정보는 자동 비식별화됩니다."></textarea>
-      <div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <button class="btn-sm" onclick="autoFillFromText()" style="font-size:12px;padding:6px 12px">✨ 입력 자동채움</button>
-        <span id="autoFillStatus" style="font-size:11.5px;color:var(--faint)">사례 내용에서 이름·생년월일·거래일·금액·유형 추출 → 빈 칸 채움 · 이름은 추가 · 값이 다르면 제안</span>
       </div>
 
+      <details id="step3">
+        <summary><b>추가 정보 체크</b><span id="step3Hint" class="stephint">필요할 때만 — 위험 플래그 · 보고서 전용 입력 · 척도</span></summary>
       <div class="sec">위험 플래그 <span class="opt">(해당 항목만 체크 · 자동채움 대상 아님)</span></div>
       <div class="flags">
         <label><input type="checkbox" id="f_sanc">제재·PEP 연계</label>
@@ -447,115 +564,55 @@
         <label><input type="checkbox" id="f_cash">1천만원 이상 현금지급(환급 등)</label>
         <label><input type="checkbox" id="f_recheck">재이행 사유 해당(중요거래·정보변경·계좌운영변화·정보불충분)</label>
       </div>
-
-      <details id="rt_panel">
-        <summary>🏢 실거래가 조회 <span class="tag ext">외부 API</span></summary>
-
-        <div class="rt-in">
-          <label class="l" style="margin-top:0">공공데이터포털 인증키 <span id="rt_keyBadge" class="rt-badge rt-b-no">미저장</span></label>
-          <div class="rt-keyrow">
-            <input type="password" id="rt_svcKey" placeholder="일반 인증키(Decoding) 붙여넣기">
-            <button class="btn-sm" onclick="rt_saveKey()">저장</button>
-            <button class="btn-sm" onclick="rt_clearKey()">삭제</button>
-          </div>
-          <div class="rt-hint">키는 이 브라우저 localStorage에만 저장됩니다(외부 전송 없음 — 국토부 API 호출에만 사용). Encoding 키를 넣으면 자동으로 변환합니다.</div>
+      <!-- v3.5.0 ⓡ④ report_only — 분석(외부 전송) 경로에 진입하지 않는다. 보고서 출력 전용. -->
+      <div class="ro-sec" style="margin-top:14px;padding:11px 12px;border:1px solid var(--chk-line);border-radius:10px;background:#fffdf7">
+        <label class="l" style="margin-top:0">📋 보고서 전용 입력 <span class="opt">FIU 보고서 서식(별지 제1호)에만 들어감 · 분석에 쓰지 않음 · 외부 미전송</span></label>
+        <div class="twocol">
+          <div><label class="l">관측기간</label><input id="ro_period" placeholder="예: 2026-01-01~2026-05-31"></div>
+          <div><label class="l">거래횟수</label><input id="ro_txcnt" placeholder="예: 총 12회"></div>
         </div>
-
-        <div class="rt-in">
-          <div class="rt-row">
-            <div>
-              <label class="l" style="margin-top:0">구분</label>
-              <select id="rt_tradeType">
-                <option value="trade">매매</option>
-                <option value="rent">전월세</option>
-              </select>
-            </div>
-            <div>
-              <label class="l" style="margin-top:0">계약년월</label>
-              <input id="rt_ym" placeholder="YYYYMM (예: 202607)" maxlength="6" inputmode="numeric">
-            </div>
-          </div>
-          <div class="rt-row">
-            <div>
-              <label class="l">시도</label>
-              <select id="rt_sido" onchange="rt_fillSgg()"></select>
-            </div>
-            <div>
-              <label class="l">시군구</label>
-              <select id="rt_sgg"></select>
-            </div>
-          </div>
-          <label class="l">법정동코드 직접 입력 <span class="opt">(목록에 없는 지역)</span></label>
-          <input id="rt_lawdManual" placeholder="5자리 코드 (입력 시 드롭다운보다 우선)" maxlength="5" inputmode="numeric">
-          <label class="l">단지명 필터 <span class="opt">(선택 — 결과 내 검색)</span></label>
-          <input id="rt_aptFilter" placeholder="예: 한남하이츠">
-          <button class="btn-go" id="rt_goBtn" onclick="rt_lookup()">실거래가 조회</button>
-          <div id="rt_status">대기 중 — 인증키 저장 후 조회하세요.</div>
+        <div class="twocol">
+          <div><label class="l">거래영업점명 <span class="opt">(III-35)</span></label><input id="ro_branch" placeholder="예: OO지점"></div>
+          <div><label class="l">관련계좌 존재 여부 <span class="opt">(III-43)</span></label>
+            <select id="ro_acct43" onchange="roSync()">
+              <option value="">미입력</option><option>1여(자행계좌)</option><option>1여(타행계좌)</option><option>2부</option></select></div>
         </div>
-
-        <div class="rt-in" id="rt_resCard" style="display:none">
-          <label class="l" style="margin-top:0">조회 결과 <span id="rt_resCount" class="opt"></span></label>
-          <div class="rt-tblwrap"><table id="rt_resTbl"><thead></thead><tbody></tbody></table></div>
-          <div class="rt-hint">단지명을 클릭하면 그 단지만 면적별로 묶어 보여줍니다.</div>
-          <div class="rt-sum" id="rt_sumBox">
-            <div id="rt_sumText"></div>
-            <div class="rt-acts">
-              <button class="btn-sm" onclick="rt_copySummary()">📋 요약 복사</button>
-              <button class="btn-sm" onclick="rt_insertToSrc()">↳ 사례 내용란에 삽입</button>
-              <button class="btn-sm" id="rt_backBtn" onclick="rt_clearAptFocus()" style="display:none">↩ 전체 결과로</button>
-            </div>
-            <div class="rt-hint">삽입은 사례 내용란 말미에 텍스트로 덧붙일 뿐이며, 점수엔진 자동 반영은 하지 않습니다 — 담당자 판단 원칙.</div>
-          </div>
+        <div class="twocol">
+          <div><label class="l">송금·수취계좌 존재 여부 <span class="opt">(III-44)</span></label>
+            <select id="ro_remit44">
+              <option value="">미입력</option><option>1여(자행계좌)</option><option>1여(타행계좌)</option><option>2부</option></select></div>
+          <div id="ro_matchBox"><label class="l">계좌주 명의일치 <span class="opt">(IV-2)</span></label>
+            <select id="ro_match" onchange="roSync()">
+              <option value="">미입력</option><option>일치</option><option>불일치</option><option>미확인</option></select></div>
         </div>
-
-        <details>
-          <summary>API 한계 고지 (조회 전 확인)</summary>
-          <div class="rt-hint" style="font-size:11.5px;margin-top:8px">
-            · <b>법정동코드 수기 확인 필요</b> — 주소 문자열 자동 변환은 지원하지 않습니다. 시도·시군구 드롭다운(수도권·광역시 수록) 또는 5자리 직접 입력으로 지정하세요.<br>
-            · <b>호수 비식별</b> — 동·호수는 제공되지 않아 개별 물건 특정은 불가합니다. 단지·전용면적·층 수준의 대조까지만 가능합니다.<br>
-            · <b>신고 지연</b> — 계약일로부터 신고기한(최대 30일)이 있어 최근 계약분은 누락될 수 있습니다. 미조회가 곧 미거래는 아닙니다.
-          </div>
-        </details>
-      </details>
-
-      <label class="l">이름·고유명사 지정 <span class="opt">(쉼표 구분)</span></label>
-      <input id="names" placeholder="윤OO, 신한은행" oninput="genIdCode()">
-      <div class="opts"><span class="lab">자동탐지</span>
-        <label><input type="checkbox" id="o_rrn" checked>주민번호</label>
-        <label><input type="checkbox" id="o_phone" checked>전화</label>
-        <label><input type="checkbox" id="o_acct" checked>계좌·카드</label>
-        <label><input type="checkbox" id="o_biz" checked>사업자번호</label>
-        <label><input type="checkbox" id="o_email" checked>이메일</label>
+        <label class="l">계좌 관련 서술 <span class="opt">(필요한 만큼만)</span></label>
+        <input id="ro_note" placeholder="예: OO은행 가상계좌로 제3자 입금">
+        <div id="ro_hint" class="fiunote" style="display:none;margin-left:0;margin-top:6px"></div>
       </div>
-
       <label class="l">고객사 척도 (환산 표시)</label>
       <select id="scale">
         <option value="5">1~5단계 (5=보고가능성 높음)</option>
         <option value="10">1~10단계</option>
         <option value="grade">보고 / 추가확인 / 제외</option>
       </select>
-
-      <label class="l">분석 모드</label>
-      <div class="modetoggle">
-        <button id="m_tri" class="on" onclick="setMode('tri')">트리아지(1차)</button>
-        <button id="m_full" onclick="setMode('full')">세부분석</button>
-      </div>
+      </details>
 
       <details>
         <summary>AI 전송본 미리보기 (비식별 결과)</summary>
         <div id="deid" class="deid"><span style="color:var(--faint)">분석 시 자동 생성됩니다.</span></div>
       </details>
-
-      <div style="display:flex;gap:8px;margin-top:14px">
-        <button class="btn-sm" style="flex:1" onclick="document.getElementById('importFile').click()">📂 사례 불러오기(JSON)</button>
-        <button class="btn-sm" style="flex:1" onclick="resetForm()">🧹 초기화(새 사례)</button>
-        <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importJSON(event)">
+      <label class="l">분석 모드 <span class="opt">(실행 직전 선택)</span></label>
+      <div class="runrow">
+      <div class="modetoggle">
+        <button id="m_tri" class="on" onclick="setMode('tri')">1차 선별(트리아지)</button>
+        <button id="m_full" onclick="setMode('full')">세부 분석(2차)</button>
       </div>
       <button class="btn-go" id="goBtn" onclick="analyze()">분석 실행</button>
+      </div>
     </section>
 
     <section class="card">
-      <h2>분석 결과 <span class="tag local">PII 복원 표시</span></h2>
+      <h2>분석 결과 <span class="tag local">개인정보 복원 표시</span></h2>
       <div id="result" class="result">
         <div class="placeholder"><span class="ic">📊</span>왼쪽에 사례를 입력하고<br>‘분석 실행’을 누르세요.</div>
       </div>
@@ -563,7 +620,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.4 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.2 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -575,6 +632,32 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.2(2026-09-12): ★비식별 결함 수정 — 생년월일이 원값 그대로 외부 전송되고 있었다.
+//   자동 치환 6종(주민·사업자·카드·전화·계좌·이메일) 중 어디에도 맨 6자리 생년월일이 걸리지 않았다.
+//   주민번호 규칙 \d{6}[-\s]?\d{7} 은 뒷 7자리를 요구하므로 「생년월일 750217」을 통과시킨다.
+//   적발 경로 — 업로드용 사례 사본 점검에서 .deid의 「성명 [이름1] … 생년월일 <원값>」 구조 발견.
+//   ★레이블 기반으로만 잡는다. 맨 6자리를 무조건 치환하면 금액·회차가 함께 사라진다
+//     (§11-91 5항 「사실 동반 삭제」의 재연 방지). 주민번호 치환 뒤에 실행해 앞 6자리만 먹는 사고를 막는다.
+//   준식별자(나이·거주 시군구·업체명)는 자동 치환 대상이 아니다 — 자유서술이라 패턴이 없고
+//     무리하게 지우면 판정 근거가 무너진다(거주지·업종은 C1 근거). 치환표 안내 강화로 유도한다.
+//     재식별 위험의 완전 해소는 상용화 전 온프레 정밀 비식별화 과제이며 본 판에서 닫히지 않는다.
+// v3.5.1(2026-09-12): UX 재배치 + 이름 게이트 + 출력 층 정리.
+//   ⓧ 입력 카드 STEP 1(업권·사진·본문·자동입력·치환표) / STEP 2(자동입력 확인, 기본 펼침) /
+//     STEP 3(위험플래그·report_only·실거래가·척도, 기본 접힘 · 자동입력이 채우면 펼침).
+//     분석 모드는 접이식 밖(실행 직전 선택값). 2단 레이아웃·탭 이름은 현행 유지.
+//   ★이름 게이트 — deid는 1차 분석 시 1회 생성되고 2차는 재사용한다. 치환표가 빈 채 1차가 돌면
+//     실명이 그대로 외부로 나간다(실사례 1/12). analyze() 진입 시 이름을 자동 재추출하고,
+//     그래도 비었는데 본문에 이름 레이블이 있으면 그때만 차단한다. 평상시 무프롬프트.
+//   출력 ⓐ① 보고서용에서 [핵심 근거] 제거(바로 아래 [의견]과 3-gram 포함률 0.22로 중복).
+//   출력 ⓐ② FIU 4단 = opinion + 코드 목록. 유형별 reason·quote(3단 중복)·missing(보고서용 중복) 제거.
+//   출력 ⓐ③ 원칙문 5종을 문서당 1회로 축약(12건 실측: 12/12건·필드당 2회 반복).
+// v3.5.0(2026-09-12): ⓡ ④ report_only 입력 필드 — 별지 제1호 원문(4A46F414) III-43/44 · IV-2 확정분.
+//   신설 7필드 ro_period·ro_txcnt·ro_branch·ro_acct43·ro_remit44·ro_match·ro_note.
+//   ★게이트 앞단 분리(mapping_v2 §3(6) rev.1) — ctx()/buildPrompt()에 진입하지 않는다. 사진 자동채움 대상 아님.
+//   계좌주 실명번호·주소·은행명·계좌번호는 정형 필드로 만들지 않는다(회사 코어시스템 몫, 이중입력 회피).
+//   4층: 입력 폼 / 저장(meta.report_only) / 복원(Drive·importJSON 2곳) / 출력(3단 rows + 게이트).
+//   게이트 이동 — 영업점·관측기간·거래횟수는 입력란이 생겼으므로 [미판정]에서 [보완 필요]로 옮긴다(3층 규율 ③).
+//   §4 rev.1 연동 — 명의일치=불일치면 VI-3 11) 후보 제시 / B1·B3 매칭 + 명의일치 미입력이면 확인 촉구.
 // v3.4(2026-09-03): ⓑ' 조회·렌더링층 — FIU_CODEMAP(정본 _scripts\fiu_codemap.js DC3B722B) 축자 인라인 + 렌더링층.
 //   ① 마커 구간 인라인 ② draw() 칩 직후 FIU 후보 섹션(§6-9 분기 4갈래) ③ onSectorChange III-38 축
 //   ④ 의견서 미반영(v3.4.1) ⑤ verify_codemap.js 인라인 대조 확장. report_only(III-43/44·IV-2)는 v3.4.1.
@@ -927,7 +1010,8 @@ async function loadDriveCase(fileId, fname){
     }
     if(i.src!=null)document.getElementById('src').value=i.src;
     if(i.sancFlags){document.getElementById('f_sanc').checked=!!i.sancFlags.sanc;document.getElementById('f_third').checked=!!i.sancFlags.third;document.getElementById('f_refuse').checked=!!i.sancFlags.refuse;document.getElementById('f_cddref').checked=!!i.sancFlags.cddref;document.getElementById('f_fraud').checked=!!i.sancFlags.fraud;document.getElementById('f_cash').checked=!!i.sancFlags.cash;document.getElementById('f_recheck').checked=!!i.sancFlags.recheck;}
-    if(i.opts){['rrn','phone','acct','biz','email'].forEach(k=>{const el=document.getElementById('o_'+k);if(el)el.checked=!!i.opts[k];});}
+    if(i.opts){['rrn','phone','acct','biz','email','birth'].forEach(k=>{const el=document.getElementById('o_'+k);if(el)el.checked=!!i.opts[k];});}
+    roSetVals((rec.meta&&rec.meta.report_only)||null);   // v3.5.0
     MAP=rec.map||{}; LAST=Object.assign({},LAST,{deid:rec.deid||''});
     if(rec.deid)renderDeid(rec.deid);
     if(rec.result){RES=rec.result; draw();}
@@ -1009,6 +1093,13 @@ function deidentify(){
   if(chk('o_acct'))  rules.push([/\b\d{2,6}-\d{2,6}-\d{2,7}(?:-\d{1,6})?\b/g,'acct','계좌']);
   if(chk('o_email')) rules.push([/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/g,'email','이메일']);
   rules.forEach(([re,type,label])=>{text=text.replace(re,m=>{if(m.includes('\u0000'))return m;return '\u0000'+tokenFor(m.trim(),type,label)+'\u0000';});});
+  // v3.5.2 생년월일 — 레이블 뒤 6·8자리만. 정형 규칙(주민번호 등) 뒤에 두어 앞 6자리만 먹는 사고를 막는다.
+  //   맨 숫자를 무조건 잡지 않는 이유: 금액·회차·건수가 함께 사라지면 판정 근거가 무너진다.
+  if(chk('o_birth')){
+    text=text.replace(/(생년월일|생년|생일|출생일|출생)([\s:\uff1a]*)(\d{8}|\d{6})(?![\d\-\u0000])/g,
+      function(m,lab,sp,d){ if(m.indexOf('\u0000')>=0) return m;
+        return lab+sp+'\u0000'+tokenFor(d,'birth','생년')+'\u0000'; });
+  }
   return text.replace(/\u0000/g,'');
 }
 function restore(s){s=String(s||'');Object.keys(MAP).sort((a,b)=>b.length-a.length).forEach(tok=>{s=s.split(tok).join(MAP[tok].value);});return s;}
@@ -1352,6 +1443,20 @@ function renderFiuCandidates(){
     });
     rows+=`<div class="fiurow"><span class="chip">${esc(codeLabel(c))}</span>${lines}</div>`;
   });
+  // v3.5.0 ⓡ④ — report_only 명의일치 연동(변환표 §4 rev.1). 같은 사실의 앞뒷면을 양방향으로 잇는다.
+  var _ro = (typeof roVals==='function') ? roVals() : {};
+  var _link = '';
+  if(_ro.match==='불일치'){
+    _link += '<div class="fiuline"><b>VI-3</b> 11) 타인 명의·계좌 이용'
+      + '<span class="fiugrade j">판단 · 추천</span>'
+      + '<div class="fiunote">report_only 명의일치=불일치 연동(변환표 §4 rev.1). 선택은 담당자 몫이다.</div></div>';
+  }
+  var _bn = codes.filter(function(c){ return c==='B1'||c==='B3'; });
+  if(_bn.length && (!_ro.match || _ro.match==='미확인')){
+    _link += '<div class="fiuline mut"><b>확인 촉구</b> '+esc(_bn.join(' · '))
+      + ' 매칭 — 계좌주 명의일치가 미입력·미확인이다. 보고서 전용 입력에서 확정할 것(§4 rev.1).</div>';
+  }
+  if(_link) rows += '<div class="fiurow"><span class="chip">보고서 전용 입력</span>'+_link+'</div>';
   if(!rows&&!narr.length) return '';
   const tail=narr.length?`<div class="fiuline mut" style="margin-top:8px"><b>VI-5 31)</b> 서술 대상 ${narr.length}건 — ${esc(narr.join(' / '))}</div>`:'';
   return `<div class="sec">FIU 서식 코드 후보 <span style="font-size:11px;font-weight:500;color:var(--faint)">별지 제1호 · 변환표 v0.2 · ${esc(sector)}</span></div>`
@@ -1518,6 +1623,8 @@ ${prior || '{}'}
 async function analyze(){
   const src=document.getElementById('src').value.trim();
   if(!src){alert('사례 내용을 입력하세요.');return;}
+  const _ng=nameGate();                       // v3.5.1 이름 게이트 — deid 생성 전
+  if(_ng){ alert(_ng); document.getElementById('names').focus(); return; }
   setStep(2);
   const deid=deidentify(); renderDeid(deid);
   LAST={deid,sector:val('sector'),ttype:val('ttype'),ctype:val('ctype'),amt:val('amt'),ncnt:val('ncnt'),ntot:val('ntot'),fpath:val('fpath'),fsrc:val('fsrc'),cddstatus:val('cdd_status'),flags:flags(),cash:chk('f_cash'),cddref:chk('f_cddref'),fraud:chk('f_fraud'),sectorFields:sectorFieldValues()};
@@ -1730,19 +1837,11 @@ function draw(){
   if(RES.typologies&&RES.typologies.length){
     html+=`<div class="chips">`+RES.typologies.map(t=>{const c=(t.code||'').trim();var q=restore(t.quote||t.text||'');const rs=restore(t.reason||'');const bf=String(t.basis_field||'').trim();if(!q&&bf)q='입력항목: '+bf;return `<span class="chip" title="${esc(rs?rs+'\n「'+q+'」':q)}">${esc(c)} ${esc(typeName(c))}</span>`;}).join('')+`</div>`;
   }
-  html+=renderFiuCandidates();
-  html+=`<div class="sec">핵심 근거</div><div class="block">${esc(RES.key_basis)}</div>`;
-  html+=`<div class="handoff" style="margin-top:14px"><b>▶ 심화분석팀 이관 요약</b><br>${esc(RES.handoff)}</div>`;
-
-  if(LAST.cddref)
-    html+=`<div class="monitor" style="background:var(--rep-bg);border-color:var(--rep-line);color:#7a1c1c"><b>⚠ 고객확인 자체 거부 — 의무 발동 검토</b><br>위험 플래그에 고객확인 자체 거부가 있다. 유형 코드 분류와 별개로 거래거절·거래종료 검토와 보고 의무가 발동할 수 있다(업무규정 제44조①② · 법 제4조). 이행 여부를 의견서에 명시할 것.</div>`;
-  if(LAST.cash)
-    html+=`<div class="monitor" style="background:var(--rep-bg);border-color:var(--rep-line);color:#7a1c1c"><b>⚠ 고액현금거래보고(CTR) 별도 검토</b><br>1천만원 이상 현금 지급(환급 등)은 STR과 별개로 CTR 대상일 수 있습니다. (FIU 유권해석 사례 14)</div>`;
-  if(RES.cdd_check&&RES.cdd_check.trim())
-    html+=`<div class="handoff" style="margin-top:14px;background:var(--primary-bg);border-color:var(--primary-line);color:var(--primary-d)"><b>✔ 고객확인(CDD) 시점 점검</b><br>${esc(RES.cdd_check)}</div>`;
-
-  if(MODE==='full'){
+  // v3.5.1 읽는 순서: 누구인가 → 무슨 일인가 → 결론 → 다음 단계 → (참고) FIU 코드 표
+  if(MODE==='full')
     html+=`<div class="sec">프로필 개요</div><div class="block">${esc(RES.profile)}</div>`;
+  html+=`<div class="sec">핵심 근거</div><div class="block">${esc(RES.key_basis)}</div>`;
+  if(MODE==='full'){
     if(RES.brief&&RES.brief.trim())
       html+=`<div class="sec">요약 의견 <span style="font-size:11px;font-weight:500;color:var(--faint)">입력용</span></div><div class="block">${esc(RES.brief)}</div>`;
     if(RES.suspicion&&RES.suspicion.trim()&&!(RES.brief&&RES.brief.trim()))
@@ -1754,12 +1853,23 @@ function draw(){
   // v3.3.3: 2차 수신분은 모드와 무관하게 표시(트리아지에서 이어받은 경우 포함). 미수신 시 빈 칸을 그리지 않는다
   if(RES.opinion&&RES.opinion.trim())
     html+=`<div class="sec">의견 <span style="font-size:11px;font-weight:500;color:var(--faint)">보고서용</span></div><div class="block">${esc(RES.opinion)}</div>`;
+  html+=`<div class="handoff" style="margin-top:14px"><b>▶ 다음 단계 (심화분석팀 이관)</b><br>${esc(RES.handoff)}</div>`;
+
+  if(LAST.cddref)
+    html+=`<div class="monitor" style="background:var(--rep-bg);border-color:var(--rep-line);color:#7a1c1c"><b>⚠ 고객확인 자체 거부 — 의무 발동 검토</b><br>위험 플래그에 고객확인 자체 거부가 있다. 유형 코드 분류와 별개로 거래거절·거래종료 검토와 보고 의무가 발동할 수 있다(업무규정 제44조①② · 법 제4조). 이행 여부를 의견서에 명시할 것.</div>`;
+  if(LAST.cash)
+    html+=`<div class="monitor" style="background:var(--rep-bg);border-color:var(--rep-line);color:#7a1c1c"><b>⚠ 고액현금거래보고(CTR) 별도 검토</b><br>1천만원 이상 현금 지급(환급 등)은 STR과 별개로 CTR 대상일 수 있습니다. (FIU 유권해석 사례 14)</div>`;
+  if(RES.cdd_check&&RES.cdd_check.trim())
+    html+=`<div class="handoff" style="margin-top:14px;background:var(--primary-bg);border-color:var(--primary-line);color:var(--primary-d)"><b>✔ 고객확인(CDD) 시점 점검</b><br>${esc(RES.cdd_check)}</div>`;
   if(RES.monitoring&&RES.monitoring.trim())
     html+=`<div class="monitor"><b>🔭 향후 모니터링·재검토 조건</b><br>${esc(RES.monitoring)}</div>`;
   if(LAST.cddstatus==='누설 우려로 확인 중단')
     html+=`<div class="monitor"><b>ℹ 누설 금지에 따른 확인 중단 건</b><br>고객 접촉을 전제한 추가확인은 권고 대상이 아니다(업무규정 제44조의2). 아래 권장 정보 중 고객 접촉이 필요한 항목은 수행하지 말고 보고 절차를 진행할 것.</div>`;
   if(RES.missing&&RES.missing.length)
     html+=`<div class="missing"><b>📋 추가 확인 권장 정보</b><ul>`+RES.missing.map(m=>`<li>${esc(m)}</li>`).join('')+`</ul></div>`;
+  // FIU 서식 코드 표 — 의견서 「FIU 4단」 탭을 쓸 때만 필요하므로 맨 아래 접이식. 탭 선택 시 자동 펼침.
+  var _fiuTbl=renderFiuCandidates();
+  if(_fiuTbl) html+=`<details id="fiuBox" style="margin-top:14px"><summary>금융정보분석원(FIU) 서식 코드 후보 <span class="opt">— 의견서 「FIU 4단」 작성 시 참고</span></summary>${_fiuTbl}</details>`;
   // v3.3.3: 2차(상세 분석) 상태·트리거
   if((RES.phase||1)<2){
     html+=`<div class="convert" style="margin-top:14px"><div class="cv" style="background:var(--field);text-align:left">
@@ -1885,6 +1995,54 @@ function applyExtractedText(text, mode){
 // ── 자동 채움 (사례 내용 → 입력 필드 초안) ──
 // 비용 0, Worker 호출 없음. 빈 칸만 채움(기존 입력 덮어쓰기 안 함). 분석 전 확인·수정 필수.
 let AF_SUGGEST=[], AF_FILLED=[];
+/* ── v3.5.1 이름 추출 — autoFillFromText()와 analyze() 게이트가 공유한다 ──
+ * deid는 1차 분석에서 1회 생성되고 2차는 재사용하므로, 1차 시점에 치환표가 비면 실명이 그대로 나간다. */
+function extractNames(src){
+  if(!src) return [];
+  const nameStop=/^(고객|계약|보험|거래|대상|수익|해지|환급|납입|미상|불명|확인|점검|검토|번호|성명|이름|생년|월일|주소|직업|국적|모친|부친|배우자|본인|법인|대표|남편|아내|자녀|형제|자매|장남|차남|장녀|차녀|상속|친권|법정|당사|해당)/;
+  const REL='(?:모친|부친|배우자|남편|아내|자녀|장남|차남|장녀|차녀|형제|자매|본인|대표이사|대표)?';
+  const LBL='(?:계약자|피보험자|고객명|성명|이름|대상자|수익자|보험계약자|주계약자)';
+  const hi=[
+    new RegExp(LBL+'[:\uff1a\\s]*'+REL+'\\s*([A-Za-z]{2,}(?:\\s+[A-Za-z]{2,}){0,3})','g'),
+    new RegExp(LBL+'[:\uff1a\\s]*'+REL+'\\s*([가-힣]{2,4})(?=[\\s,\u00b7\\n\\(\uff08\\.\\)]|$)','g'),
+    /([가-힣]{2,4})\s*(?:씨|님)(?=[\s,\u00b7\n은는이가의을를께]|$)/g
+  ];
+  const lo=[
+    new RegExp(LBL+'[:\uff1a\\s]*([가-힣]{2,4})(?=[\\s,\u00b7\\n\\(\uff08]|$)'),
+    /([가-힣]{2,4})\s*(?:씨|님)(?=[\s,\u00b7\n은는이가의을를께]|$)/,
+    /([가-힣]{2,4})\s*(?:\(|은|는|이|가|의|을|를|에게|으로|로)(?=[ \t\d가-힣])/,
+    /^\s*([가-힣]{2,4})\s*$/m,
+    /^\s*([A-Z][A-Za-z]{1,}(?:\s+[A-Z][A-Za-z]{1,}){1,3})\s*$/m,
+    /^\s*([가-힣]{2,4})(?=\s+[\d(])/m
+  ];
+  let out=[];
+  for(const re of hi){ let m; re.lastIndex=0; while((m=re.exec(src))!==null){ const c=(m[1]||'').trim(); if(c&&!nameStop.test(c)) out.push(c); } }
+  if(!out.length){ for(const re of lo){ const m=src.match(re); if(m&&!nameStop.test(m[1])){ out.push(m[1].trim()); break; } } }
+  return out.filter((v,i,a)=>a.indexOf(v)===i);
+}
+/* 게이트 — 치환표가 비면 자동 재추출하고, 그래도 비었는데 본문에 이름 레이블이 있으면 차단한다.
+ * 반환 '' = 통과. 문자열 = 차단 사유. 평상시(이름이 있거나 레이블이 없으면) 무프롬프트. */
+function nameGate(){
+  const el=document.getElementById('names');
+  if(!el) return '';
+  const src=document.getElementById('src').value||'';
+  if(!el.value.trim()){
+    const got=extractNames(src);
+    if(got.length){ el.value=got.join(', '); if(typeof genIdCode==='function') genIdCode(); }
+  }
+  if(el.value.trim()) return '';
+  if(/(?:계약자|피보험자|고객명|성명|이름|대상자|수익자|보험계약자|주계약자)/.test(src))
+    return '본문에 이름 레이블이 있으나 「이름·고유명사 지정」이 비어 있습니다.\n실명이 비식별되지 않은 채 외부로 전송됩니다 — 이름을 입력한 뒤 다시 실행하세요.';
+  return '';
+}
+function afOpenSteps(){                      // v3.5.1 자동입력이 값을 채우면 STEP 2·3을 펼친다
+  var d=document.getElementById('step3'); if(d) d.open=true;   // step2는 v3.5.1에서 상시 표시
+}
+function rtToggle(){                         // 실거래가 패널 — summary 대신 버튼으로 연다(자동채움과 같은 줄·같은 크기)
+  var p=document.getElementById('rt_panel'); if(!p) return;
+  p.open=!p.open;
+  if(p.open){ p.scrollIntoView({block:'nearest'}); }
+}
 function autoFillFromText(){
   const src=document.getElementById('src').value;
   if(!src.trim()){
@@ -1931,7 +2089,11 @@ function autoFillFromText(){
     return added;
   };
 
-  // 1) 이름 — 레이블 뒤, 씨/님, 서술형 괄호/조사 패턴
+  // 1) 이름 — v3.5.1: 추출 규칙을 extractNames()로 분리(게이트와 공유). 아래는 그 호출부.
+  const foundNames=extractNames(src);
+  const addedNames=mergeNames(foundNames);
+  if(addedNames.length) filled.push('이름('+addedNames.join('·')+')');
+  /* v3.5.1 이전 인라인 규칙 — extractNames()로 이관, 원문 보존(무삭제)
   const namePatterns=[
     // 레이블 뒤 영문 이름: "성명 GUO JIE", "이름: JOHN SMITH"
     /(?:계약자|피보험자|고객명|성명|이름|대상자|수익자)[:\uff1a\s]*([A-Za-z]{2,}(?:\s+[A-Za-z]{2,}){0,3})/,
@@ -1969,8 +2131,7 @@ function autoFillFromText(){
     }
   }
   foundNames=foundNames.filter((v,i,a)=>a.indexOf(v)===i);
-  const addedNames=mergeNames(foundNames);
-  if(addedNames.length) filled.push('이름('+addedNames.join('·')+')');
+  */
 
   // 2) 생년월일 — 다양한 패턴 → YYYY-MM-DD 정규화
   const birthPatterns=[
@@ -2097,10 +2258,11 @@ function resetForm(){
   const st=document.getElementById('autoFillStatus');
   AF_SUGGEST=[]; AF_FILLED=[];
   if(st){st.style.color='var(--faint)';st.innerHTML='사례 내용에서 이름·생년월일·거래일·금액·유형 추출 → 빈 칸 채움 · 이름은 추가 · 값이 다르면 제안';}
-  ['caseno','txdate','birth','custno','amt','ncnt','ntot','names','src'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';}); genIdCode();
+  ['caseno','txdate','birth','custno','amt','ncnt','ntot','names','src','ro_period','ro_txcnt','ro_branch','ro_note'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';}); genIdCode();
+  ['ro_acct43','ro_remit44','ro_match'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;}); roSync();
   ['ttype','ctype','fpath','fsrc','cdd_status','scale'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;});
   ['f_sanc','f_third','f_refuse','f_cddref','f_fraud','f_cash','f_recheck'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
-  ['o_rrn','o_phone','o_acct','o_biz','o_email'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=true;});
+  ['o_rrn','o_phone','o_acct','o_biz','o_email','o_birth'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=true;});
   setMode('tri');
   setStep(1);
   document.getElementById('deid').innerHTML='<span style="color:var(--faint)">분석 시 자동 생성됩니다.</span>';
@@ -2138,7 +2300,29 @@ function genIdCode(){
   else { el.textContent='—'; }
   return code;
 }
-function curInput(){return {caseno:val('caseno'),txdate:val('txdate'),birth:val('birth'),custno:val('custno'),idcode:genIdCode(),sector:val('sector'),ttype:val('ttype'),ctype:val('ctype'),amt:val('amt'),ncnt:val('ncnt'),ntot:val('ntot'),fpath:val('fpath'),fsrc:val('fsrc'),cdd_status:val('cdd_status'),names:val('names'),src:document.getElementById('src').value,flags:flags(),scale:val('scale'),opts:{rrn:chk('o_rrn'),phone:chk('o_phone'),acct:chk('o_acct'),biz:chk('o_biz'),email:chk('o_email')},sancFlags:{sanc:chk('f_sanc'),third:chk('f_third'),refuse:chk('f_refuse'),cddref:chk('f_cddref'),fraud:chk('f_fraud'),cash:chk('f_cash'),recheck:chk('f_recheck')},sectorFields:sectorFieldValues()};}
+/* ── v3.5.0 ⓡ④ report_only ──────────────────────────────────────────────
+ * 게이트 앞단 분리: 이 값들은 deidentify()·ctx()·buildPrompt()에 진입하지 않는다.
+ * 저장은 meta.report_only 하위(입력 본체와 분리). 사진 자동채움 대상 아님. */
+const RO_IDS = ['ro_period','ro_txcnt','ro_branch','ro_acct43','ro_remit44','ro_match','ro_note'];
+function roVals(){
+  const o={};
+  RO_IDS.forEach(id=>{ const e=document.getElementById(id); o[id.slice(3)] = e ? String(e.value||'').trim() : ''; });
+  return o;
+}
+function roSetVals(v){
+  if(!v) return;
+  RO_IDS.forEach(id=>{ const e=document.getElementById(id); const k=id.slice(3); if(e && v[k]!=null) e.value=v[k]; });
+  roSync();
+}
+function roSync(){
+  const r=roVals(), h=document.getElementById('ro_hint');
+  if(!h) return;
+  let msg='';
+  if(r.match==='불일치') msg='입금 계좌·은행·입금자와 계약자의 관계를 아래 서술란에 기재하십시오.';
+  else if(/^1여/.test(r.acct43) && !r.match) msg='관련계좌 「여」이면 계좌주 명의일치는 필수 입력입니다(IV-2).';
+  h.textContent=msg; h.style.display=msg?'block':'none';
+}
+function curInput(){return {caseno:val('caseno'),txdate:val('txdate'),birth:val('birth'),custno:val('custno'),idcode:genIdCode(),sector:val('sector'),ttype:val('ttype'),ctype:val('ctype'),amt:val('amt'),ncnt:val('ncnt'),ntot:val('ntot'),fpath:val('fpath'),fsrc:val('fsrc'),cdd_status:val('cdd_status'),names:val('names'),src:document.getElementById('src').value,flags:flags(),scale:val('scale'),opts:{rrn:chk('o_rrn'),phone:chk('o_phone'),acct:chk('o_acct'),biz:chk('o_biz'),email:chk('o_email'),birth:chk('o_birth')},sancFlags:{sanc:chk('f_sanc'),third:chk('f_third'),refuse:chk('f_refuse'),cddref:chk('f_cddref'),fraud:chk('f_fraud'),cash:chk('f_cash'),recheck:chk('f_recheck')},sectorFields:sectorFieldValues()};}
 
 // ── v3.2 업권 드롭다운 ──
 const SECTOR_TTYPE = {
@@ -2218,9 +2402,10 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.4',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.2',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
+  meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))
   const rec={meta,input:curInput(),deid:LAST.deid||'',result:RES,map:MAP};
   const blob=new Blob([JSON.stringify(rec,null,2)],{type:'application/json'});
   const a=document.createElement('a');
@@ -2257,7 +2442,8 @@ function importJSON(ev){
       }
       if(i.src!=null)document.getElementById('src').value=i.src;
       if(i.sancFlags){document.getElementById('f_sanc').checked=!!i.sancFlags.sanc;document.getElementById('f_third').checked=!!i.sancFlags.third;document.getElementById('f_refuse').checked=!!i.sancFlags.refuse;document.getElementById('f_cddref').checked=!!i.sancFlags.cddref;document.getElementById('f_fraud').checked=!!i.sancFlags.fraud;document.getElementById('f_cash').checked=!!i.sancFlags.cash;document.getElementById('f_recheck').checked=!!i.sancFlags.recheck;}
-      if(i.opts){['rrn','phone','acct','biz','email'].forEach(k=>{const el=document.getElementById('o_'+k);if(el)el.checked=!!i.opts[k];});}
+      if(i.opts){['rrn','phone','acct','biz','email','birth'].forEach(k=>{const el=document.getElementById('o_'+k);if(el)el.checked=!!i.opts[k];});}
+      roSetVals((rec.meta&&rec.meta.report_only)||null);   // v3.5.0
       MAP=rec.map||{}; LAST=Object.assign({},LAST,{deid:rec.deid||''});
       if(rec.deid)renderDeid(rec.deid);
       if(rec.result){RES=rec.result; draw();}
@@ -2287,23 +2473,64 @@ function buildOpinionBrief(){
     t+=(RES.key_basis||'')+(RES.opinion?'\n\n'+RES.opinion:'');
   }
   t+=`\n\n※ 트리아지 보조 결과. 최종 판단은 담당자 책임.`;
-  return t;
+  return dedupePrinciples(t);   // v3.5.1 ⓐ③
 }
 
 const OP_HINTS={
   brief:'STR 시스템 입력란에 바로 붙여넣기 가능한 간략 버전입니다.',
-  full:'전체 분석 내용을 포함한 보고서용 버전입니다.'
+  full:'전체 분석 내용을 포함한 보고서용 버전입니다.',
+  fiu:'별지 제1호 서식 VII 종합의견 4단 구성입니다. 작성 점검 결과가 함께 표시됩니다.'
 };
 function switchOpinion(mode){
   _opinionMode=mode;
+  if(mode==='fiu'){ var _fb=document.getElementById('fiuBox'); if(_fb) _fb.open=true; }   // v3.5.1 FIU 탭 ↔ 코드 표 연동
   document.getElementById('opTabBrief').style.background=mode==='brief'?'var(--primary)':'var(--field)';
   document.getElementById('opTabBrief').style.color=mode==='brief'?'#fff':'var(--dim)';
   document.getElementById('opTabFull').style.background=mode==='full'?'var(--primary)':'var(--field)';
   document.getElementById('opTabFull').style.color=mode==='full'?'#fff':'var(--dim)';
+  var _tf=document.getElementById('opTabFiu');
+  if(_tf){ _tf.style.background=mode==='fiu'?'var(--primary)':'var(--field)'; _tf.style.color=mode==='fiu'?'#fff':'var(--dim)'; }
   document.getElementById('opTabHint').textContent=OP_HINTS[mode];
-  document.getElementById('opinionText').value=mode==='brief'?buildOpinionBrief():buildOpinionText();
+  document.getElementById('opinionText').value=mode==='fiu'?buildOpinionFiu():(mode==='brief'?buildOpinionBrief():buildOpinionText());
 }
 
+/* ── v3.5.1 ⓐ③ 원칙문 축약 ────────────────────────────────────────────
+ * 12건 실측: 아래 5종이 12/12건에 나오고, 7건은 brief와 opinion에 각각 실려 문서당 2회가 된다.
+ * 사례 고유 서술이 아니라 규정 재진술이므로 문서당 1회만 남긴다.
+ * ★문장 경계로만 자른다 — 한 문장에 원칙문과 사례 사실이 섞여 있으면 건드리지 않는다(보존 우선). */
+var PRINCIPLE_RE = [
+  /FATF[·\u00b7]?\s*특금법/,
+  /범용\s*AML\s*원칙/,
+  /EDD\s*진행\s*중이(?:라|더라)도[^.]{0,30}보고\s*의무/,
+  /의심\s*판단을\s*유보/,
+  /(?:본인\s*(?:명의\s*)?계좌|자금\s*경로)[^.]{0,60}(?:원천\s*소명|소명에\s*해당|원천\s*확인)/
+];
+function dedupePrinciples(text){
+  if(!text) return text;
+  var seen = PRINCIPLE_RE.map(function(){ return false; });
+  var parts = String(text).split(/(?<=[.!?])\s+|\n/);   // 문장·행 단위
+  var keptSep = String(text).match(/(?<=[.!?])\s+|\n/g) || [];
+  var out = [];
+  for(var i=0;i<parts.length;i++){
+    var p = parts[i], drop = false;
+    // 사례 고유 정보가 섞인 문장은 원칙문이 반복돼도 건드리지 않는다(보존 우선).
+    //   실증: 「…보고 대상이며 26.8.21 입금액은 1,017만원이다」를 통째로 지우는 사고.
+    var hasFact = /[0-9]/.test(p) || /[「」]/.test(p) || p.length > 160;
+    for(var k=0;k<PRINCIPLE_RE.length;k++){
+      if(PRINCIPLE_RE[k].test(p)){
+        if(seen[k] && !hasFact) drop = true;   // 이미 나온 순수 원칙문만 제거
+        seen[k] = true;
+      }
+    }
+    out.push(drop ? null : p);
+  }
+  var t = '';
+  for(var j=0;j<out.length;j++){
+    if(out[j]===null) continue;
+    t += out[j] + (j<keptSep.length ? keptSep[j] : '');
+  }
+  return t.replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n');
+}
 function buildOpinionText(){
   if(!RES)return '';
   const s=RES.score,[bl]=bandOf(s);
@@ -2328,7 +2555,7 @@ function buildOpinionText(){
 
   t+=`\n━━ 입력 원문 ━━\n${rawSrc||'(자유기재 없음)'}\n`;
   t+=`\n━━ 정리 ━━\n${RES.profile||''}`;
-  t+=`\n\n━━ 분석 의견 ━━\n[핵심 근거]\n${RES.key_basis}`;
+  t+=`\n\n━━ 분석 의견 ━━`;   // v3.5.1 ⓐ① [핵심 근거] 제거 — 아래 [의견]과 중복(3-gram 포함률 0.22)
   // 하위호환: 구버전 JSON(brief 없음)에만 suspicion 표시
   if(RES.suspicion&&RES.suspicion.trim()&&!(RES.brief&&RES.brief.trim()))
     t+=`\n\n[의심 가능성]\n${RES.suspicion}`;
@@ -2340,6 +2567,169 @@ function buildOpinionText(){
   if(LAST.cddstatus==='누설 우려로 확인 중단') t+=`\n\n[누설 금지에 따른 확인 중단] 고객 접촉을 전제한 추가확인은 권고 대상이 아니다(업무규정 제44조의2). 접촉이 필요한 항목은 수행하지 말고 보고 절차를 진행할 것.`;
   if(RES.missing&&RES.missing.length) t+=`\n\n[추가확인 권장]\n- ${RES.missing.join('\n- ')}`;
   t+=`\n\n※ 본 의견은 트리아지 보조 결과이며 최종 판단은 담당자 책임입니다.`;
+  return dedupePrinciples(t);   // v3.5.1
+}
+
+/* ───────────────────────────────────────────────────────────────
+   FIU 4단 종합의견 (출력 타입 B) — v3.4.2 신설
+   근거: 「특정 금융거래정보 보고 및 감독규정」별지 제1호 서식
+         [의심스러운 거래보고서 작성방법] VII. 의심스러운 거래에 대한 서술부분
+         종합의견 4단 = 1.제목(추정되는 전제범죄 또는 의심유형) / 2.거래자 정보
+         / 3.거래내역 정보 / 4.의심되는 사유
+   ★출력 층 전용 — 프롬프트·스키마·입력·저장은 일절 건드리지 않는다.
+     기존 RES 필드만 재배열하며, 없는 값은 지어내지 않고 [미입력]으로 남긴다.
+   ─────────────────────────────────────────────────────────────── */
+var FIU_NA_RE = /\[미입력[^\]]*\]/;
+
+// 미흡 패턴 — 근거 없이 결론만 적은 문장 (컨설팅 자료 '미흡' 예시 계열)
+var FIU_WEAK = [
+  /비정상적(인|임)?\s*거래로\s*보임/, /비일상적인\s*거래로\s*판단됨/,
+  /자금세탁이\s*의심되어\s*보고/,     /정상적인\s*거래로\s*보임/,
+  /일상적인\s*거래로\s*판단됨/,       /자금세탁이\s*의심되지\s*않아\s*보고제외/
+];
+
+function fiuVal(v){ v=String(v==null?'':v).trim(); return v; }
+
+function buildOpinionFiu(){
+  if(!RES) return '';
+  var L = (typeof LAST==='object'&&LAST)?LAST:{};
+  var na = function(label){ return '[미입력: '+label+']'; };
+
+  // ── 1단 제목 ──
+  var sugg = fiuVal(RES.suggested_type);
+  var codes = [], seenCode = {};
+  if(RES.typologies && RES.typologies.length){
+    RES.typologies.forEach(function(x){
+      var c=fiuVal(x.code);
+      if(c && !seenCode[c]){ seenCode[c]=1; codes.push(c+' '+typeName(c)); }   // v3.4.3 ③ 코드 중복 제거
+    });
+  }
+  var title = sugg || (codes.length?codes[0]:'') || na('추정 전제범죄·의심유형');
+
+  // ── 2단 거래자 정보 ──
+  var kind=fiuVal(RES.subject_kind), nm=fiuVal(RES.subject_name), age=fiuVal(RES.subject_age);
+  // v3.4.3 ① subject_name 폴백 — 모델은 비식별 본문만 보므로 원문 실명을 산출할 수 없다.
+  //   지어내는 것이 아니라 담당자가 입력한 값을 가져온다. 출처를 표기해 AI 산출분과 구분한다.
+  var nmSrc = '';
+  if(!nm){
+    try{ if(typeof MAP==='object' && MAP && MAP['[이름1]'] && MAP['[이름1]'].value){ nm=fiuVal(MAP['[이름1]'].value); nmSrc=' ※입력 치환표'; } }catch(e){}
+  }
+  if(!nm){
+    try{ var nEl=document.getElementById('names'); if(nEl && nEl.value.trim()){ nm=fiuVal(nEl.value.split(/[,·]/)[0]); nmSrc=' ※입력 실명란'; } }catch(e){}
+  }
+  var who = (nm?nm+nmSrc:na('거래자명')) + (kind?' ('+kind+(age?', '+age+'세':'')+')':'');
+  var prof = fiuVal(RES.profile) || na('거래자 개요');
+
+  // ── 3단 거래내역 정보 ──
+  var txd  = fiuVal(RES.tx_date) || na('거래발생일자');
+  var rows = [];
+  rows.push('거래발생일자 : '+txd);
+  rows.push('업권·거래유형 : '+(fiuVal(L.sector)||na('업권'))+' / '+(fiuVal(L.ttype)||na('거래유형')));
+  rows.push('거래금액 : '+(fiuVal(L.amt)||na('거래금액')));
+  rows.push('자금 경로 : '+(fiuVal(L.fpath)||na('자금 경로')));
+  rows.push('자금원천 확인 : '+(fiuVal(L.fsrc)||na('자금원천 확인')));
+  if(fiuVal(L.ncnt)||fiuVal(L.ntot))
+    rows.push('보유계약·누적 보험료 : '+(fiuVal(L.ncnt)||'-')+' / '+(fiuVal(L.ntot)||'-'));
+  // v3.5.0 ⓡ④ — 입력란이 생겼으므로 영업점은 [미판정]에서 내려오고 미입력이면 [보완 필요]로 잡힌다.
+  var RO = (typeof roVals==='function') ? roVals() : {};
+  rows.push('거래발생 장소(영업점) : '+(fiuVal(RO.branch)||na('거래발생 장소(영업점)')));
+  rows.push('관측기간 : '+(fiuVal(RO.period)||na('관측기간')));
+  rows.push('거래횟수 : '+(fiuVal(RO.txcnt)||na('거래횟수')));
+  rows.push('관련계좌 존재 여부(III-43) : '+(fiuVal(RO.acct43)||na('관련계좌 존재 여부')));
+  rows.push('송금·수취계좌 존재 여부(III-44) : '+(fiuVal(RO.remit44)||na('송금·수취계좌 존재 여부')));
+  if(/^1여/.test(fiuVal(RO.acct43)))
+    rows.push('계좌주 명의일치(IV-2) : '+(fiuVal(RO.match)||na('계좌주 명의일치')));
+  if(fiuVal(RO.note)) rows.push('계좌 관련 서술 : '+fiuVal(RO.note));
+
+  // ── 4단 의심되는 사유 ──
+  var basis = fiuVal(RES.key_basis) || na('핵심 근거');
+  var det = [];
+  if(RES.typologies && RES.typologies.length){
+    RES.typologies.forEach(function(x){
+      var c=fiuVal(x.code), rs=restore(fiuVal(x.reason));
+      var q=restore(fiuVal(x.quote||x.text)); var bf=fiuVal(x.basis_field);
+      if(!q&&bf) q='입력항목: '+bf;
+      det.push('  · '+c+' '+typeName(c)+(rs?' — '+rs:'')+(q?'\n      근거: 「'+q+'」':''));
+    });
+  }
+  // v3.4.3 ② c3_dropped — 제외 사유가 「근거 없음」이 아니라 규약상 제한이므로 참고로 싣는다.
+  var dropped = [];
+  if(RES.c3_dropped && RES.c3_dropped.length){
+    RES.c3_dropped.forEach(function(x){
+      var c=fiuVal(x.code), rs=restore(fiuVal(x.reason)), bf=fiuVal(x.basis_field);
+      dropped.push('  · '+c+' '+typeName(c)+(bf?' [입력항목: '+bf+']':'')+(rs?' — '+rs:''));
+    });
+  }
+  var op = fiuVal(RES.opinion) || basis;   // v3.5.1 ⓐ② 2차 미완이면 key_basis가 4단 본문을 맡는다
+
+  var t='';
+  t+='━━━━━ FIU 종합의견 (별지 제1호 서식 VII · 4단) ━━━━━\n';
+  t+='판정: '+verdictShort()+'  |  위험도 '+RES.score+'/100\n\n';
+  t+='1. 제목 : '+title+'\n';
+  if(codes.length>1) t+='   (매칭 유형: '+codes.join(' · ')+')\n';
+  t+='\n2. 거래자 정보 관련 종합의견\n   '+who+'\n   '+prof.replace(/\n/g,'\n   ')+'\n';
+  t+='\n3. 거래내역 정보 관련 종합의견\n   '+rows.join('\n   ')+'\n';
+  // v3.5.1 ⓐ② 4단 = 종합의견 하나 + 코드 목록 한 줄.
+  //   유형별 reason·quote는 3단(거래내역)과, missing은 보고서용 의견서와 겹쳐 제거한다.
+  t+='\n4. 의심되는 사유 관련 종합의견\n   '+op.replace(/\n/g,'\n   ')+'\n';
+  if(codes.length) t+='   [매칭 유형] '+codes.join(' · ')+'\n';
+  if(dropped.length) t+='\n   [규약상 제외된 유형 — 참고]\n'+dropped.join('\n')+'\n';
+
+  t+='\n'+fiuGateText(t);
+  t+='\n※ 본 의견은 트리아지 보조 결과이며 최종 판단은 담당자 책임입니다.';
+  return dedupePrinciples(t);   // v3.5.1 ⓐ③
+}
+
+// 작성 점검 — 강제(원문 근거) / 권고(전언, 원문 미대조) / 미판정(입력 없음) 3층
+function fiuGateText(body){
+  var hard=[], soft=[], unk=[];
+
+  // [강제] 4단 결손 — 각 단에 [미입력]이 있으면 지목
+  var seg = body.split(/\n(?=[1-4]\. )/);
+  var names={'1':'제목','2':'거래자 정보','3':'거래내역 정보','4':'의심되는 사유'};
+  Object.keys(names).forEach(function(k){
+    var found=null;
+    seg.forEach(function(s){ if(s.indexOf(k+'. ')===0) found=s; });
+    if(found && FIU_NA_RE.test(found)) hard.push(k+'단('+names[k]+') 미입력 항목 있음');
+  });
+
+  // v3.4.3 ④ 결손 어휘 — 칸은 찼으나 서술이 아닌 값. 별지 제1호는 6하 원칙 서술을 요구한다.
+  var vagueRe = /(미상|미확인|불명|모름|해당없음|해당 없음)/;
+  var seg3 = null;
+  seg.forEach(function(s){ if(s.indexOf('3. ')===0) seg3=s; });
+  if(seg3){
+    var vagueHit=[];
+    seg3.split('\n').forEach(function(ln){
+      var mm=ln.match(/^\s{3}([^:]+) : (.+)$/);
+      if(mm && vagueRe.test(mm[2])) vagueHit.push(mm[1].trim());   // v3.5.0 영업점 예외 해제(입력란 신설)
+    });
+    if(vagueHit.length) hard.push('3단 서술 미달 '+vagueHit.length+'건('+vagueHit.join(' · ')+') — 값이 「미상·미확인」이면 기재가 아니라 결손이다');
+  }
+
+  // [강제] 미흡 패턴 — 근거 없이 결론만
+  var weakHit=[];
+  FIU_WEAK.forEach(function(re){ if(re.test(body)) weakHit.push(re.source); });
+  if(weakHit.length) hard.push('결론만 기재된 문장 '+weakHit.length+'건 — 무엇이 정상 패턴과 어떻게 다른지 근거를 덧붙일 것');
+
+  // [권고] 제목 길이 (KoFIU 지침 전언, 원문 미대조)
+  var m=body.match(/\n1\. 제목 : (.*)/);
+  if(m){
+    var tl=m[1].trim().length;
+    if(tl<10||tl>15) soft.push('제목 '+tl+'자 — 10~15자 권고 범위 밖');
+  }
+  // [권고] 금액 단위
+  if(/[0-9]{7,}\s*원/.test(body)) soft.push('원 단위 장문 금액 표기 — 서술부는 백만원 단위 권고');
+
+  // [미판정] 입력 자체가 없어 판정 불가한 축
+  // v3.5.0 — 영업점·관측기간·거래횟수는 입력란 신설로 [미판정]에서 내려왔다(3층 규율 ③).
+  //   남은 2건은 여전히 입력 자체가 없는 축이다. 0건이 아니라 부재다.
+  unk.push('주요 입·출금 거래상대방 각 3명 — 입력 항목 없음');
+  unk.push('최근 3·6·12개월 누적 거래규모 — 입력 항목 없음');
+
+  var t='━━ 작성 점검 ━━\n';
+  t+= hard.length ? ('[보완 필요]\n- '+hard.join('\n- ')+'\n') : '[보완 필요] 없음 (관측 범위: 4단 결손 · 결론만 기재 패턴)\n';
+  t+= '[권고] ※KoFIU 지침 전언, 원문 미대조\n'+(soft.length?('- '+soft.join('\n- ')+'\n'):'- 해당 없음\n');
+  t+= '[미판정] ※0건이 아니라 입력 부재\n- '+unk.join('\n- ')+'\n';
   return t;
 }
 
@@ -2714,6 +3104,7 @@ rt_keyStatus();
     a.click();
   }
 
+  if (typeof location==='undefined' || !/[?&]meas=1(?:&|$)/.test(location.search)) return;   // v3.5.1 개발용 측정 패널은 ?meas=1 에서만 표시
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function(){ build(); render(); });
   } else { build(); render(); }

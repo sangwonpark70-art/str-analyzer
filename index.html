@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.2</title>
+<title>STR 사례 분석기 v3.5.3</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -246,7 +246,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.2</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.3</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -620,7 +620,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.2 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.3 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -632,6 +632,14 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.3(2026-09-13): ★제3자 실명 누출 수정 — 실사용 e2e 1건에서 적발.
+//   계약자·피보험자는 가려지는데 실입금인·납입자 등 제3자 이름은 레이블이 없어 추출되지 않았다.
+//   12건 전수 실측 — 7개 파일에서 제3자 실명 9건이 비식별을 통과해 그대로 전송.
+//   ★하필 타인납입(B1)·차명(B3) 판정의 핵심 인물이다 — 계약자는 가리고 의심 중심 인물은 보내고 있었다.
+//   처방 ① extractNames()에 관계표기·행위주체 패턴 추가(석호대(미상) / 실입금인 X / X(배우자)).
+//        ② nameGate()를 「치환표가 비었을 때만 차단」에서 「본문 인물 후보가 치환표에 없으면 경고」로 확대.
+//   ★같은 사람 = 같은 토큰 일관성은 tokenFor()가 이미 보장한다(값→토큰 1:1 캐시). 이번 건은 일관성이
+//     아니라 누락이었다. 누락을 메우면 [이름N]이 하나 늘 뿐 기존 매핑 규칙은 그대로다.
 // v3.5.2(2026-09-12): ★비식별 결함 수정 — 생년월일이 원값 그대로 외부 전송되고 있었다.
 //   자동 치환 6종(주민·사업자·카드·전화·계좌·이메일) 중 어디에도 맨 6자리 생년월일이 걸리지 않았다.
 //   주민번호 규칙 \d{6}[-\s]?\d{7} 은 뒷 7자리를 요구하므로 「생년월일 750217」을 통과시킨다.
@@ -1623,8 +1631,12 @@ ${prior || '{}'}
 async function analyze(){
   const src=document.getElementById('src').value.trim();
   if(!src){alert('사례 내용을 입력하세요.');return;}
-  const _ng=nameGate();                       // v3.5.1 이름 게이트 — deid 생성 전
-  if(_ng){ alert(_ng); document.getElementById('names').focus(); return; }
+  // v3.5.1 이름 게이트 — deid 생성 전. v3.5.3: 같은 경고를 연속 2회 받으면 진행(오탐 차단 방지).
+  const _ng=nameGate();
+  if(_ng){
+    if(window.__ngLast===_ng){ window.__ngLast=null; }
+    else { window.__ngLast=_ng; alert(_ng); document.getElementById('names').focus(); return; }
+  } else { window.__ngLast=null; }
   setStep(2);
   const deid=deidentify(); renderDeid(deid);
   LAST={deid,sector:val('sector'),ttype:val('ttype'),ctype:val('ctype'),amt:val('amt'),ncnt:val('ncnt'),ntot:val('ntot'),fpath:val('fpath'),fsrc:val('fsrc'),cddstatus:val('cdd_status'),flags:flags(),cash:chk('f_cash'),cddref:chk('f_cddref'),fraud:chk('f_fraud'),sectorFields:sectorFieldValues()};
@@ -2002,8 +2014,14 @@ function extractNames(src){
   const nameStop=/^(고객|계약|보험|거래|대상|수익|해지|환급|납입|미상|불명|확인|점검|검토|번호|성명|이름|생년|월일|주소|직업|국적|모친|부친|배우자|본인|법인|대표|남편|아내|자녀|형제|자매|장남|차남|장녀|차녀|상속|친권|법정|당사|해당)/;
   const REL='(?:모친|부친|배우자|남편|아내|자녀|장남|차남|장녀|차녀|형제|자매|본인|대표이사|대표)?';
   const LBL='(?:계약자|피보험자|고객명|성명|이름|대상자|수익자|보험계약자|주계약자)';
+  // v3.5.3 제3자 — 관계표기 괄호 / 행위주체 레이블. 계약자 레이블이 없는 인물을 잡는다.
+  const RELP='(?:미상|관계미상|부친|모친|배우자|남편|아내|형제|자매|아들|딸|동생|추정|\\d{1,2}세)';
+  const ACT='(?:실입금인|실입금자|입금인|입금자|납입자|송금인|대납자|수령인)';
+  const JOSA=/(으로|로|은|는|이|가|와|과|에게|께서|의)$/;
   const hi=[
     new RegExp(LBL+'[:\uff1a\\s]*'+REL+'\\s*([A-Za-z]{2,}(?:\\s+[A-Za-z]{2,}){0,3})','g'),
+    new RegExp('([가-힣]{2,5})\\s*[\\(\uff08]\\s*'+RELP,'g'),
+    new RegExp(ACT+'(?:은|는|이|가)?[:\uff1a\\s]*([가-힣]{2,6})','g'),
     new RegExp(LBL+'[:\uff1a\\s]*'+REL+'\\s*([가-힣]{2,4})(?=[\\s,\u00b7\\n\\(\uff08\\.\\)]|$)','g'),
     /([가-힣]{2,4})\s*(?:씨|님)(?=[\s,\u00b7\n은는이가의을를께]|$)/g
   ];
@@ -2016,7 +2034,11 @@ function extractNames(src){
     /^\s*([가-힣]{2,4})(?=\s+[\d(])/m
   ];
   let out=[];
-  for(const re of hi){ let m; re.lastIndex=0; while((m=re.exec(src))!==null){ const c=(m[1]||'').trim(); if(c&&!nameStop.test(c)) out.push(c); } }
+  for(const re of hi){ let m; re.lastIndex=0; while((m=re.exec(src))!==null){
+    let c=(m[1]||'').trim();
+    // 조사 제거 — 「실입금인은 홍길동으로」에서 '홍길동으로'가 잡히는 것을 막는다(2회까지)
+    for(let k=0;k<2;k++){ if(c.length>2 && JOSA.test(c)) c=c.replace(JOSA,''); }
+    if(c.length>=2 && !nameStop.test(c)) out.push(c); } }
   if(!out.length){ for(const re of lo){ const m=src.match(re); if(m&&!nameStop.test(m[1])){ out.push(m[1].trim()); break; } } }
   return out.filter((v,i,a)=>a.indexOf(v)===i);
 }
@@ -2030,9 +2052,18 @@ function nameGate(){
     const got=extractNames(src);
     if(got.length){ el.value=got.join(', '); if(typeof genIdCode==='function') genIdCode(); }
   }
-  if(el.value.trim()) return '';
-  if(/(?:계약자|피보험자|고객명|성명|이름|대상자|수익자|보험계약자|주계약자)/.test(src))
-    return '본문에 이름 레이블이 있으나 「이름·고유명사 지정」이 비어 있습니다.\n실명이 비식별되지 않은 채 외부로 전송됩니다 — 이름을 입력한 뒤 다시 실행하세요.';
+  if(!el.value.trim()){
+    if(/(?:계약자|피보험자|고객명|성명|이름|대상자|수익자|보험계약자|주계약자)/.test(src))
+      return '본문에 이름 레이블이 있으나 「가릴 이름」이 비어 있습니다.\n실명이 비식별되지 않은 채 외부로 전송됩니다 — 이름을 입력한 뒤 다시 실행하세요.';
+    return '';
+  }
+  // v3.5.3 — 치환표가 채워져 있어도 본문 인물 후보가 빠져 있으면 알린다(제3자 누출 방지).
+  var have=el.value.split(',').map(function(x){return x.trim();}).filter(Boolean);
+  var miss=extractNames(src).filter(function(n){ return have.indexOf(n)<0; });
+  if(miss.length)
+    return '본문에 있는 다음 이름이 「가릴 이름」에 없습니다 — 이대로면 실명 그대로 전송됩니다.\n\n  '
+      + miss.join(', ')
+      + '\n\n✨ 자동채움을 다시 누르거나 위 이름을 직접 추가한 뒤 실행하세요.\n(사람 이름이 아니면 그대로 두고 한 번 더 실행하면 진행됩니다.)';
   return '';
 }
 function afOpenSteps(){                      // v3.5.1 자동입력이 값을 채우면 STEP 2·3을 펼친다
@@ -2402,7 +2433,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.2',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.3',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))

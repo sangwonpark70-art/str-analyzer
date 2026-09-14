@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.3</title>
+<title>STR 사례 분석기 v3.5.4</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -246,7 +246,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.3</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.4</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -620,7 +620,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.3 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.4 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -632,6 +632,13 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.4(2026-09-15): 저장 시점 deid 대조 게이트 — 낡은 비식별문 저장 차단.
+//   deid는 analyze() 시점 스냅샷(LAST.deid)이고 exportJSON()은 그걸 그대로 쓴다.
+//   분석 후 본문·가릴 이름·마스킹 옵션을 고치고 저장하면 input.src는 현재 원문인데
+//   deid는 수정 전 비식별문 — 실명이 남은 채로 저장·Drive 업로드될 수 있었다.
+//   처방: 저장 직전 deidentify()를 재실행해 LAST.deid와 대조, 다르면 경고 후 return.
+//        비교용 재실행이 전역을 오염시키지 않도록 MAP·counters는 finally에서 복원한다.
+//   ※ 미해결: 저장 JSON은 input.src(원문)와 map(토큰→원값)을 함께 담아 재식별이 가능하다.
 // v3.5.3(2026-09-13): ★제3자 실명 누출 수정 — 실사용 e2e 1건에서 적발.
 //   계약자·피보험자는 가려지는데 실입금인·납입자 등 제3자 이름은 레이블이 없어 추출되지 않았다.
 //   12건 전수 실측 — 7개 파일에서 제3자 실명 9건이 비식별을 통과해 그대로 전송.
@@ -2433,10 +2440,18 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.3',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.4',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))
+  // v3.5.4 저장 게이트 — deid는 analyze() 시점 스냅샷이라 분석 후 입력을 고치면 낡은 비식별문이 저장된다.
+  const _mapBak=MAP,_cntBak=counters;
+  let _now='';
+  try{ _now=deidentify(); } finally { MAP=_mapBak; counters=_cntBak; }
+  if(_now!==(LAST.deid||'')){
+    alert('분석 이후 입력(사례 본문·가릴 이름·마스킹 옵션)이 바뀌었습니다.\n지금 저장하면 바뀌기 전의 비식별문이 저장되어 실명이 남을 수 있습니다.\n\n[분석 실행]을 다시 누른 뒤 저장하세요.');
+    return;
+  }
   const rec={meta,input:curInput(),deid:LAST.deid||'',result:RES,map:MAP};
   const blob=new Blob([JSON.stringify(rec,null,2)],{type:'application/json'});
   const a=document.createElement('a');

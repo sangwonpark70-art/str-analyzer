@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.4</title>
+<title>STR 사례 분석기 v3.5.6</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -246,7 +246,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.4</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.6</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -620,7 +620,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.4 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.6 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -632,6 +632,13 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.6(2026-09-15): 계좌 규칙 수정 — ★10자리 계좌번호가 비식별을 통과해 원문 전송되던 누출.
+//   가운데 그룹이 2~6자리여서 110-2109887654-01을 못 잡았다. 2~10자리로 확대.
+//   동시에 거래일(2026-09-01)이 계좌로 오탐되던 것을 부정탐색으로 제외 — 판정 근거 소실 방지.
+// v3.5.5(2026-09-15): 고객번호 선치환 — 10자리 고객번호가 전화 규칙에 먼저 걸려
+//   [전화N]으로 잘못 라벨링되던 문제. 이름 치환 직후·rules 구성 전에 선치환한다.
+//   경계조건 (?<![\d\-]) … (?![\d\-]) 로 계좌번호 내부 부분일치를 막는다.
+//   ※ 고객번호와 생년월일이 완전히 같은 숫자면 고객번호로 잡힌다(둘 다 마스킹되므로 누출 아님).
 // v3.5.4(2026-09-15): 저장 시점 deid 대조 게이트 — 낡은 비식별문 저장 차단.
 //   deid는 analyze() 시점 스냅샷(LAST.deid)이고 exportJSON()은 그걸 그대로 쓴다.
 //   분석 후 본문·가릴 이름·마스킹 옵션을 고치고 저장하면 input.src는 현재 원문인데
@@ -1099,13 +1106,18 @@ function deidentify(){
   let text=document.getElementById('src').value;
   let names=document.getElementById('names').value.split(',').map(s=>s.trim()).filter(Boolean).sort((a,b)=>b.length-a.length);
   names.forEach(n=>{const tok=tokenFor(n,'name','이름');text=text.split(n).join('\u0000'+tok+'\u0000');});
+  // v3.5.5 고객번호 선치환 — 10자리 숫자가 전화 규칙에 먼저 걸려 [전화N]으로 잡히던 것을 막는다.
+  const _cust=(document.getElementById('custno')||{value:''}).value.trim();
+  if(_cust.length>=6){const tok=tokenFor(_cust,'custno','고객번호');
+    text=text.replace(new RegExp('(?<![\\d\\-])'+_cust.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![\\d\\-])','g'),'\u0000'+tok+'\u0000');}
   const rules=[];
   if(chk('o_rrn'))   rules.push([/\b\d{6}[-\s]?\d{7}\b/g,'rrn','주민번호']);
   if(chk('o_biz'))   rules.push([/\b\d{3}-\d{2}-\d{5}\b/g,'biz','사업자번호']);
   if(chk('o_acct'))  rules.push([/\b\d{4}-\d{4}-\d{4}-\d{4}\b/g,'card','카드']);
   if(chk('o_phone')) rules.push([/\b01[016789][-\s]?\d{3,4}[-\s]?\d{4}\b/g,'phone','전화']);
   if(chk('o_phone')) rules.push([/\b0\d{1,2}[-\s]?\d{3,4}[-\s]?\d{4}\b/g,'phone','전화']);
-  if(chk('o_acct'))  rules.push([/\b\d{2,6}-\d{2,6}-\d{2,7}(?:-\d{1,6})?\b/g,'acct','계좌']);
+  // v3.5.6 계좌 — 가운데 2~10자리(10자리 계좌 누출) / 앞 4자리+월일 형태의 날짜는 제외
+  if(chk('o_acct'))  rules.push([/(?<!\d)(?!\d{4}-\d{2}-\d{2}(?!\d))\d{2,6}-\d{2,10}-\d{2,7}(?:-\d{1,6})?(?!\d)/g,'acct','계좌']);
   if(chk('o_email')) rules.push([/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/g,'email','이메일']);
   rules.forEach(([re,type,label])=>{text=text.replace(re,m=>{if(m.includes('\u0000'))return m;return '\u0000'+tokenFor(m.trim(),type,label)+'\u0000';});});
   // v3.5.2 생년월일 — 레이블 뒤 6·8자리만. 정형 규칙(주민번호 등) 뒤에 두어 앞 6자리만 먹는 사고를 막는다.
@@ -2440,7 +2452,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.4',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.6',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))

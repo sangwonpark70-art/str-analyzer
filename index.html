@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.6</title>
+<title>STR 사례 분석기 v3.5.7</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -246,7 +246,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.6</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.7</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -620,7 +620,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.6 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.7 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -632,6 +632,9 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.7(2026-09-28): 이름 게이트 우회 재설계 — 같은 경고 2연속 무언 통과(__ngLast) 폐기, confirm 명시 승인으로 대체.
+//   근거: ①치환표 공백 갈래까지 2연타로 열려 전면 무마스킹 전송 가능 ②문구 동일성 비교라 본문 수정 후에도 스테일 통과.
+//   오탐 구제는 유지(확인 1클릭), 실명은 취소→보완→재실행. 은닉 상태 변수 제거.
 // v3.5.6(2026-09-15): 계좌 규칙 수정 — ★10자리 계좌번호가 비식별을 통과해 원문 전송되던 누출.
 //   가운데 그룹이 2~6자리여서 110-2109887654-01을 못 잡았다. 2~10자리로 확대.
 //   동시에 거래일(2026-09-01)이 계좌로 오탐되던 것을 부정탐색으로 제외 — 판정 근거 소실 방지.
@@ -1650,12 +1653,10 @@ ${prior || '{}'}
 async function analyze(){
   const src=document.getElementById('src').value.trim();
   if(!src){alert('사례 내용을 입력하세요.');return;}
-  // v3.5.1 이름 게이트 — deid 생성 전. v3.5.3: 같은 경고를 연속 2회 받으면 진행(오탐 차단 방지).
+  // v3.5.1 이름 게이트 — deid 생성 전. v3.5.7: 무언 2연속 통과(__ngLast) 폐기 → confirm 명시 승인.
+  //   [확인]=오탐 인정하고 이대로 전송 / [취소]=돌아가 이름 보완. 승인 없이는 미마스킹 전송 불가.
   const _ng=nameGate();
-  if(_ng){
-    if(window.__ngLast===_ng){ window.__ngLast=null; }
-    else { window.__ngLast=_ng; alert(_ng); document.getElementById('names').focus(); return; }
-  } else { window.__ngLast=null; }
+  if(_ng && !confirm(_ng)){ document.getElementById('names').focus(); return; }
   setStep(2);
   const deid=deidentify(); renderDeid(deid);
   LAST={deid,sector:val('sector'),ttype:val('ttype'),ctype:val('ctype'),amt:val('amt'),ncnt:val('ncnt'),ntot:val('ntot'),fpath:val('fpath'),fsrc:val('fsrc'),cddstatus:val('cdd_status'),flags:flags(),cash:chk('f_cash'),cddref:chk('f_cddref'),fraud:chk('f_fraud'),sectorFields:sectorFieldValues()};
@@ -2073,7 +2074,7 @@ function nameGate(){
   }
   if(!el.value.trim()){
     if(/(?:계약자|피보험자|고객명|성명|이름|대상자|수익자|보험계약자|주계약자)/.test(src))
-      return '본문에 이름 레이블이 있으나 「가릴 이름」이 비어 있습니다.\n실명이 비식별되지 않은 채 외부로 전송됩니다 — 이름을 입력한 뒤 다시 실행하세요.';
+      return '본문에 이름 레이블이 있으나 「가릴 이름」이 비어 있습니다.\n계속 진행하면 실명이 비식별되지 않은 채 외부로 전송됩니다.\n\n[취소] 돌아가 이름 입력(✨ 자동채움 가능)\n[확인] 가릴 이름이 정말 없음 — 이대로 전송';
     return '';
   }
   // v3.5.3 — 치환표가 채워져 있어도 본문 인물 후보가 빠져 있으면 알린다(제3자 누출 방지).
@@ -2082,7 +2083,7 @@ function nameGate(){
   if(miss.length)
     return '본문에 있는 다음 이름이 「가릴 이름」에 없습니다 — 이대로면 실명 그대로 전송됩니다.\n\n  '
       + miss.join(', ')
-      + '\n\n✨ 자동채움을 다시 누르거나 위 이름을 직접 추가한 뒤 실행하세요.\n(사람 이름이 아니면 그대로 두고 한 번 더 실행하면 진행됩니다.)';
+      + '\n\n[취소] 돌아가 이름 추가(✨ 자동채움 재실행 가능)\n[확인] 위는 사람 이름이 아님 — 이대로 전송';
   return '';
 }
 function afOpenSteps(){                      // v3.5.1 자동입력이 값을 채우면 STEP 2·3을 펼친다
@@ -2452,7 +2453,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.6',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.7',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))

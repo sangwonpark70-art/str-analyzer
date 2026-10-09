@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.9</title>
+<title>STR 사례 분석기 v3.5.10</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -249,7 +249,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.9</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.10</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -623,7 +623,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.9 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.10 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -635,6 +635,7 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.10(2026-10-10): 이름 끝 글자 조사 오절단 수정(「박지은」→「박지」 — 가림 후 끝 글자 노출), 같은 FIU 항목 여러 행 체크 동기화.
 // v3.5.9(2026-10-10): FIU 3층 전환 P3(동선) — 결과 버튼 「FIU 입력용 복사」(4단 서술만) 1차화, 「바로 복사」는 의견서 모달 간략 탭으로.
 //   빈 [의견] 머리말 생략(2차 미수신). 좁은 화면 실행 버튼 줄바꿈.
 // v3.5.8(2026-10-09): FIU 3층 전환 P1(출력) — FIU 4단·복사본이 FIU 서식 항목(III-37·VI)을 주표기하고,
@@ -1445,7 +1446,9 @@ var FIU_SEL={r:null,m:{}};
 function fiuSelMap(){ if(FIU_SEL.r!==RES) FIU_SEL={r:RES,m:{}}; return FIU_SEL.m; }
 function fiuIsOn(k,def){ var m=fiuSelMap(); return Object.prototype.hasOwnProperty.call(m,k)?!!m[k]:!!def; }
 function fiuToggle(el){
-  fiuSelMap()[el.getAttribute('data-k')]=el.checked;
+  var m=fiuSelMap(), v=el.getAttribute('data-v');
+  m[el.getAttribute('data-k')]=el.checked;
+  if(v){ document.querySelectorAll('input[data-v="'+v+'"]').forEach(function(o){ o.checked=el.checked; m[o.getAttribute('data-k')]=el.checked; }); }   // v3.5.10 같은 항목 전 행 동기화
   try{
     var bg=document.getElementById('opinionModalBg');
     if(_opinionMode==='fiu' && bg && bg.classList.contains('show')) document.getElementById('opinionText').value=buildOpinionFiu();
@@ -1505,9 +1508,22 @@ function renderFiuProduct(){
     + `<div class="fiunote">${esc(bsp.rule)}</div></div>`;
 }
 function codeLabel(c){const nm=typeName(c);return nm?`${c} ${nm}`:c;}
+/* v3.5.10 — 같은 FIU 항목(필드+번호)이 여러 내부 코드 행에 나오면 한 항목으로 본다: 어느 행이든 선택이면 전 행 선택 표시,
+ * 한 행을 바꾸면 같은 항목의 전 행이 함께 바뀐다. 출력(fiuCollect)은 원래 「선택 우선」이라 결과는 같고 화면만 맞춘다. */
+function fiuVKey(field,list){ return field+'|'+(list||[]).map(function(x){return x.code;}).join(','); }
+function fiuAnyOn(sector,codes){
+  var on={};
+  codes.forEach(function(c){ var ent=lookupFiuCodes(sector,c);
+    (ent&&ent.targets||[]).forEach(function(t){ if(t.state==='mapped'||t.state==='ungraded'){
+      var v=fiuVKey(t.field,t.value); if(fiuIsOn(c+'|'+t.field,(t.state==='mapped'&&t.grade==='직접'))) on[v]=1; } }); });
+  var ro=(typeof roVals==='function')?roVals():{};
+  if(ro.match==='불일치' && fiuIsOn('RO|VI-3',false)) on['VI-3|11']=1;
+  return on;
+}
 function renderFiuCandidates(){
   const sector=fiuSector();
   const codes=(RES.typologies||[]).map(t=>String(t.code||'').trim()).filter(Boolean);
+  const _on=fiuAnyOn(sector,codes);
   const seen={}; let rows=''; const narr=[];
   codes.forEach(c=>{
     if(seen[c]) return; seen[c]=1;
@@ -1524,7 +1540,8 @@ function renderFiuCandidates(){
         const direct=(t.state==='mapped'&&t.grade==='직접');
         const tag=direct?'직접':(t.state==='ungraded'?'미등급 · 추천':'판단 · 추천');
         const _k=c+'|'+t.field;   // v3.5.8 P1 — 선택 상태가 FIU 4단 출력에 반영된다
-        lines+=`<div class="fiuline"><label><input type="checkbox" data-k="${esc(_k)}" onchange="fiuToggle(this)" ${fiuIsOn(_k,direct)?'checked':''}> `
+        const _v=fiuVKey(t.field,t.value);
+        lines+=`<div class="fiuline"><label><input type="checkbox" data-k="${esc(_k)}" data-v="${esc(_v)}" onchange="fiuToggle(this)" ${_on[_v]?'checked':''}> `
           +`<b>${esc(t.field)}</b> ${esc(fiuValText(t.value,t.field))}</label>`
           +`<span class="fiugrade ${direct?'d':'j'}">${tag}</span></div>${extra}${alt}${hint}`;
       } else if(t.state==='operator'){
@@ -1541,7 +1558,7 @@ function renderFiuCandidates(){
   var _ro = (typeof roVals==='function') ? roVals() : {};
   var _link = '';
   if(_ro.match==='불일치'){
-    _link += '<div class="fiuline"><label><input type="checkbox" data-k="RO|VI-3" onchange="fiuToggle(this)" '+(fiuIsOn('RO|VI-3',false)?'checked':'')+'> <b>VI-3</b> 11) 타인 명의·계좌 이용</label>'
+    _link += '<div class="fiuline"><label><input type="checkbox" data-k="RO|VI-3" data-v="VI-3|11" onchange="fiuToggle(this)" '+(_on['VI-3|11']?'checked':'')+'> <b>VI-3</b> 11) 타인 명의·계좌 이용</label>'
       + '<span class="fiugrade j">판단 · 추천</span>'
       + '<div class="fiunote">report_only 명의일치=불일치 연동(변환표 §4 rev.1). 선택은 담당자 몫이다.</div></div>';
   }
@@ -2122,7 +2139,8 @@ function extractNames(src){
   for(const re of hi){ let m; re.lastIndex=0; while((m=re.exec(src))!==null){
     let c=(m[1]||'').trim();
     // 조사 제거 — 「실입금인은 홍길동으로」에서 '홍길동으로'가 잡히는 것을 막는다(2회까지)
-    for(let k=0;k<2;k++){ if(c.length>2 && JOSA.test(c)) c=c.replace(JOSA,''); }
+    // v3.5.10 — 떼고 남는 길이가 3자 이상일 때만 조사로 본다(「박지은」→「박지」 오절단 방지). 2자 이름+조사는 조사째 가린다(과잉 가림 쪽이 안전).
+    for(let k=0;k<2;k++){ if(JOSA.test(c)){ const r=c.replace(JOSA,''); if(r.length>=3) c=r; } }
     if(c.length>=2 && !nameStop.test(c)) out.push(c); } }
   if(!out.length){ for(const re of lo){ const m=src.match(re); if(m&&!nameStop.test(m[1])){ out.push(m[1].trim()); break; } } }
   return out.filter((v,i,a)=>a.indexOf(v)===i);
@@ -2518,7 +2536,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.9',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.10',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))

@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.7</title>
+<title>STR 사례 분석기 v3.5.8</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -140,6 +140,7 @@
   .fiurow:first-child{border-top:0}
   .fiuline{font-size:13px;line-height:1.7;margin:3px 0}
   .fiuline.mut{color:var(--faint)}
+  .fiuline input[type=checkbox]{width:auto;display:inline-block;margin:0 6px 0 0;vertical-align:middle}   /* v3.5.8 P2 — 체크박스가 전역 input 규칙으로 별도 행에 놓이던 것 */
   .fiugrade{font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:99px;margin-left:6px;white-space:nowrap}
   .fiugrade.d{background:var(--primary-bg);color:var(--primary-d);border:1px solid var(--primary-line)}
   .fiugrade.j{background:#f1f1f1;color:#6b6b6b;border:1px solid #ddd}
@@ -246,7 +247,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.7</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.8</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -620,7 +621,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.7 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.8 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -632,6 +633,11 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.8(2026-10-09): FIU 3층 전환 P1(출력) — FIU 4단·복사본이 FIU 서식 항목(III-37·VI)을 주표기하고,
+//   FIU 표 체크 상태를 반영한다(직접=기본 선택, 판단=기본 미선택·담당자 선택). 1단 제목은 선택된 VI 문언에서 생성
+//   (suggested_type 2자 투입 폐기). 내부 A1~C5는 「내부 분류 키」로 후퇴. III-37은 체크박스 번호형(「19 해지」)으로 표기 분기.
+//   이름 추출: 레이블 뒤 은/는/이/가(「수익자는 ○○로」) 보정.
+//   P2(화면): FIU 표를 유형 칩 바로 아래로 이동·기본 펼침(「참고」 표기 폐기), 유형 칩은 FIU 문언 주표기·내부 코드 작게.
 // v3.5.7(2026-09-28): 이름 게이트 우회 재설계 — 같은 경고 2연속 무언 통과(__ngLast) 폐기, confirm 명시 승인으로 대체.
 //   근거: ①치환표 공백 갈래까지 2연타로 열려 전면 무마스킹 전송 가능 ②문구 동일성 비교라 본문 수정 후에도 스테일 통과.
 //   오탐 구제는 유지(확인 1클릭), 실명은 취소→보완→재실행. 은닉 상태 변수 제거.
@@ -1425,8 +1431,61 @@ if (typeof module !== 'undefined' && module.exports) {
  * mapped×직접=체크 ON / mapped×판단·ungraded=회색 추천(선점 금지) /
  * operator=담당자 입력 요구 / unmapped=VI-5 31) 서술로 흘림
  * 의견서 본문 반영은 v3.4.1 — 추천이 확정처럼 읽힐 위험(§11-71 8항 ④). */
-function fiuValText(list){
-  return (list||[]).map(x=>x.code+') '+x.label).join(' · ');
+function fiuValText(list,field){
+  // v3.5.8 — 서식상 VI는 번호형 「13)」, III-37은 체크박스 번호 「19 해지」(괄호 없음). 필드별 분기.
+  return (list||[]).map(x=>field==='III-37'?(x.code+' '+x.label):(x.code+') '+x.label)).join(' · ');
+}
+/* v3.5.8 P1 — FIU 표 선택 상태. RES 객체 단위로 유지(2차는 같은 객체를 갱신하므로 선택 유지, 새 분석·불러오기는 초기화).
+ * 기본값은 렌더 규칙과 같다: mapped×직접=선택 / 판단·미등급=미선택. 담당자가 바꾼 값만 저장한다. */
+var FIU_SEL={r:null,m:{}};
+function fiuSelMap(){ if(FIU_SEL.r!==RES) FIU_SEL={r:RES,m:{}}; return FIU_SEL.m; }
+function fiuIsOn(k,def){ var m=fiuSelMap(); return Object.prototype.hasOwnProperty.call(m,k)?!!m[k]:!!def; }
+function fiuToggle(el){
+  fiuSelMap()[el.getAttribute('data-k')]=el.checked;
+  try{
+    var bg=document.getElementById('opinionModalBg');
+    if(_opinionMode==='fiu' && bg && bg.classList.contains('show')) document.getElementById('opinionText').value=buildOpinionFiu();
+  }catch(e){}
+}
+/* 출력용 수집 — renderFiuCandidates()와 같은 순회 규칙. 같은 필드·같은 번호는 1회만 싣는다(B1·B3 → VI-3 11) 중복). */
+function fiuCollect(){
+  var sector=fiuSector(), out={iii37:[],vi:[],pend:[],oper:[],narr:[],keys:[]};
+  var seenC={}, seenV={};
+  function push(arr,field,v,src){ var id=(arr===out.pend?'P|':'S|')+field+'|'+v.code; if(seenV[id]) return; seenV[id]=1; arr.push({field:field,code:v.code,label:v.label,src:src}); }
+  (RES&&RES.typologies||[]).forEach(function(t){
+    var c=String(t.code||'').trim(); if(!c||seenC[c]) return; seenC[c]=1;
+    out.keys.push(c+' '+typeName(c));
+    var ent=lookupFiuCodes(sector,c);
+    if(!ent){ out.narr.push(c+' — 변환표 미등재'); return; }
+    (ent.targets||[]).forEach(function(tg){
+      if(tg.state==='mapped'||tg.state==='ungraded'){
+        var direct=(tg.state==='mapped'&&tg.grade==='직접');
+        (tg.value||[]).forEach(function(v){
+          var on=fiuIsOn(c+'|'+tg.field,direct);
+          if(on) push(tg.field==='III-37'?out.iii37:out.vi,tg.field,v,c);
+          else push(out.pend,tg.field,v,c);
+        });
+      } else if(tg.state==='operator'){ out.oper.push(tg.field+' ('+c+')'); }
+      else { out.narr.push(c+' '+typeName(c)+(tg.hint?' — '+tg.hint:'')); }
+    });
+  });
+  var ro=(typeof roVals==='function')?roVals():{};
+  if(ro.match==='불일치'){
+    var v={code:'11',label:'타인 명의·계좌 이용'};
+    if(fiuIsOn('RO|VI-3',false)) push(out.vi,'VI-3',v,'명의일치'); else push(out.pend,'VI-3',v,'명의일치');
+  }
+  // 선택된 항목이 다른 코드에서 미선택으로 남았으면 미선택 목록에서 뺀다
+  out.pend=out.pend.filter(function(p){ return !out.vi.concat(out.iii37).some(function(s){return s.field===p.field&&s.code===p.code;}); });
+  return out;
+}
+function fiuItemText(x){ return x.field==='III-37'?(x.code+' '+x.label):(x.field+' '+x.code+') '+x.label); }
+/* v3.5.8 P2 — 유형 칩: FIU 문언 주표기, 내부 코드는 작게. VI 대상이 없으면 내부 유형명 + 「VI 대응 없음」(서술 대상). */
+function fiuChipText(c){
+  var ent=lookupFiuCodes(fiuSector(),c), vi=null;
+  (ent&&ent.targets||[]).forEach(function(t){ if(!vi && /^VI-/.test(t.field) && t.value && t.value.length) vi=t; });
+  var small='<span style="font-weight:500;opacity:.65;margin-left:5px">'+esc(c)+(vi&&vi.grade==='판단'?' · 판단':'')+'</span>';
+  if(vi) return esc(vi.field+' '+vi.value.map(function(v){return v.code+') '+v.label;}).join(' · '))+small;
+  return esc(typeName(c)||c)+' <span style="font-weight:500;opacity:.65">(VI 대응 없음)</span>'+small;
 }
 function fiuSector(){
   var sec='';
@@ -1460,8 +1519,9 @@ function renderFiuCandidates(){
       if(t.state==='mapped'||t.state==='ungraded'){
         const direct=(t.state==='mapped'&&t.grade==='직접');
         const tag=direct?'직접':(t.state==='ungraded'?'미등급 · 추천':'판단 · 추천');
-        lines+=`<div class="fiuline"><label><input type="checkbox" ${direct?'checked':''}> `
-          +`<b>${esc(t.field)}</b> ${esc(fiuValText(t.value))}</label>`
+        const _k=c+'|'+t.field;   // v3.5.8 P1 — 선택 상태가 FIU 4단 출력에 반영된다
+        lines+=`<div class="fiuline"><label><input type="checkbox" data-k="${esc(_k)}" onchange="fiuToggle(this)" ${fiuIsOn(_k,direct)?'checked':''}> `
+          +`<b>${esc(t.field)}</b> ${esc(fiuValText(t.value,t.field))}</label>`
           +`<span class="fiugrade ${direct?'d':'j'}">${tag}</span></div>${extra}${alt}${hint}`;
       } else if(t.state==='operator'){
         lines+=`<div class="fiuline"><b>${esc(t.field)}</b> — 담당자 입력`
@@ -1477,7 +1537,7 @@ function renderFiuCandidates(){
   var _ro = (typeof roVals==='function') ? roVals() : {};
   var _link = '';
   if(_ro.match==='불일치'){
-    _link += '<div class="fiuline"><b>VI-3</b> 11) 타인 명의·계좌 이용'
+    _link += '<div class="fiuline"><label><input type="checkbox" data-k="RO|VI-3" onchange="fiuToggle(this)" '+(fiuIsOn('RO|VI-3',false)?'checked':'')+'> <b>VI-3</b> 11) 타인 명의·계좌 이용</label>'
       + '<span class="fiugrade j">판단 · 추천</span>'
       + '<div class="fiunote">report_only 명의일치=불일치 연동(변환표 §4 rev.1). 선택은 담당자 몫이다.</div></div>';
   }
@@ -1491,7 +1551,7 @@ function renderFiuCandidates(){
   const tail=narr.length?`<div class="fiuline mut" style="margin-top:8px"><b>VI-5 31)</b> 서술 대상 ${narr.length}건 — ${esc(narr.join(' / '))}</div>`:'';
   return `<div class="sec">FIU 서식 코드 후보 <span style="font-size:11px;font-weight:500;color:var(--faint)">별지 제1호 · 변환표 v0.2 · ${esc(sector)}</span></div>`
     +`<div class="block" style="white-space:normal">${renderFiuProduct()}${rows}${tail}`
-    +`<div class="fiunote" style="margin-left:0;margin-top:10px">※ 「직접」만 선택 상태로 제시한다. 「판단」·「담당자 입력」은 추천이며 최종 선택은 담당자 몫이다(변환표 §6-9). 「서식 대응 없음」은 VI-5 31) 서술로 기재한다.</div></div>`;
+    +`<div class="fiunote" style="margin-left:0;margin-top:10px">※ 「직접」만 선택 상태로 제시한다. 「판단」·「담당자 입력」은 추천이며 최종 선택은 담당자 몫이다(변환표 §6-9). 「서식 대응 없음」은 VI-5 31) 서술로 기재한다. <b>체크한 항목만 의견서 「FIU 4단」에 실린다.</b></div></div>`;
 }
 
 const SECTOR_TYPOLOGY = {
@@ -1867,9 +1927,12 @@ function draw(){
   }
 
   if(RES.typologies&&RES.typologies.length){
-    html+=`<div class="chips">`+RES.typologies.map(t=>{const c=(t.code||'').trim();var q=restore(t.quote||t.text||'');const rs=restore(t.reason||'');const bf=String(t.basis_field||'').trim();if(!q&&bf)q='입력항목: '+bf;return `<span class="chip" title="${esc(rs?rs+'\n「'+q+'」':q)}">${esc(c)} ${esc(typeName(c))}</span>`;}).join('')+`</div>`;
+    html+=`<div class="chips">`+RES.typologies.map(t=>{const c=(t.code||'').trim();var q=restore(t.quote||t.text||'');const rs=restore(t.reason||'');const bf=String(t.basis_field||'').trim();if(!q&&bf)q='입력항목: '+bf;return `<span class="chip" title="${esc(rs?rs+'\n「'+q+'」':q)}">${fiuChipText(c)}</span>`;}).join('')+`</div>`;
   }
-  // v3.5.1 읽는 순서: 누구인가 → 무슨 일인가 → 결론 → 다음 단계 → (참고) FIU 코드 표
+  // v3.5.8 P2 — FIU 표를 칩 바로 아래로 올리고 기본 펼침(종전: 맨 아래 접이식 「참고」). 체크가 FIU 4단 출력을 정한다.
+  var _fiuTbl=renderFiuCandidates();
+  if(_fiuTbl) html+=`<details id="fiuBox" open style="margin-top:10px"><summary>FIU 서식 항목 선택 <span class="opt">— 체크한 항목이 의견서 「FIU 4단」에 실립니다</span></summary>${_fiuTbl}</details>`;
+  // v3.5.1 읽는 순서: 누구인가 → 무슨 일인가 → 결론 → 다음 단계. v3.5.8: FIU 표는 유형 칩 바로 아래(주표기)
   if(MODE==='full')
     html+=`<div class="sec">프로필 개요</div><div class="block">${esc(RES.profile)}</div>`;
   html+=`<div class="sec">핵심 근거</div><div class="block">${esc(RES.key_basis)}</div>`;
@@ -1899,9 +1962,7 @@ function draw(){
     html+=`<div class="monitor"><b>ℹ 누설 금지에 따른 확인 중단 건</b><br>고객 접촉을 전제한 추가확인은 권고 대상이 아니다(업무규정 제44조의2). 아래 권장 정보 중 고객 접촉이 필요한 항목은 수행하지 말고 보고 절차를 진행할 것.</div>`;
   if(RES.missing&&RES.missing.length)
     html+=`<div class="missing"><b>📋 추가 확인 권장 정보</b><ul>`+RES.missing.map(m=>`<li>${esc(m)}</li>`).join('')+`</ul></div>`;
-  // FIU 서식 코드 표 — 의견서 「FIU 4단」 탭을 쓸 때만 필요하므로 맨 아래 접이식. 탭 선택 시 자동 펼침.
-  var _fiuTbl=renderFiuCandidates();
-  if(_fiuTbl) html+=`<details id="fiuBox" style="margin-top:14px"><summary>금융정보분석원(FIU) 서식 코드 후보 <span class="opt">— 의견서 「FIU 4단」 작성 시 참고</span></summary>${_fiuTbl}</details>`;
+  // (v3.5.8 P2 — FIU 서식 표는 유형 칩 바로 아래로 이동)
   // v3.3.3: 2차(상세 분석) 상태·트리거
   if((RES.phase||1)<2){
     html+=`<div class="convert" style="margin-top:14px"><div class="cv" style="background:var(--field);text-align:left">
@@ -2042,7 +2103,7 @@ function extractNames(src){
     new RegExp(LBL+'[:\uff1a\\s]*'+REL+'\\s*([A-Za-z]{2,}(?:\\s+[A-Za-z]{2,}){0,3})','g'),
     new RegExp('([가-힣]{2,5})\\s*[\\(\uff08]\\s*'+RELP,'g'),
     new RegExp(ACT+'(?:은|는|이|가)?[:\uff1a\\s]*([가-힣]{2,6})','g'),
-    new RegExp(LBL+'[:\uff1a\\s]*'+REL+'\\s*([가-힣]{2,4})(?=[\\s,\u00b7\\n\\(\uff08\\.\\)]|$)','g'),
+    new RegExp(LBL+'(?:은|는|이|가)?[:\uff1a\\s]*'+REL+'\\s*(?!(?:으로|로)[\\s,.]|(?:으로|로)$)([가-힣]{2,4})(?<!으)(?=(?:으로|로|은|는|이|가|와|과|의|에게)?(?:[\\s,\u00b7\\n\\(\uff08\\.\\)]|$))','g'),   // v3.5.8 「수익자는 ○○로」 보정
     /([가-힣]{2,4})\s*(?:씨|님)(?=[\s,\u00b7\n은는이가의을를께]|$)/g
   ];
   const lo=[
@@ -2453,7 +2514,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.7',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.8',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))
@@ -2663,7 +2724,10 @@ function buildOpinionFiu(){
       if(c && !seenCode[c]){ seenCode[c]=1; codes.push(c+' '+typeName(c)); }   // v3.4.3 ③ 코드 중복 제거
     });
   }
-  var title = sugg || (codes.length?codes[0]:'') || na('추정 전제범죄·의심유형');
+  // v3.5.8 P1 — 제목은 선택된 VI 문언에서 만든다. suggested_type(거래유형 2자)은 의심유형이 아니라 폐기.
+  var FC = fiuCollect();
+  //   선택된 VI가 없으면 내부 유형명으로 대체하지 않고 미입력으로 남긴다(작성 점검이 지목).
+  var title = FC.vi.length ? FC.vi[0].label : na('제목 — FIU 표에서 의심유형 선택');
 
   // ── 2단 거래자 정보 ──
   var kind=fiuVal(RES.subject_kind), nm=fiuVal(RES.subject_name), age=fiuVal(RES.subject_age);
@@ -2685,6 +2749,10 @@ function buildOpinionFiu(){
   rows.push('거래발생일자 : '+txd);
   rows.push('업권·거래유형 : '+(fiuVal(L.sector)||na('업권'))+' / '+(fiuVal(L.ttype)||na('거래유형')));
   rows.push('거래금액 : '+(fiuVal(L.amt)||na('거래금액')));
+  // v3.5.8 P1 — III-37 거래종류: 선택분 / 후보는 있으나 미선택 / 담당자 입력
+  var _p37=FC.pend.filter(function(x){return x.field==='III-37';});
+  if(FC.iii37.length) rows.push('거래종류(III-37) : '+FC.iii37.map(fiuItemText).join(' · '));
+  else if(_p37.length || FC.oper.some(function(o){return o.indexOf('III-37')===0;})) rows.push('거래종류(III-37) : '+na('거래종류 — FIU 표에서 선택'));
   rows.push('자금 경로 : '+(fiuVal(L.fpath)||na('자금 경로')));
   rows.push('자금원천 확인 : '+(fiuVal(L.fsrc)||na('자금원천 확인')));
   if(fiuVal(L.ncnt)||fiuVal(L.ntot))
@@ -2725,22 +2793,23 @@ function buildOpinionFiu(){
   t+='━━━━━ FIU 종합의견 (별지 제1호 서식 VII · 4단) ━━━━━\n';
   t+='판정: '+verdictShort()+'  |  위험도 '+RES.score+'/100\n\n';
   t+='1. 제목 : '+title+'\n';
-  if(codes.length>1) t+='   (매칭 유형: '+codes.join(' · ')+')\n';
   t+='\n2. 거래자 정보 관련 종합의견\n   '+who+'\n   '+prof.replace(/\n/g,'\n   ')+'\n';
   t+='\n3. 거래내역 정보 관련 종합의견\n   '+rows.join('\n   ')+'\n';
   // v3.5.1 ⓐ② 4단 = 종합의견 하나 + 코드 목록 한 줄.
   //   유형별 reason·quote는 3단(거래내역)과, missing은 보고서용 의견서와 겹쳐 제거한다.
   t+='\n4. 의심되는 사유 관련 종합의견\n   '+op.replace(/\n/g,'\n   ')+'\n';
-  if(codes.length) t+='   [매칭 유형] '+codes.join(' · ')+'\n';
+  t+='   [의심유형(VI)] '+(FC.vi.length?FC.vi.map(fiuItemText).join(' · '):na('의심유형 — FIU 표에서 선택'))+'\n';
+  if(FC.narr.length) t+='   [VI-5 31) 서술 대상] '+FC.narr.join(' / ')+'\n';
+  if(codes.length) t+='   (내부 분류 키: '+codes.join(' · ')+')\n';
   if(dropped.length) t+='\n   [규약상 제외된 유형 — 참고]\n'+dropped.join('\n')+'\n';
 
-  t+='\n'+fiuGateText(t);
+  t+='\n'+fiuGateText(t, FC.pend.length?['미선택 후보 '+FC.pend.length+'건('+FC.pend.map(fiuItemText).join(' · ')+') — 해당하면 FIU 표에서 체크']:[]);
   t+='\n※ 본 의견은 트리아지 보조 결과이며 최종 판단은 담당자 책임입니다.';
   return dedupePrinciples(t);   // v3.5.1 ⓐ③
 }
 
 // 작성 점검 — 강제(원문 근거) / 권고(전언, 원문 미대조) / 미판정(입력 없음) 3층
-function fiuGateText(body){
+function fiuGateText(body, extraSoft){
   var hard=[], soft=[], unk=[];
 
   // [강제] 4단 결손 — 각 단에 [미입력]이 있으면 지목
@@ -2778,6 +2847,7 @@ function fiuGateText(body){
   }
   // [권고] 금액 단위
   if(/[0-9]{7,}\s*원/.test(body)) soft.push('원 단위 장문 금액 표기 — 서술부는 백만원 단위 권고');
+  (extraSoft||[]).forEach(function(x){ soft.push(x); });   // v3.5.8 P1
 
   // [미판정] 입력 자체가 없어 판정 불가한 축
   // v3.5.0 — 영업점·관측기간·거래횟수는 입력란 신설로 [미판정]에서 내려왔다(3층 규율 ③).

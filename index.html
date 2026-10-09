@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.8</title>
+<title>STR 사례 분석기 v3.5.9</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -85,6 +85,8 @@
   .runrow .modetoggle{margin-top:0;flex:0 0 auto}
   .runrow .modetoggle button{white-space:nowrap;padding-left:12px;padding-right:12px}
   .runrow .btn-go{width:auto;flex:1;margin-top:0;padding:12px 20px;font-size:14px}
+  .runrow .btn-go{white-space:nowrap}
+  @media(max-width:560px){.runrow{flex-wrap:wrap}.runrow .modetoggle,.runrow .btn-go{flex:1 1 100%}}   /* v3.5.9 P3 — 좁은 화면에서 실행 버튼이 세로로 눌리던 것 */
   .modetoggle{display:flex;gap:0;margin-top:6px;border:1px solid var(--line2);border-radius:10px;overflow:hidden}
   .modetoggle button{flex:1;background:var(--field);color:var(--dim);padding:9px;font-size:12.5px;border-radius:0}
   .modetoggle button.on{background:var(--primary);color:#fff}
@@ -247,7 +249,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.8</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.9</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -621,7 +623,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.8 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.9 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -633,6 +635,8 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.9(2026-10-10): FIU 3층 전환 P3(동선) — 결과 버튼 「FIU 입력용 복사」(4단 서술만) 1차화, 「바로 복사」는 의견서 모달 간략 탭으로.
+//   빈 [의견] 머리말 생략(2차 미수신). 좁은 화면 실행 버튼 줄바꿈.
 // v3.5.8(2026-10-09): FIU 3층 전환 P1(출력) — FIU 4단·복사본이 FIU 서식 항목(III-37·VI)을 주표기하고,
 //   FIU 표 체크 상태를 반영한다(직접=기본 선택, 판단=기본 미선택·담당자 선택). 1단 제목은 선택된 VI 문언에서 생성
 //   (suggested_type 2자 투입 폐기). 내부 A1~C5는 「내부 분류 키」로 후퇴. III-37은 체크박스 번호형(「19 해지」)으로 표기 분기.
@@ -1974,8 +1978,8 @@ function draw(){
     html+=`<div style="margin-top:10px;font-size:11.5px;color:var(--faint)">✔ 상세 분석(2차) 반영됨 <span id="p2status"></span></div>`;
   }
   html+=`<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-    <button class="btn-sm" onclick="openOpinion()">📄 의견서 보기·복사</button>
-    <button class="btn-sm" onclick="copyOut()">📋 바로 복사</button>
+    <button class="btn-sm" onclick="copyFiuInput()" style="background:var(--primary);color:#fff;border-color:var(--primary)">📋 FIU 입력용 복사</button>
+    <button class="btn-sm" onclick="openOpinion()">📄 의견서 보기·복사 (간략·전체·FIU)</button>
     <button class="btn-sm" onclick="exportJSON()">💾 사례 파일저장</button>
     <span id="cp" class="copied"></span>
     <span style="font-size:11px;color:var(--faint)">모드: ${MODE==='tri'?'트리아지':'세부분석'} · 단계: ${(RES.phase||1)===2?'1차+2차':'1차'}</span></div>`;
@@ -2514,7 +2518,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.8',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.9',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))
@@ -2679,7 +2683,7 @@ function buildOpinionText(){
   // 하위호환: 구버전 JSON(brief 없음)에만 suspicion 표시
   if(RES.suspicion&&RES.suspicion.trim()&&!(RES.brief&&RES.brief.trim()))
     t+=`\n\n[의심 가능성]\n${RES.suspicion}`;
-  t+=`\n\n[의견]\n${RES.opinion||''}`;
+  if(RES.opinion&&RES.opinion.trim()) t+=`\n\n[의견]\n${RES.opinion}`;   // v3.5.9 P3 — 2차 미수신이면 빈 머리말을 내지 않는다
   t+=`\n\n[심화분석팀 이관 요약]\n${RES.handoff}`;
   if(RES.cdd_check&&RES.cdd_check.trim()) t+=`\n\n[CDD 점검]\n${RES.cdd_check}`;
   if(RES.monitoring&&RES.monitoring.trim()) t+=`\n\n[모니터링·재검토 조건]\n${RES.monitoring}`;
@@ -2885,7 +2889,31 @@ function copyOpinionAll(){
     }).catch(()=>fallback(text));
   } else { fallback(text); }
 }
-// 바로복사 — 입력용(brief) 기본, 모바일 폴백 포함
+/* v3.5.9 P3 — FIU 입력용 복사: 4단 서술(1~4)만 복사한다. 머리 판정줄·작성 점검·면책 문구·내부 분류 키·VI-5 안내줄은
+ * FIU 서식에 붙일 내용이 아니므로 뺀다(의견서 보기의 FIU 탭에는 그대로 남는다). [미입력]·[보완 필요]가 있으면 알린다.
+ * 종전 「바로 복사」(간략)는 의견서 보기 모달의 간략 탭에서 복사한다 — copyOut()은 보존. */
+function fiuInputText(){
+  var full=buildOpinionFiu(); if(!full) return {text:'',na:0,hard:0};
+  var a=full.indexOf('\n1. 제목 : '), b=full.indexOf('\n━━ 작성 점검');
+  var body=full.slice(a<0?0:a+1, b<0?full.length:b).replace(/\s+$/,'');
+  body=body.split('\n').filter(function(l){ return !/^\s*\(내부 분류 키:/.test(l) && !/^\s*\[VI-5 31\) 서술 대상\]/.test(l); }).join('\n');
+  var na=(body.match(/\[미입력[^\]]*\]/g)||[]).length;
+  var hm=full.match(/\[보완 필요\]\n((?:- .*\n)+)/); var hard=hm?hm[1].trim().split('\n').length:0;
+  return {text:body,na:na,hard:hard};
+}
+function copyFiuInput(){
+  if(!RES) return;
+  var r=fiuInputText(), text=r.text;
+  var msg = (r.na||r.hard) ? ('✓ 복사됨 · ⚠ 미입력 '+r.na+'건·보완 필요 '+r.hard+'건 — 의견서 보기 FIU 탭에서 확인') : '✓ 복사됨';
+  function done(){ var c=document.getElementById('cp'); if(c){ c.textContent=msg; setTimeout(function(){c.textContent='';}, (r.na||r.hard)?4000:1500); } }
+  function fallback(){
+    var ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0,99999);
+    document.execCommand('copy'); document.body.removeChild(ta); done();
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done).catch(fallback); } else { fallback(); }
+}
+// 바로복사 — 입력용(brief) 기본, 모바일 폴백 포함 (v3.5.9: 결과 버튼에서 내림, 함수 보존)
 function copyOut(){
   if(!RES)return;
   const text=buildOpinionBrief();

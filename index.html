@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.10</title>
+<title>STR 사례 분석기 v3.5.11</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -249,7 +249,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.10</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.11</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -623,7 +623,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.10 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.11 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -635,6 +635,8 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.11(2026-10-17): 분석 실행 시 결과 칸이 화면 밖이면 결과로 이동(모바일·데스크톱). 1단 제목을 사례 맞춤 AI 제목(fiu_title)으로 —
+//   토큰·과장 길이면 버리고 종전(선택 VI 문언 → [미입력])으로 폴백. 구 저장본(fiu_title 없음)도 종전대로.
 // v3.5.10(2026-10-10): 이름 끝 글자 조사 오절단 수정(「박지은」→「박지」 — 가림 후 끝 글자 노출), 같은 FIU 항목 여러 행 체크 동기화.
 // v3.5.9(2026-10-10): FIU 3층 전환 P3(동선) — 결과 버튼 「FIU 입력용 복사」(4단 서술만) 1차화, 「바로 복사」는 의견서 모달 간략 탭으로.
 //   빈 [의견] 머리말 생략(2차 미수신). 좁은 화면 실행 버튼 줄바꿈.
@@ -1669,6 +1671,7 @@ const SCHEMA_P1 = `반드시 아래 JSON만 출력. 코드펜스·서론 금지.
 {
  "risk_score": 0~100 정수,
  "suggested_type": "사례에 가장 부합하는 거래유형(목록 중 하나)",
+ "fiu_title": "FIU 종합의견 1단 제목 = 이 사례에서 추정되는 전제범죄 또는 의심유형. 10~15자 내외 명사구, 「…의심」으로 끝맺음(단정 금지). 이름·토큰([이름1] 등)·법인명·금액·날짜를 넣지 마라",
  "typologies": [{"code":"A1","quote":"[사례(비식별)] 블록에 있는 그대로의 연속 구간","reason":"그 구간이 이 유형에 해당하는 이유"},
                 {"code":"C3","basis_field":"자금원천 확인","reason":"그 입력값이 이 유형에 해당하는 이유"}],
  "key_basis": "점수의 핵심 근거 1~2문장(트리아지용)",
@@ -1743,6 +1746,7 @@ async function analyze(){
   LAST={deid,sector:val('sector'),ttype:val('ttype'),ctype:val('ctype'),amt:val('amt'),ncnt:val('ncnt'),ntot:val('ntot'),fpath:val('fpath'),fsrc:val('fsrc'),cddstatus:val('cdd_status'),flags:flags(),cash:chk('f_cash'),cddref:chk('f_cddref'),fraud:chk('f_fraud'),sectorFields:sectorFieldValues()};
   const btn=document.getElementById('goBtn');btn.disabled=true;btn.textContent='분석 중…';
   document.getElementById('result').innerHTML='<div class="loading"><div class="spin"></div>AI가 비식별 데이터를 분석 중입니다…</div>';
+  revealResult();   // v3.5.11
 
   const sys=buildSystemPrompt(LAST.sector,1);
 
@@ -1752,6 +1756,7 @@ async function analyze(){
     RES={
       score:Math.max(0,Math.min(100,parseInt(j.risk_score)||0)),
       suggested_type:restore(j.suggested_type),
+      fiu_title:cleanFiuTitle(j.fiu_title),   // v3.5.11 사례 맞춤 1단 제목(토큰 포함 시 폐기)
       typologies:_f.kept,
       c3_dropped:_f.dropped,
       key_basis:restore(j.key_basis), handoff:restore(j.handoff),
@@ -1773,6 +1778,23 @@ async function analyze(){
     // 세부분석 모드는 1차 표시 직후 2차를 자동 연속 호출(트리아지는 버튼 수동)
     if(MODE==='full') analyzePhase2();
   }catch(e){ renderFallback(); btn.disabled=false; btn.textContent='분석 실행'; }
+}
+
+/* v3.5.11 — fiu_title 정리: 토큰([..])·과장 길이(>30자)면 버린다 → 1단 제목은 종전 규칙으로 폴백.
+   restore()를 쓰지 않는다 — 제목에 실명이 복원되어 들어가지 않게 한다. */
+function cleanFiuTitle(v){
+  var t=String(v==null?'':v).replace(/\s+/g,' ').trim().replace(/^["'「]+|["'」]+$/g,'');
+  if(!t || /\[[^\]]*\]/.test(t) || t.length>30) return '';
+  return t;
+}
+
+/* v3.5.11 — 결과 칸(분석 결과 카드)이 화면 밖이면 그 위치로 이동. 이미 보이면 움직이지 않는다. */
+function revealResult(){
+  try{
+    var el=document.getElementById('result'); var card=(el&&el.closest)?(el.closest('section')||el):el; if(!card) return;
+    var r=card.getBoundingClientRect(), vh=window.innerHeight||document.documentElement.clientHeight;
+    if(r.top<0 || r.top>vh-120){ card.scrollIntoView({behavior:'smooth',block:'start'}); }
+  }catch(e){}
 }
 
 /* ── v3.3.3: Worker 호출 공통부 (phase는 계측 구분용, Worker는 prompt만 사용) ── */
@@ -2536,7 +2558,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.10',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.11',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))
@@ -2750,6 +2772,9 @@ function buildOpinionFiu(){
   var FC = fiuCollect();
   //   선택된 VI가 없으면 내부 유형명으로 대체하지 않고 미입력으로 남긴다(작성 점검이 지목).
   var title = FC.vi.length ? FC.vi[0].label : na('제목 — FIU 표에서 의심유형 선택');
+  // v3.5.11 — 사례 맞춤 AI 제목이 있으면 우선(없거나 폐기된 경우 위 종전 규칙)
+  var aiTitle = (RES.fiu_title && String(RES.fiu_title).trim()) ? String(RES.fiu_title).trim() : '';
+  if(aiTitle) title = aiTitle;
 
   // ── 2단 거래자 정보 ──
   var kind=fiuVal(RES.subject_kind), nm=fiuVal(RES.subject_name), age=fiuVal(RES.subject_age);

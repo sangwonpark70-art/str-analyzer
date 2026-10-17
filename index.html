@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.11</title>
+<title>STR 사례 분석기 v3.5.12</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -249,7 +249,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.11</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.12</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -623,7 +623,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.11 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.12 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -635,6 +635,8 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.12(2026-10-17): Drive 토큰 보관을 localStorage→sessionStorage로 전환(탭 닫으면 소멸, 같은 출처 다른 페이지·탭에서 안 읽힘).
+//   기존 localStorage 잔존 토큰은 로드 시 삭제. 401 처리(재연동 안내)는 종전과 같다.
 // v3.5.11(2026-10-17): 분석 실행 시 결과 칸이 화면 밖이면 결과로 이동(모바일·데스크톱). 1단 제목을 사례 맞춤 AI 제목(fiu_title)으로 —
 //   토큰·과장 길이면 버리고 종전(선택 VI 문언 → [미입력])으로 폴백. 구 저장본(fiu_title 없음)도 종전대로.
 // v3.5.10(2026-10-10): 이름 끝 글자 조사 오절단 수정(「박지은」→「박지」 — 가림 후 끝 글자 노출), 같은 FIU 항목 여러 행 체크 동기화.
@@ -740,6 +742,10 @@ const STR_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
 const STR_CASE_FOLDER_ID = '1vvFZ4J-qAxJgNu_gAxQw46gdqxUQzh2C';
 
 let driveToken = null;
+/* v3.5.12 — 토큰은 탭 단위(sessionStorage). 접근 불가 환경이면 메모리만 쓴다. */
+function tokSet(t){ try{ sessionStorage.setItem('str_drive_token', t); }catch(e){} }
+function tokGet(){ try{ return sessionStorage.getItem('str_drive_token'); }catch(e){ return null; } }
+function tokClear(){ try{ sessionStorage.removeItem('str_drive_token'); }catch(e){} try{ localStorage.removeItem('str_drive_token'); }catch(e){} }
 let driveFolderIdCache = null; // 폴더ID 캐시 (API 호출 최소화)
 
 function driveSignIn(){
@@ -750,7 +756,7 @@ function driveSignIn(){
     callback:(resp)=>{
       if(resp.access_token){
         driveToken = resp.access_token;
-        localStorage.setItem('str_drive_token', driveToken);
+        tokSet(driveToken);   // v3.5.12 sessionStorage
         driveFolderIdCache = null; // 새 토큰이면 캐시 초기화
         updateDriveUI(true);
         // 연동 직후 폴더ID 미리 캐시
@@ -766,7 +772,7 @@ function driveSignIn(){
 function driveSignOut(){
   driveToken = null;
   driveFolderIdCache = null;
-  localStorage.removeItem('str_drive_token');
+  tokClear();
   updateDriveUI(false);
 }
 
@@ -848,7 +854,7 @@ async function saveToDriveCase(rec){
 
 // 토큰 만료 처리 — 재연동 유도
 function tokenExpired(){
-  driveToken=null; localStorage.removeItem('str_drive_token'); updateDriveUI(false);
+  driveToken=null; tokClear(); updateDriveUI(false);
   showDriveToast('⚠ 연동이 만료됐습니다 — 구글 계정 다시 연동 후 저장하세요');
 }
 
@@ -1086,7 +1092,8 @@ function showDriveToast(msg){
 
 // 토큰 복원 (로컬 스토리지)
 window.addEventListener('load',()=>{
-  const saved=localStorage.getItem('str_drive_token');
+  try{ localStorage.removeItem('str_drive_token'); }catch(e){}   // v3.5.12 구 보관분 정리
+  const saved=tokGet();
   if(saved){driveToken=saved;updateDriveUI(true);getDriveFolder().then(id=>{if(id)driveFolderIdCache=id;});}
 });
 </script>
@@ -2558,7 +2565,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.11',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.12',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))

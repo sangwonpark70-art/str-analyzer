@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.12</title>
+<title>STR 사례 분석기 v3.5.13</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -249,7 +249,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.12</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.13</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -623,7 +623,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.12 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.13 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -635,6 +635,7 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.13(2026-10-17): ③ 이름 게이트 오탐 축소(역할어·변경류 단어 정확일치 제외, 서술격 조사 「이다/이며/이고/이었다」 분리)·경고 목록을 「사람 이름 추정」/「상호·일반어 추정」으로 나눠 표시 / ① 재분석 시 FIU 1단 제목 유지(같은 식별코드), AI 새 제안은 결과 칸 버튼으로만 교체 / ④ 유형 코드 중복 제거(첫 항목 유지).
 // v3.5.12(2026-10-17): Drive 토큰 보관을 localStorage→sessionStorage로 전환(탭 닫으면 소멸, 같은 출처 다른 페이지·탭에서 안 읽힘).
 //   기존 localStorage 잔존 토큰은 로드 시 삭제. 401 처리(재연동 안내)는 종전과 같다.
 // v3.5.11(2026-10-17): 분석 실행 시 결과 칸이 화면 밖이면 결과로 이동(모바일·데스크톱). 1단 제목을 사례 맞춤 AI 제목(fiu_title)으로 —
@@ -1760,10 +1761,17 @@ async function analyze(){
   try{
     const j=await callWorker(sys+"\n\n"+ctx(), 1);
     const _f=filterTypologies(j.typologies||[], LAST.flags);
+    // v3.5.13 ① 같은 사례(식별코드 동일) 재분석이면 직전 FIU 제목을 유지한다. AI 새 제안은 fiu_title_ai로만 보관.
+    const _tkey=(genIdCode()||'').replace(/-/g,'').toUpperCase();
+    const _prev=RES;
+    const _same=!!_tkey && !!_prev && ((_prev._tkey && _prev._tkey===_tkey) || (LOADED_FROM && LOADED_FROM.idcode===_tkey));
+    const _keepT=(_same && _prev.fiu_title) ? String(_prev.fiu_title) : '';
+    const _newT=cleanFiuTitle(j.fiu_title);
     RES={
       score:Math.max(0,Math.min(100,parseInt(j.risk_score)||0)),
       suggested_type:restore(j.suggested_type),
-      fiu_title:cleanFiuTitle(j.fiu_title),   // v3.5.11 사례 맞춤 1단 제목(토큰 포함 시 폐기)
+      fiu_title:(_keepT||_newT),   // v3.5.11 사례 맞춤 1단 제목(토큰 포함 시 폐기) · v3.5.13 같은 사례면 직전 제목 유지
+      fiu_title_ai:_newT, fiu_title_kept:!!_keepT, _tkey:_tkey,
       typologies:_f.kept,
       c3_dropped:_f.dropped,
       key_basis:restore(j.key_basis), handoff:restore(j.handoff),
@@ -1789,6 +1797,10 @@ async function analyze(){
 
 /* v3.5.11 — fiu_title 정리: 토큰([..])·과장 길이(>30자)면 버린다 → 1단 제목은 종전 규칙으로 폴백.
    restore()를 쓰지 않는다 — 제목에 실명이 복원되어 들어가지 않게 한다. */
+function renewFiuTitle(){   // v3.5.13 ① 명시 교체
+  if(!RES || !RES.fiu_title_ai) return;
+  RES.fiu_title=RES.fiu_title_ai; RES.fiu_title_kept=false; draw();
+}
 function cleanFiuTitle(v){
   var t=String(v==null?'':v).replace(/\s+/g,' ').trim().replace(/^["'「]+|["'」]+$/g,'');
   if(!t || /\[[^\]]*\]/.test(t) || t.length>30) return '';
@@ -1829,18 +1841,21 @@ function filterTypologies(arr, flagsStr){
   var INVALID='자금원천 확인', RISK='위험 플래그';
   var noFlag=(String(flagsStr||'')==='없음');
   var kept=[], dropped=[];
+  var seen={};   // v3.5.13 ④ 같은 코드 중복 제거(첫 항목 유지)
   (arr||[]).forEach(function(t){
     var code=String((t&&t.code)||'').trim().toUpperCase();
-    if(code!=='C3'){ kept.push(t); return; }
+    if(code && seen[code]) return;
+    var keep=function(){ if(code) seen[code]=1; kept.push(t); };   // 유지된 항목만 「본 코드」로 표시(C3 탈락분이 뒤 C3를 막지 않게)
+    if(code!=='C3'){ keep(); return; }
     var q=String((t&&(t.quote||t.text))||'').trim();
-    if(q){ kept.push(t); return; }
+    if(q){ keep(); return; }
     var toks=String((t&&t.basis_field)||'').split(/[,·]/).map(function(s){return s.trim();}).filter(Boolean);
     var valid=toks.filter(function(s){
       if(s===INVALID) return false;
       if(s===RISK) return !noFlag;
       return true;
     });
-    if(valid.length>0) kept.push(t); else dropped.push(t);
+    if(valid.length>0) keep(); else dropped.push(t);
   });
   return {kept:kept, dropped:dropped};
 }
@@ -1976,6 +1991,10 @@ function draw(){
       ` <span style="color:var(--faint)">— 좌측 입력칸에서 수정 가능</span></div></div>`;
   }
 
+  // v3.5.13 ① 제목 유지 안내 — AI 새 제안이 다를 때만 교체 버튼
+  if(RES.fiu_title_kept && RES.fiu_title_ai && RES.fiu_title_ai!==RES.fiu_title){
+    html+=`<div class="convert"><div class="cv" id="fiuTitleKeep" style="background:var(--field);font-size:12.5px">📌 FIU 제목 유지: <b>${esc(RES.fiu_title)}</b> · AI 새 제안: ${esc(RES.fiu_title_ai)} <button class="btn-xs" onclick="renewFiuTitle()">새 제안으로 바꾸기</button></div></div>`;
+  }
   if(RES.typologies&&RES.typologies.length){
     html+=`<div class="chips">`+RES.typologies.map(t=>{const c=(t.code||'').trim();var q=restore(t.quote||t.text||'');const rs=restore(t.reason||'');const bf=String(t.basis_field||'').trim();if(!q&&bf)q='입력항목: '+bf;return `<span class="chip" title="${esc(rs?rs+'\n「'+q+'」':q)}">${fiuChipText(c)}</span>`;}).join('')+`</div>`;
   }
@@ -2149,6 +2168,8 @@ function extractNames(src){
   const RELP='(?:미상|관계미상|부친|모친|배우자|남편|아내|형제|자매|아들|딸|동생|추정|\\d{1,2}세)';
   const ACT='(?:실입금인|실입금자|입금인|입금자|납입자|송금인|대납자|수령인)';
   const JOSA=/(으로|로|은|는|이|가|와|과|에게|께서|의)$/;
+  const COP=/(이었다|이다|이며|이고)$/;   // v3.5.13 서술격 조사 — 「계약자는 홍길동이다」
+  const nameStopW=/^(피보험자|보험계약자|주계약자|계약자|수익자|대상자|납입자|입금자|송금인|변경|변경시|변경후|변경전|변경됨|지정|가입|가입시|신규|추가|명의|타인|동일인|본건)$/;   // v3.5.13 역할어·일반어(정확일치만 — 접두 차단은 「변경민」 같은 이름을 막는다)
   const hi=[
     new RegExp(LBL+'[:\uff1a\\s]*'+REL+'\\s*([A-Za-z]{2,}(?:\\s+[A-Za-z]{2,}){0,3})','g'),
     new RegExp('([가-힣]{2,5})\\s*[\\(\uff08]\\s*'+RELP,'g'),
@@ -2169,13 +2190,17 @@ function extractNames(src){
     let c=(m[1]||'').trim();
     // 조사 제거 — 「실입금인은 홍길동으로」에서 '홍길동으로'가 잡히는 것을 막는다(2회까지)
     // v3.5.10 — 떼고 남는 길이가 3자 이상일 때만 조사로 본다(「박지은」→「박지」 오절단 방지). 2자 이름+조사는 조사째 가린다(과잉 가림 쪽이 안전).
+    if(COP.test(c)){ const r=c.replace(COP,''); if(r.length>=2) c=r; }   // v3.5.13
     for(let k=0;k<2;k++){ if(JOSA.test(c)){ const r=c.replace(JOSA,''); if(r.length>=3) c=r; } }
-    if(c.length>=2 && !nameStop.test(c)) out.push(c); } }
-  if(!out.length){ for(const re of lo){ const m=src.match(re); if(m&&!nameStop.test(m[1])){ out.push(m[1].trim()); break; } } }
+    if(c.length>=2 && !nameStop.test(c) && !nameStopW.test(c)) out.push(c); } }
+  if(!out.length){ for(const re of lo){ const m=src.match(re); if(m&&!nameStop.test(m[1])&&!nameStopW.test(m[1])){ out.push(m[1].trim()); break; } } }
   return out.filter((v,i,a)=>a.indexOf(v)===i);
 }
 /* 게이트 — 치환표가 비면 자동 재추출하고, 그래도 비었는데 본문에 이름 레이블이 있으면 차단한다.
  * 반환 '' = 통과. 문자열 = 차단 사유. 평상시(이름이 있거나 레이블이 없으면) 무프롬프트. */
+/* v3.5.13 — 게이트 표시 분류용. 한글 2~4자이고 첫 글자가 흔한 성씨면 사람 이름으로 추정(차단 여부에는 쓰지 않는다 — 표시만). */
+var SURN='김이박최정강조윤장임한오서신권황안송류전홍고문양손배백허유남심노하곽성차주우구민진나지엄채원천방공현함변염여추도소석선설마길연위표명기반왕금옥육인맹제모탁국어은편용예경봉사부가복태목형피두감호계';
+function isLikelyPersonName(n){ n=String(n||'').trim(); return /^[가-힣]{2,4}$/.test(n) && SURN.indexOf(n[0])>=0; }
 function nameGate(){
   const el=document.getElementById('names');
   if(!el) return '';
@@ -2192,10 +2217,17 @@ function nameGate(){
   // v3.5.3 — 치환표가 채워져 있어도 본문 인물 후보가 빠져 있으면 알린다(제3자 누출 방지).
   var have=el.value.split(',').map(function(x){return x.trim();}).filter(Boolean);
   var miss=extractNames(src).filter(function(n){ return have.indexOf(n)<0; });
-  if(miss.length)
-    return '본문에 있는 다음 이름이 「가릴 이름」에 없습니다 — 이대로면 실명 그대로 전송됩니다.\n\n  '
-      + miss.join(', ')
-      + '\n\n[취소] 돌아가 이름 추가(✨ 자동채움 재실행 가능)\n[확인] 위는 사람 이름이 아님 — 이대로 전송';
+  if(miss.length){
+    // v3.5.13 — 사람 이름 추정(한글 2~4자 + 흔한 성씨)과 그 밖(상호·일반어 추정)을 나눠 보인다. 섞인 목록에 습관적 [확인]을 막는다.
+    var ppl=miss.filter(isLikelyPersonName), etc=miss.filter(function(n){return !isLikelyPersonName(n);});
+    var msg='본문에 있는 다음 항목이 「가릴 이름」에 없습니다 — 이대로면 그대로 전송됩니다.\n';
+    if(ppl.length) msg+='\n  ⚠ 사람 이름 추정: '+ppl.join(', ');
+    if(etc.length) msg+='\n  · 상호·일반어 추정: '+etc.join(', ');
+    msg+= ppl.length
+      ? '\n\n[취소] 돌아가 이름 추가(✨ 자동채움 재실행 가능) — 사람 이름 추정 항목이 있으면 취소가 원칙\n[확인] 위 전부 사람 이름이 아님 — 이대로 전송'
+      : '\n\n[취소] 돌아가 추가(상호도 가릴 이름에 넣으면 함께 가려짐)\n[확인] 위 전부 가릴 필요 없음 — 이대로 전송';
+    return msg;
+  }
   return '';
 }
 function afOpenSteps(){                      // v3.5.1 자동입력이 값을 채우면 STEP 2·3을 펼친다
@@ -2565,7 +2597,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.12',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.13',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))

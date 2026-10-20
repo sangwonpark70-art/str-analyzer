@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.13</title>
+<title>STR 사례 분석기 v3.5.14</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -249,7 +249,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.13</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.14</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -623,7 +623,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.13 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.14 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -635,6 +635,10 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.14(2026-10-20): 외부 전송 긴급 안전조치(ChatGPT 합의 A1~A5) — ① 2차 prior를 토큰 스냅샷(RES._tok)에서만 구성
+//   ② callWorker 전송 직전 가드(이 세션에서 가린 원문 값이 prompt에 있으면 차단 — 미등록 개인정보는 못 막음) ③ 회차 ID + 진행 중 입력 잠금(늦은 응답 폐기)
+//   ④ _tok 없는 구버전 저장본은 2차 차단·재분석 안내 ⑤ 불러오기 시 입력칸 전체 초기화(clearInputs) 후 복원·LAST 재구성(직전 사례 값 잔존 차단)
+//   ③-2 불러오기도 진행 중 잠금에 포함(Drive fetch·FileReader 비동기 경쟁 차단). ChatGPT 독립검증 지적 2건 반영(rc2).
 // v3.5.13(2026-10-17): ③ 이름 게이트 오탐 축소(역할어·변경류 단어 정확일치 제외, 서술격 조사 「이다/이며/이고/이었다」 분리)·경고 목록을 「사람 이름 추정」/「상호·일반어 추정」으로 나눠 표시 / ① 재분석 시 FIU 1단 제목 유지(같은 식별코드), AI 새 제안은 결과 칸 버튼으로만 교체 / ④ 유형 코드 중복 제거(첫 항목 유지).
 // v3.5.12(2026-10-17): Drive 토큰 보관을 localStorage→sessionStorage로 전환(탭 닫으면 소멸, 같은 출처 다른 페이지·탭에서 안 읽힘).
 //   기존 localStorage 잔존 토큰은 로드 시 삭제. 401 처리(재연동 안내)는 종전과 같다.
@@ -1012,6 +1016,8 @@ function renderDriveList(){
 }
 
 async function loadDriveCase(fileId, fname){
+  if(busyBlock()) return;   // v3.5.14 ③
+  setBusy(+1);   // v3.5.14 ③-2 불러오기 완료까지 분석·다른 불러오기·초기화 금지(비동기 경쟁 차단)
   try{
     // 캐시에 전체 레코드가 있으면 재사용, 없으면 fetch
     let rec;
@@ -1039,6 +1045,7 @@ async function loadDriveCase(fileId, fname){
     // importJSON과 동일한 복원 로직
     const i=rec.input||{};
     const setv=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v;};
+    clearInputs();   // v3.5.14 ⑤-2 직전 사례 값 제거 후 복원
     setv('sector', i.sector || '보험'); onSectorChange();
     ['caseno','txdate','birth','custno','ttype','ctype','amt','ncnt','ntot','fpath','fsrc','cdd_status','names','scale'].forEach(k=>setv(k,i[k])); genIdCode();
     if(i.sectorFields){
@@ -1057,7 +1064,7 @@ async function loadDriveCase(fileId, fname){
     if(i.sancFlags){document.getElementById('f_sanc').checked=!!i.sancFlags.sanc;document.getElementById('f_third').checked=!!i.sancFlags.third;document.getElementById('f_refuse').checked=!!i.sancFlags.refuse;document.getElementById('f_cddref').checked=!!i.sancFlags.cddref;document.getElementById('f_fraud').checked=!!i.sancFlags.fraud;document.getElementById('f_cash').checked=!!i.sancFlags.cash;document.getElementById('f_recheck').checked=!!i.sancFlags.recheck;}
     if(i.opts){['rrn','phone','acct','biz','email','birth'].forEach(k=>{const el=document.getElementById('o_'+k);if(el)el.checked=!!i.opts[k];});}
     roSetVals((rec.meta&&rec.meta.report_only)||null);   // v3.5.0
-    MAP=rec.map||{}; LAST=Object.assign({},LAST,{deid:rec.deid||''});
+    MAP=rec.map||{}; LAST=buildLast(rec.deid||''); newRound(MAP, val('names'));   // v3.5.14 ⑤ 저장 입력 기준 전체 재구성(직전 사례 값 잔존 차단)
     if(rec.deid)renderDeid(rec.deid);
     if(rec.result){RES=rec.result; draw();}
     // 재평가 모드 세팅
@@ -1066,6 +1073,7 @@ async function loadDriveCase(fileId, fname){
     showReevalBanner(idc, fname);
     showDriveToast('☁ Drive에서 사례 불러옴: '+fname.replace('.json',''));
   }catch(e){alert('사례 불러오기 실패: '+e.message);}
+  finally{ setBusy(-1); }
 }
 
 function closeDriveList(){document.getElementById('driveModalBg').classList.remove('show');}
@@ -1101,6 +1109,31 @@ window.addEventListener('load',()=>{
 
 <script>
 let MAP={},counters={},LAST={},RES=null,MODE='tri';
+/* v3.5.14 ③ 회차 — 분석·불러오기·초기화마다 새 회차. 응답은 자기 회차일 때만 반영한다. */
+let ROUND_SEQ=0, ROUND={id:0,map:{},names:[]};
+/* v3.5.14 ② 이 세션에서 가린 원문 값 전체(회차 간 오염 검출용, 메모리 전용·저장 안 함) */
+const SEEN_VALUES=new Set();
+function newRound(map,namesStr){
+  const m=JSON.parse(JSON.stringify(map||{}));
+  const names=String(namesStr||'').split(',').map(x=>x.trim()).filter(Boolean);
+  Object.keys(m).forEach(t=>{const v=String((m[t]&&m[t].value)||'').trim(); if(v.length>=2) SEEN_VALUES.add(v);});
+  names.forEach(n=>{ if(n.length>=2) SEEN_VALUES.add(n); });
+  ROUND={id:++ROUND_SEQ,map:m,names:names};
+  return ROUND.id;
+}
+/* v3.5.14 ③ 진행 중 잠금 — 요청이 하나라도 진행 중이면 사례 본문·가릴 이름·고객번호·마스킹 옵션·불러오기·초기화를 막는다. */
+let BUSY=0;
+const LOCK_IDS=['src','names','custno','o_rrn','o_phone','o_acct','o_biz','o_email','o_birth','importFile'];
+function setBusy(d){
+  BUSY=Math.max(0,BUSY+d);
+  const on=BUSY>0;
+  LOCK_IDS.forEach(id=>{const e=document.getElementById(id); if(!e) return; if(e.tagName==='TEXTAREA'||e.type==='text'){e.readOnly=on;} else {e.disabled=on;}});
+}
+function busyBlock(){ if(BUSY>0){ alert('분석이 진행 중입니다. 끝난 뒤 다시 시도하세요.'); return true; } return false; }
+/* v3.5.14 ⑤ 화면 입력값으로 LAST 구성 — analyze()와 불러오기가 같은 정의를 쓴다. */
+function buildLast(deid){
+  return {deid,sector:val('sector'),ttype:val('ttype'),ctype:val('ctype'),amt:val('amt'),ncnt:val('ncnt'),ntot:val('ntot'),fpath:val('fpath'),fsrc:val('fsrc'),cddstatus:val('cdd_status'),flags:flags(),cash:chk('f_cash'),cddref:chk('f_cddref'),fraud:chk('f_fraud'),sectorFields:sectorFieldValues()};
+}
 // 재호출 상태: 불러온 사례 정보 보관 (null=신규, 객체=재평가 모드)
 let LOADED_FROM=null; // {idcode, fname, fileId}
 // v3.3.14: 유형 라벨을 업권별로 — 원천은 SECTOR_TYPOLOGY 텍스트(단일 출처) 파싱·캐시. ⓑ' 시 FIU_CODEMAP.def로 일원화 예정.
@@ -1745,13 +1778,16 @@ ${prior || '{}'}
 async function analyze(){
   const src=document.getElementById('src').value.trim();
   if(!src){alert('사례 내용을 입력하세요.');return;}
+  if(busyBlock()) return;   // v3.5.14 ③ 2차 진행 중 새 분석 금지
   // v3.5.1 이름 게이트 — deid 생성 전. v3.5.7: 무언 2연속 통과(__ngLast) 폐기 → confirm 명시 승인.
   //   [확인]=오탐 인정하고 이대로 전송 / [취소]=돌아가 이름 보완. 승인 없이는 미마스킹 전송 불가.
   const _ng=nameGate();
   if(_ng && !confirm(_ng)){ document.getElementById('names').focus(); return; }
   setStep(2);
   const deid=deidentify(); renderDeid(deid);
-  LAST={deid,sector:val('sector'),ttype:val('ttype'),ctype:val('ctype'),amt:val('amt'),ncnt:val('ncnt'),ntot:val('ntot'),fpath:val('fpath'),fsrc:val('fsrc'),cddstatus:val('cdd_status'),flags:flags(),cash:chk('f_cash'),cddref:chk('f_cddref'),fraud:chk('f_fraud'),sectorFields:sectorFieldValues()};
+  LAST=buildLast(deid);
+  const _rid=newRound(MAP, val('names'));   // v3.5.14 ③
+  setBusy(+1);
   const btn=document.getElementById('goBtn');btn.disabled=true;btn.textContent='분석 중…';
   document.getElementById('result').innerHTML='<div class="loading"><div class="spin"></div>AI가 비식별 데이터를 분석 중입니다…</div>';
   revealResult();   // v3.5.11
@@ -1759,7 +1795,8 @@ async function analyze(){
   const sys=buildSystemPrompt(LAST.sector,1);
 
   try{
-    const j=await callWorker(sys+"\n\n"+ctx(), 1);
+    const j=await callWorker(sys+"\n\n"+ctx(), 1, _rid);
+    if(_rid!==ROUND.id) return;   // v3.5.14 ③ 다른 회차로 넘어간 뒤 도착한 응답 — 반영하지 않음
     const _f=filterTypologies(j.typologies||[], LAST.flags);
     // v3.5.13 ① 같은 사례(식별코드 동일) 재분석이면 직전 FIU 제목을 유지한다. AI 새 제안은 fiu_title_ai로만 보관.
     const _tkey=(genIdCode()||'').replace(/-/g,'').toUpperCase();
@@ -1783,7 +1820,10 @@ async function analyze(){
       subject_kind:(j.subject_kind||'').trim(),
       subject_name:restore(j.subject_name||''),
       subject_age:String(j.subject_age||'').replace(/[^0-9]/g,''),
-      tx_date:normalizeDate(j.tx_date||'')
+      tx_date:normalizeDate(j.tx_date||''),
+      // v3.5.14 ① 외부 재전송용 토큰 스냅샷 — 복원하지 않은 원문 필드의 깊은 사본. 2차 prior는 여기서만 만든다.
+      _tok:JSON.parse(JSON.stringify({suggested_type:String(j.suggested_type||''),typologies:_f.kept,key_basis:String(j.key_basis||''),handoff:String(j.handoff||''),profile:String(j.profile||''),brief:String(j.brief||'')})),
+      _rid:_rid
     };
     draw();
     // AI 추천 유형·대상자·거래일·나이를 입력칸에 자동 반영
@@ -1792,7 +1832,9 @@ async function analyze(){
     btn.disabled=false; btn.textContent='분석 실행';
     // 세부분석 모드는 1차 표시 직후 2차를 자동 연속 호출(트리아지는 버튼 수동)
     if(MODE==='full') analyzePhase2();
-  }catch(e){ renderFallback(); btn.disabled=false; btn.textContent='분석 실행'; }
+  }catch(e){
+    if(_rid===ROUND.id){ if(e&&e.guard){ document.getElementById('result').innerHTML='<div class="fallback"><h3>⛔ 전송 차단</h3><p>'+esc(e.message)+'</p></div>'; } else renderFallback(); }
+  } finally { setBusy(-1); btn.disabled=false; btn.textContent='분석 실행'; }
 }
 
 /* v3.5.11 — fiu_title 정리: 토큰([..])·과장 길이(>30자)면 버린다 → 1단 제목은 종전 규칙으로 폴백.
@@ -1817,7 +1859,23 @@ function revealResult(){
 }
 
 /* ── v3.3.3: Worker 호출 공통부 (phase는 계측 구분용, Worker는 prompt만 사용) ── */
-async function callWorker(prompt, phase){
+/* v3.5.14 ② 전송 직전 가드 — 이 세션에서 가린 원문 값(현재·이전 회차 모두)이 prompt에 있으면 네트워크 요청 전에 막는다.
+   ※ 「가리기로 등록된 값」만 검사한다. 등록되지 않은 개인정보(무레이블 인명 등)는 이 가드로 막지 못한다. */
+function guardPrompt(prompt, rid){
+  const p=String(prompt||''); const hit=[];
+  const vals=new Set(SEEN_VALUES);
+  const r=(rid&&rid===ROUND.id)?ROUND:null;
+  if(r){ Object.keys(r.map).forEach(t=>{const v=String((r.map[t]&&r.map[t].value)||'').trim(); if(v.length>=2) vals.add(v);}); r.names.forEach(n=>{ if(n.length>=2) vals.add(n); }); }
+  vals.forEach(v=>{ if(p.indexOf(v)>=0) hit.push(v); });
+  if(hit.length){
+    const cur=r?new Set([...r.names, ...Object.keys(r.map).map(t=>String(r.map[t].value||''))]):new Set();
+    const prev=hit.filter(v=>!cur.has(v)).length;
+    const e=new Error('가린 값 '+hit.length+'건이 외부 전송 본문에 그대로 들어 있어 전송을 막았습니다'+(prev?' (이전 사례에서 가린 값 '+prev+'건 포함 — 같은 인물이면 「가릴 이름」에 추가 후 다시 분석)':'')+'. 원문 값은 화면 밖으로 보내지 않았습니다.');
+    e.guard=true; throw e;
+  }
+}
+async function callWorker(prompt, phase, rid){
+  guardPrompt(prompt, rid);   // v3.5.14 ② 네트워크 요청 전 차단
   const ac=new AbortController(); const tid=setTimeout(()=>ac.abort(),120000);
   let res;
   try{
@@ -1865,18 +1923,28 @@ let P2_RUNNING=false;
 async function analyzePhase2(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
   if(RES.phase>=2 || P2_RUNNING) return;
-  P2_RUNNING=true;
+  // v3.5.14 ④ 토큰 스냅샷이 없는 저장본(v3.5.13 이전)은 2차 차단 — 복원값을 역치환해 보내지 않는다.
+  if(!RES._tok){
+    const s0=document.getElementById('p2status');
+    const m0='이 사례는 v3.5.14 이전 저장본이라 상세 분석(2차)을 이어받을 수 없습니다. [분석 실행]으로 다시 분석한 뒤 이어받으세요.';
+    if(s0) s0.innerHTML='<span style="color:var(--rep)">⚠ '+m0+'</span>'; else alert(m0);
+    return;
+  }
+  const _rid=ROUND.id, _res=RES;
+  P2_RUNNING=true; setBusy(+1);
   const st=document.getElementById('p2status');
   if(st){ st.innerHTML='<span class="spin" style="width:13px;height:13px;border-width:2px;display:inline-block;vertical-align:-2px"></span> 상세 분석 생성 중…'; }
-  // 2차에 넘길 1차 확정값(토큰 상태 그대로 — 원문 대조 일관성 유지)
+  // 2차에 넘길 1차 확정값 — v3.5.14 ① 토큰 스냅샷(RES._tok)에서만 구성(화면용 복원 RES를 쓰지 않는다)
+  const T=RES._tok;
   const prior=JSON.stringify({
-    risk_score:RES.score, suggested_type:RES.suggested_type,
-    typologies:RES.typologies, key_basis:RES.key_basis,
-    handoff:RES.handoff, profile:RES.profile, brief:RES.brief
+    risk_score:RES.score, suggested_type:T.suggested_type,
+    typologies:T.typologies, key_basis:T.key_basis,
+    handoff:T.handoff, profile:T.profile, brief:T.brief
   });
   try{
     const sys=buildSystemPrompt(LAST.sector,2,prior);
-    const j=await callWorker(sys+"\n\n"+ctx(), 2);
+    const j=await callWorker(sys+"\n\n"+ctx(), 2, _rid);
+    if(_rid!==ROUND.id || RES!==_res) return;   // v3.5.14 ③ 늦게 온 응답 — 다른 사례·회차에 섞지 않는다
     // ★ 2차 응답에 score·typologies가 있어도 무시한다(스키마 제외 + 코드 차단 이중화)
     RES.opinion=restore(j.opinion||'');
     RES.monitoring=restore(j.monitoring||'');
@@ -1886,9 +1954,10 @@ async function analyzePhase2(){
     draw();
   }catch(e){
     // 1차 결과는 보존 — 화면 재그리기 없이 상태줄만 갱신
+    if(_rid!==ROUND.id || RES!==_res) return;
     const s2=document.getElementById('p2status');
-    if(s2) s2.innerHTML='<span style="color:var(--rep)">⚠ 상세 분석 실패 — 1차 결과는 유지됩니다. 다시 시도하세요.</span>';
-  } finally { P2_RUNNING=false; }
+    if(s2) s2.innerHTML='<span style="color:var(--rep)">⚠ '+(e&&e.guard?esc(e.message):'상세 분석 실패 — 1차 결과는 유지됩니다. 다시 시도하세요.')+'</span>';
+  } finally { P2_RUNNING=false; setBusy(-1); }
 }
 
 // 거래일 정규화: 다양한 표기 → YYYY-MM-DD (실패 시 원문 유지)
@@ -2447,17 +2516,26 @@ function afApply(i){
 }
 function afApplyAll(){ while(AF_SUGGEST.length) afApply(0); }
 
-function resetForm(){
-  RES=null; MAP={}; LAST={};
-  LOADED_FROM=null; hideReevalBanner();
-  const st=document.getElementById('autoFillStatus');
-  AF_SUGGEST=[]; AF_FILLED=[];
-  if(st){st.style.color='var(--faint)';st.innerHTML='사례 내용에서 이름·생년월일·거래일·금액·유형 추출 → 빈 칸 채움 · 이름은 추가 · 값이 다르면 제안';}
+/* v3.5.14 ⑤-2 입력칸 전체를 기본값으로 — 초기화와 불러오기(2곳)가 공용. 저장본에 없는 필드가 직전 사례 값으로 남지 않게 한다.
+   마스킹 옵션은 전부 켬(안전 기본값), 위험 플래그는 전부 끔, 업권 전용 필드·보고서 전용 칸도 비운다. */
+function clearInputs(){
   ['caseno','txdate','birth','custno','amt','ncnt','ntot','names','src','ro_period','ro_txcnt','ro_branch','ro_note'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';}); genIdCode();
   ['ro_acct43','ro_remit44','ro_match'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;}); roSync();
   ['ttype','ctype','fpath','fsrc','cdd_status','scale'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;});
   ['f_sanc','f_third','f_refuse','f_cddref','f_fraud','f_cash','f_recheck'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
   ['o_rrn','o_phone','o_acct','o_biz','o_email','o_birth'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=true;});
+  ['ins_cdd_stage','ins_surrender','bank_line','bank_flow','bank_loantype','sb_delinq','mc_member','sec_risk','sec_directed'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;});
+  ['sb_ratio','mc_units'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['sec_q1','sec_q2','sec_q3','sec_q4'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
+}
+function resetForm(){
+  if(busyBlock()) return;   // v3.5.14 ③
+  RES=null; MAP={}; LAST={}; newRound({}, '');
+  LOADED_FROM=null; hideReevalBanner();
+  const st=document.getElementById('autoFillStatus');
+  AF_SUGGEST=[]; AF_FILLED=[];
+  if(st){st.style.color='var(--faint)';st.innerHTML='사례 내용에서 이름·생년월일·거래일·금액·유형 추출 → 빈 칸 채움 · 이름은 추가 · 값이 다르면 제안';}
+  clearInputs();   // v3.5.14 — 불러오기와 공용
   setMode('tri');
   setStep(1);
   document.getElementById('deid').innerHTML='<span style="color:var(--faint)">분석 시 자동 생성됩니다.</span>';
@@ -2597,7 +2675,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.13',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.14',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))
@@ -2623,11 +2701,16 @@ function exportJSON(){
 
 function importJSON(ev){
   const f=ev.target.files[0]; if(!f){return;}
+  if(busyBlock()){ ev.target.value=''; return; }   // v3.5.14 ③
   const r=new FileReader();
+  setBusy(+1);   // v3.5.14 ③-2 읽기 완료까지 잠금
+  r.onerror=()=>{ setBusy(-1); alert('파일을 읽을 수 없습니다.'); };
   r.onload=()=>{
+    setBusy(-1);
     try{
       const rec=JSON.parse(r.result), i=rec.input||{};
       const setv=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v;};
+      clearInputs();   // v3.5.14 ⑤-2
       // sector 먼저 설정 → ttype 옵션 동적 생성 → ttype 값 채우기 (순서 중요, 구버전은 sector 없으므로 '보험' 기본값)
       setv('sector', i.sector || '보험'); onSectorChange();
       ['caseno','txdate','birth','custno','ttype','ctype','amt','ncnt','ntot','fpath','fsrc','cdd_status','names','scale'].forEach(k=>setv(k,i[k])); genIdCode();
@@ -2647,7 +2730,7 @@ function importJSON(ev){
       if(i.sancFlags){document.getElementById('f_sanc').checked=!!i.sancFlags.sanc;document.getElementById('f_third').checked=!!i.sancFlags.third;document.getElementById('f_refuse').checked=!!i.sancFlags.refuse;document.getElementById('f_cddref').checked=!!i.sancFlags.cddref;document.getElementById('f_fraud').checked=!!i.sancFlags.fraud;document.getElementById('f_cash').checked=!!i.sancFlags.cash;document.getElementById('f_recheck').checked=!!i.sancFlags.recheck;}
       if(i.opts){['rrn','phone','acct','biz','email','birth'].forEach(k=>{const el=document.getElementById('o_'+k);if(el)el.checked=!!i.opts[k];});}
       roSetVals((rec.meta&&rec.meta.report_only)||null);   // v3.5.0
-      MAP=rec.map||{}; LAST=Object.assign({},LAST,{deid:rec.deid||''});
+      MAP=rec.map||{}; LAST=buildLast(rec.deid||''); newRound(MAP, val('names'));   // v3.5.14 ⑤ 저장 입력 기준 전체 재구성(직전 사례 값 잔존 차단)
       if(rec.deid)renderDeid(rec.deid);
       if(rec.result){RES=rec.result; draw();}
       // 재평가 모드 세팅

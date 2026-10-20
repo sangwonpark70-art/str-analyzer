@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.14</title>
+<title>STR 사례 분석기 v3.5.15</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -249,7 +249,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.14</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.15</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -612,6 +612,7 @@
       </div>
       <button class="btn-go" id="goBtn" onclick="analyze()">분석 실행</button>
       </div>
+      <div style="font-size:11px;color:var(--faint);margin-top:6px">⚠ 자동 가림은 「가릴 이름」과 알려진 번호 형식만 처리합니다. 레이블 없는 이름·번호는 남을 수 있으니 전송 전 비식별 결과를 확인하세요.</div>
     </section>
 
     <section class="card">
@@ -623,7 +624,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.14 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.15 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -635,6 +636,9 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.15(2026-10-20): 비식별 보강(ChatGPT 합의 B1~B4) — ① 레이블 기반 확장: 생년(하이픈·점·슬래시·년월일), 계좌·카드·사업자·증권·계약·증서·여권·외국인등록·운전면허 번호
+//   레이블 뒤 숫자·영숫자(금액 단위가 이어지면 제외), 전화 점 구분 ② 송금인류 레이블 뒤 영문 이름 추출·게이트 사람 이름 분류 ③ 분석 버튼 옆 한계 문구·폴백 문구 정정
+//   ④ 저장 게이트 — 분석 시점 입력 서명(본문·가릴 이름·고객번호·마스킹 옵션) 비교 ⑤ 사진 외부 AI 인식 사용 시 확인창.
 // v3.5.14(2026-10-20): 외부 전송 긴급 안전조치(ChatGPT 합의 A1~A5) — ① 2차 prior를 토큰 스냅샷(RES._tok)에서만 구성
 //   ② callWorker 전송 직전 가드(이 세션에서 가린 원문 값이 prompt에 있으면 차단 — 미등록 개인정보는 못 막음) ③ 회차 ID + 진행 중 입력 잠금(늦은 응답 폐기)
 //   ④ _tok 없는 구버전 저장본은 2차 차단·재분석 안내 ⑤ 불러오기 시 입력칸 전체 초기화(clearInputs) 후 복원·LAST 재구성(직전 사례 값 잔존 차단)
@@ -1131,8 +1135,9 @@ function setBusy(d){
 }
 function busyBlock(){ if(BUSY>0){ alert('분석이 진행 중입니다. 끝난 뒤 다시 시도하세요.'); return true; } return false; }
 /* v3.5.14 ⑤ 화면 입력값으로 LAST 구성 — analyze()와 불러오기가 같은 정의를 쓴다. */
+function inputSig(){ return JSON.stringify([document.getElementById('src').value, val('names'), val('custno'), ['o_rrn','o_phone','o_acct','o_biz','o_email','o_birth'].map(chk)]); }   // v3.5.15 ④
 function buildLast(deid){
-  return {deid,sector:val('sector'),ttype:val('ttype'),ctype:val('ctype'),amt:val('amt'),ncnt:val('ncnt'),ntot:val('ntot'),fpath:val('fpath'),fsrc:val('fsrc'),cddstatus:val('cdd_status'),flags:flags(),cash:chk('f_cash'),cddref:chk('f_cddref'),fraud:chk('f_fraud'),sectorFields:sectorFieldValues()};
+  return {deid,sig:inputSig(),sector:val('sector'),ttype:val('ttype'),ctype:val('ctype'),amt:val('amt'),ncnt:val('ncnt'),ntot:val('ntot'),fpath:val('fpath'),fsrc:val('fsrc'),cddstatus:val('cdd_status'),flags:flags(),cash:chk('f_cash'),cddref:chk('f_cddref'),fraud:chk('f_fraud'),sectorFields:sectorFieldValues()};
 }
 // 재호출 상태: 불러온 사례 정보 보관 (null=신규, 객체=재평가 모드)
 let LOADED_FROM=null; // {idcode, fname, fileId}
@@ -1167,12 +1172,26 @@ function deidentify(){
   const _cust=(document.getElementById('custno')||{value:''}).value.trim();
   if(_cust.length>=6){const tok=tokenFor(_cust,'custno','고객번호');
     text=text.replace(new RegExp('(?<![\\d\\-])'+_cust.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![\\d\\-])','g'),'\u0000'+tok+'\u0000');}
+  // v3.5.15 ① 레이블 기반 선치환 — 레이블 뒤 값만 가린다(레이블 없는 숫자는 금액·건수 보존을 위해 건드리지 않음).
+  if(chk('o_birth')){
+    text=text.replace(/(생년월일|생년|생일|출생일|출생)([\s:\uff1a]*)((?:19|20)?\d{2}\s*[-.\/년]\s*\d{1,2}\s*[-.\/월]\s*\d{1,2}일?)(?![\d\u0000])/g,
+      function(m,lab,sp,d){ if(m.indexOf('\u0000')>=0) return m; return lab+sp+'\u0000'+tokenFor(d.trim(),'birth','생년')+'\u0000'; });
+  }
+  if(chk('o_acct')||chk('o_biz')||chk('o_rrn')){
+    const LBLNUM=[['계좌번호|계좌','acct','계좌','o_acct'],['카드번호|카드','card','카드','o_acct'],['사업자등록번호|사업자번호|사업자','biz','사업자번호','o_biz'],
+      ['보험증권번호|증권번호|증서번호','policy','증권번호','o_acct'],['계약번호','contract','계약번호','o_acct'],
+      ['여권번호','passport','여권번호','o_rrn'],['외국인등록번호','rrn','주민번호','o_rrn'],['운전면허번호|면허번호','license','면허번호','o_rrn']];
+    LBLNUM.forEach(([lb,type,label,opt])=>{ if(!chk(opt)) return;
+      const re=new RegExp('('+lb+')([\\s:\\uff1a]*)([A-Za-z]{0,3}\\d[\\d\\-]{4,28}\\d|[A-Za-z]{1,3}\\d{5,})(?![\\d\\u0000])(?!\\s*(?:원|만|천|억|건|회|%))','g');
+      text=text.replace(re,function(m,l,sp,v){ if(m.indexOf('\u0000')>=0) return m; return l+sp+'\u0000'+tokenFor(v.trim(),type,label)+'\u0000'; });
+    });
+  }
   const rules=[];
   if(chk('o_rrn'))   rules.push([/\b\d{6}[-\s]?\d{7}\b/g,'rrn','주민번호']);
   if(chk('o_biz'))   rules.push([/\b\d{3}-\d{2}-\d{5}\b/g,'biz','사업자번호']);
   if(chk('o_acct'))  rules.push([/\b\d{4}-\d{4}-\d{4}-\d{4}\b/g,'card','카드']);
-  if(chk('o_phone')) rules.push([/\b01[016789][-\s]?\d{3,4}[-\s]?\d{4}\b/g,'phone','전화']);
-  if(chk('o_phone')) rules.push([/\b0\d{1,2}[-\s]?\d{3,4}[-\s]?\d{4}\b/g,'phone','전화']);
+  if(chk('o_phone')) rules.push([/\b01[016789][-\s.]?\d{3,4}[-\s.]?\d{4}\b/g,'phone','전화']);   // v3.5.15 점 구분 포함
+  if(chk('o_phone')) rules.push([/\b0\d{1,2}[-\s.]?\d{3,4}[-\s.]?\d{4}\b/g,'phone','전화']);
   // v3.5.6 계좌 — 가운데 2~10자리(10자리 계좌 누출) / 앞 4자리+월일 형태의 날짜는 제외
   if(chk('o_acct'))  rules.push([/(?<!\d)(?!\d{4}-\d{2}-\d{2}(?!\d))\d{2,6}-\d{2,10}-\d{2,7}(?:-\d{1,6})?(?!\d)/g,'acct','계좌']);
   if(chk('o_email')) rules.push([/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/g,'email','이메일']);
@@ -2141,6 +2160,8 @@ async function onPhotoSelect(ev){
     const imgs=[]; for(const f of files){ imgs.push(await resizeToJpeg(f)); }
     let text='';
     if(mode==='ai'){
+      // v3.5.15 ⑤ 외부 전송 확인 — 사진은 가리기 전 원본 그대로 나간다
+      if(!confirm('사진 원본이 외부 AI(분석 서버 → Anthropic)로 그대로 전송됩니다.\n사진 속 이름·번호는 가려지지 않습니다.\n\n[확인] 외부 전송에 동의하고 진행\n[취소] 중단(로컬 인식 권장)')){ ocrStatus('외부 전송을 취소했습니다. 💻 로컬 인식을 선택해 주세요.'); return; }
       ocrStatus(`🌐 외부 AI 인식 중… (${files.length}장)`);
       text=await extractByWorker(imgs);
     }else{
@@ -2243,6 +2264,7 @@ function extractNames(src){
     new RegExp(LBL+'[:\uff1a\\s]*'+REL+'\\s*([A-Za-z]{2,}(?:\\s+[A-Za-z]{2,}){0,3})','g'),
     new RegExp('([가-힣]{2,5})\\s*[\\(\uff08]\\s*'+RELP,'g'),
     new RegExp(ACT+'(?:은|는|이|가)?[:\uff1a\\s]*([가-힣]{2,6})','g'),
+    new RegExp(ACT+'[:\uff1a\\s]*([A-Za-z]{2,}(?:\\s+[A-Za-z]{2,}){1,3})','g'),   // v3.5.15 ② 송금인류 뒤 영문 이름
     new RegExp(LBL+'(?:은|는|이|가)?[:\uff1a\\s]*'+REL+'\\s*(?!(?:으로|로)[\\s,.]|(?:으로|로)$)([가-힣]{2,4})(?<!으)(?=(?:으로|로|은|는|이|가|와|과|의|에게)?(?:[\\s,\u00b7\\n\\(\uff08\\.\\)]|$))','g'),   // v3.5.8 「수익자는 ○○로」 보정
     /([가-힣]{2,4})\s*(?:씨|님)(?=[\s,\u00b7\n은는이가의을를께]|$)/g
   ];
@@ -2269,7 +2291,7 @@ function extractNames(src){
  * 반환 '' = 통과. 문자열 = 차단 사유. 평상시(이름이 있거나 레이블이 없으면) 무프롬프트. */
 /* v3.5.13 — 게이트 표시 분류용. 한글 2~4자이고 첫 글자가 흔한 성씨면 사람 이름으로 추정(차단 여부에는 쓰지 않는다 — 표시만). */
 var SURN='김이박최정강조윤장임한오서신권황안송류전홍고문양손배백허유남심노하곽성차주우구민진나지엄채원천방공현함변염여추도소석선설마길연위표명기반왕금옥육인맹제모탁국어은편용예경봉사부가복태목형피두감호계';
-function isLikelyPersonName(n){ n=String(n||'').trim(); return /^[가-힣]{2,4}$/.test(n) && SURN.indexOf(n[0])>=0; }
+function isLikelyPersonName(n){ n=String(n||'').trim(); return (/^[가-힣]{2,4}$/.test(n) && SURN.indexOf(n[0])>=0) || /^[A-Za-z]{2,}(?:\s+[A-Za-z]{2,}){1,3}$/.test(n); }   // v3.5.15 ② 영문 2~4어절 이름도 사람 이름 추정
 function nameGate(){
   const el=document.getElementById('names');
   if(!el) return '';
@@ -2548,7 +2570,7 @@ function renderFallback(){
    `<div class="fallback">
       <h3>⚠ 자동 분석에 실패했습니다 — 프롬프트 복사로 진행</h3>
       <p>네트워크 오류이거나 분석 서버 응답이 지연됐습니다. 잠시 후 다시 <b>분석 실행</b>을 누르거나,
-         아래 <b>분석 프롬프트</b>를 복사해 Claude 대화창에 붙여넣어 분석하세요. (개인정보는 토큰으로 치환돼 안전)</p>
+         아래 <b>분석 프롬프트</b>를 복사해 Claude 대화창에 붙여넣어 분석하세요. (자동 가림은 등록된 이름·알려진 번호 형식만 처리 — 붙여넣기 전 내용 확인)</p>
       <div class="box" id="fb">${esc(prompt)}</div>
       <button class="btn-sm" style="margin-top:11px" onclick="copyFB()">분석 프롬프트 복사</button><span id="cpf" class="copied"></span>
     </div>`;
@@ -2675,7 +2697,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.14',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.15',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))
@@ -2683,7 +2705,7 @@ function exportJSON(){
   const _mapBak=MAP,_cntBak=counters;
   let _now='';
   try{ _now=deidentify(); } finally { MAP=_mapBak; counters=_cntBak; }
-  if(_now!==(LAST.deid||'')){
+  if(_now!==(LAST.deid||'') || (LAST.sig && LAST.sig!==inputSig())){   // v3.5.15 ④ 같은 비식별문이라도 입력 자체가 바뀌면 저장 차단
     alert('분석 이후 입력(사례 본문·가릴 이름·마스킹 옵션)이 바뀌었습니다.\n지금 저장하면 바뀌기 전의 비식별문이 저장되어 실명이 남을 수 있습니다.\n\n[분석 실행]을 다시 누른 뒤 저장하세요.');
     return;
   }

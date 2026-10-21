@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.15</title>
+<title>STR 사례 분석기 v3.5.16</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -249,7 +249,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.15</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.16</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -354,6 +354,7 @@
         <button class="btn-sm" style="flex:1" id="photoBtn" onclick="document.getElementById('photoFile').click()">📷 사진 선택·촬영 (최대 4장)</button>
         <input type="file" id="photoFile" accept="image/*" multiple style="display:none" onchange="onPhotoSelect(event)">
       </div>
+      <div style="margin-top:6px;font-size:11.5px;color:var(--faint);line-height:1.55">💡 <b>권장</b>: 휴대폰 스캔앱(vFlat 등)으로 찍어 <b>텍스트 추출 → 아래 칸에 붙여넣기</b>하면 사진이 밖으로 나가지 않습니다. 처음 한 번은 <b>비행기 모드에서 추출되는지</b> 확인하세요(되면 휴대폰 안에서 처리). 표는 행이 섞일 수 있으니 <b>금액·날짜 짝은 원본과 대조</b>하세요.</div>
       <div id="photoStatus" style="display:none;margin-top:6px;font-size:12px;color:var(--faint);line-height:1.5"></div>
       <label class="l">사례 내용 (자유 서술)</label>
       <textarea id="src" placeholder="고객·거래·특이사항을 편하게 적으세요. 개인정보는 자동 비식별화됩니다."></textarea>
@@ -624,7 +625,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.15 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.16 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -636,6 +637,15 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.16(2026-10-22): 스캔앱 붙여넣기 대응(vFlat 시험 §11-119) — ① 비식별 전 붙은 글자 분리(쉼표 금액 뒤 숫자·행번호+날짜)
+//   ② 전화 규칙 앞자리 경계 강화(숫자·쉼표·하이픈 뒤 시작 금지 — 금액 끝 000+계좌 앞자리 오탐·계좌 조각 누출 수정)
+//   ③ 레이블 추가: 성명·예금주·거래상대·수취인·송금인 등(콜론 필수) 이름, 고객번호·고객ID, IBAN ④ 사진 칸에 스캔앱 텍스트 추출 안내.
+//   rc2(ChatGPT·젠스파크 독립검증 반영): ① 분리 범위 축소 ③ 이름=성씨·정지어·조사 분리(관계·상태어 보존)·복성 ② 전화 끝 경계 완화(내선)·쉼표 뒤 휴대폰 / IBAN mod-97 / tokenFor 재발급 가드.
+//   rc3(재검증 반영): 이름 끝 글자 노출 수정(조사 분리는 남는 이름 3자 이상만) · 정지어 접두/정확일치 분리(정상훈·변경민 보호, 이모·조카·사망·모름 등 추가)
+//   · 성명·고객명·예금주는 콜론 없이 공백도 허용 · IBAN 표시 20자 창·국가코드 대체 판정 · 쉼표 뒤 점형·유선 전화 · SURN에 승 추가.
+//   rc4(재검증 반영): 조치어 정확일치 정지어(기재·오기·조회·표기·가명 등) · 법인·기관형(주식회사·한국은행 등) 제외 · 스캔 융합(홍길동생년월일) 분리
+//   · IBAN 부정문(미사용·없음) 제외·무레이블 국가코드 대체는 띄어 쓴 묶음형만·소문자 허용.
+//   주의: 이름 레이블 규칙은 체크박스 없이 항상 동작 — v3.5.15 저장본을 불러와 저장하면 비식별문이 달라져 저장 게이트가 재분석을 요구할 수 있다.
 // v3.5.15(2026-10-20): 비식별 보강(ChatGPT 합의 B1~B4) — ① 레이블 기반 확장: 생년(하이픈·점·슬래시·년월일), 계좌·카드·사업자·증권·계약·증서·여권·외국인등록·운전면허 번호
 //   레이블 뒤 숫자·영숫자(금액 단위가 이어지면 제외), 전화 점 구분 ② 송금인류 레이블 뒤 영문 이름 추출·게이트 사람 이름 분류 ③ 분석 버튼 옆 한계 문구·폴백 문구 정정
 //   ④ 저장 게이트 — 분석 시점 입력 서명(본문·가릴 이름·고객번호·마스킹 옵션) 비교 ⑤ 사진 외부 AI 인식 사용 시 확인창.
@@ -1151,7 +1161,8 @@ function typeNames(sector){
   TYPENAME_CACHE[sec]=m;return m;
 }
 function typeName(c){let sec='';try{sec=(LAST&&LAST.sector)||val('sector')||'';}catch(e){}return typeNames(sec||'보험')[c]||'';}
-function tokenFor(value,type,label){for(const t in MAP){if(MAP[t].value===value)return t;}counters[type]=(counters[type]||0)+1;const tok=`[${label}${counters[type]}]`;MAP[tok]={value,type:label};return tok;}
+function tokenFor(value,type,label){for(const t in MAP){if(MAP[t].value===value)return t;}let tok;do{counters[type]=(counters[type]||0)+1;tok=`[${label}${counters[type]}]`;}while(MAP[tok]);MAP[tok]={value,type:label};return tok;}   // v3.5.16 rc2 같은 토큰 재발급 금지(덮어쓰기 차단)
+function ibanOk(v){ const x=String(v).replace(/ /g,'').toUpperCase(); if(!/^[A-Z]{2}\d{2}[A-Z0-9]{8,30}$/.test(x)) return false; const r=(x.slice(4)+x.slice(0,4)).replace(/[A-Z]/g,c=>String(c.charCodeAt(0)-55)); let m=0; for(const d of r){ m=(m*10+(+d))%97; } return m===1; }
 function chk(id){return document.getElementById(id).checked;}
 function val(id){return document.getElementById(id).value.trim();}
 function esc(s){return String(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
@@ -1166,6 +1177,9 @@ function setStep(n){[1,2,3,4].forEach(i=>{const e=document.getElementById('st'+i
 function deidentify(){
   MAP={};counters={};
   let text=document.getElementById('src').value;
+  // v3.5.16 ① 스캔앱 붙은 글자 분리 — 금액(쉼표 3자리 묶음) 뒤에 계좌형(숫자-) 또는 다음 금액이 붙은 경우, 숫자 뒤에 날짜가 붙은 경우만 띄운다.
+  //   (rc2) 첫 치환: 「12,345,6789원」처럼 뒤가 계좌·금액 형태가 아니면 건드리지 않는다. 둘째 치환(숫자+날짜)은 조건 없이 적용 — 안 띄우면 날짜가 계좌로 가려진다. 사례 본문 원문(src)은 바꾸지 않고 비식별문에만 적용.
+  text=text.replace(/(\d{1,3}(?:,\d{3})+)(?=\d{2,6}-\d|\d{1,3},\d{3}(?!\d))/g,'$1 ').replace(/(\d)((?:19|20)\d{2}-\d{2}-\d{2})(?!\d)/g,'$1 $2');
   let names=document.getElementById('names').value.split(',').map(s=>s.trim()).filter(Boolean).sort((a,b)=>b.length-a.length);
   names.forEach(n=>{const tok=tokenFor(n,'name','이름');text=text.split(n).join('\u0000'+tok+'\u0000');});
   // v3.5.5 고객번호 선치환 — 10자리 숫자가 전화 규칙에 먼저 걸려 [전화N]으로 잡히던 것을 막는다.
@@ -1186,12 +1200,45 @@ function deidentify(){
       text=text.replace(re,function(m,l,sp,v){ if(m.indexOf('\u0000')>=0) return m; return l+sp+'\u0000'+tokenFor(v.trim(),type,label)+'\u0000'; });
     });
   }
+  // v3.5.16 ③ 레이블 뒤 이름(콜론 필수 — 표 머리글 「거래상대구분」 같은 붙은 글자 오탐 방지)·고객번호·IBAN
+  // (rc3) 값이 사람 이름일 때만 — 성씨 시작 + 정지어 제외. 관계·상태어(본인·배우자·미상·없음·이모·사망 등)는 판정 신호라 보존한다.
+  //   정지어는 두 종: 접두(이 말로 시작하면 이름 아님 — 성씨+이름으로 쓰이기 어려운 말만) / 정확일치(이름 접두로 쓰일 수 있는 말 — 「정상훈」「변경민」 보호).
+  const NM_STOP=/^(고객|계약|보험|거래|대상|수익|해지|환급|납입|미상|불명|확인|점검|검토|번호|생년|월일|주소|직업|국적|모친|부친|배우자|본인|법인|남편|아내|자녀|형제|자매|상속|친권|법정|당사|해당|없음|금액|미성년|직장|동료|회사|기타|동일|타인|피보험|수취|송금|입금|예금|상대|공공|사망|미확|미기|미파|불확|모름|관계)/;
+  const NM_EXACT=/^(정상|성명|이름|대표|대표이사|장남|차남|장녀|차녀|명의|친구|지인|가족|이모|이모부|고모|고모부|조카|손자|손녀|장모|장인|사위|며느리|조부|조모|여동생|남동생|삼촌|외삼촌|숙부|숙모|오빠|언니|누나|동생|아들|딸|부모|지정|변경|변경됨|신규|추가|가입|미정|미확정|확인중|기재|오기|임의|이니셜|조회|표기|가명|기록|입력|여부|존재|부재|일치|정정|수정|대조|누락|생략|불명확)(?:\s*\d+\s*명?)?$/;
+  // (rc4) 법인·기관 — 「주식회사」「한국은행」처럼 법인형 접두·기관형 접미면 이름이 아니다(사람 이름은 이 꼴로 끝나지 않음).
+  const NM_ORG=/^(주식|유한|합자|합명|사단|재단|농협|신협|수협|새마을|우체국)|(회사|은행|기관|법인|조합|공사|공단|재단|협회|센터|증권|보험|카드|금고|그룹|산업|상사|건설|병원|학교|대학|교회|사무소)$/;
+  // (rc4) 스캔 융합 — 「홍길동생년월일」「김가상출금」처럼 이름 뒤에 다음 항목이 붙으면 떼어 이름만 판정한다.
+  const NM_FUSE=/^([가-힣]{2,4}?)(생년월일|생년|거래일|출금|입금|계좌번호|계좌|연락처|주소|직업|고객번호|증권번호|이체|송금|현금|수표)$/;
+  // 조사 분리는 남는 이름이 3자 이상일 때만 — 「박지은」을 「박지」+「은」으로 잘라 끝 글자가 새는 것을 막는다(rc2 결함).
+  const NM_JOSA=/(이었다|이다|이며|이고|으로|에게|께서|로|은|는|이|가|을|를|와|과|의|님|씨)$/;
+  const NM_BOK=/^(남궁|황보|제갈|선우|독고|사공|서문|동방|어금|망절)/;
+  function nmRep(m,l,sp,v){ if(m.indexOf('\u0000')>=0) return m;
+      if(/^[A-Z]/.test(v)) return l+sp+'\u0000'+tokenFor(v,'name','이름')+'\u0000';
+      let stem=v, tail='';
+      const fu=NM_FUSE.exec(v); if(fu){ stem=fu[1]; tail=fu[2]; }
+      else {
+      const js=NM_JOSA.exec(stem); if(js && stem.replace(/ /g,'').length-js[0].length>=3){ tail=js[0]; stem=stem.slice(0,stem.length-js[0].length); }
+      }
+      const bare=stem.replace(/ /g,'');
+      const isNm = NM_BOK.test(bare) ? (bare.length>=3&&bare.length<=5) : (bare.length>=2&&bare.length<=4&&SURN.indexOf(bare[0])>=0);
+      if(NM_STOP.test(bare) || NM_EXACT.test(bare) || NM_EXACT.test(v) || NM_EXACT.test(v.replace(/(으로|로|만|도|은|는|이|가|을|를|와|과|의)$/,'')) || NM_ORG.test(bare) || NM_ORG.test(v) || !isNm || / .* /.test(stem)) return m;
+      return l+sp+'\u0000'+tokenFor(stem,'name','이름')+'\u0000'+tail; }
+  // 값 자리에 다른 레이블이 오면(「계약자: 피보험자: 홍길동」) 앞 레이블은 건너뛰고 뒤 레이블에서 잡는다.
+  text=text.replace(/(성명|고객명|예금주|거래상대방?|상대방|수취인|송금인|입금자|계약자|피보험자|수익자)(\s*[:\uff1a]\s*)(?!(?:성명|고객명|예금주|거래상대방?|상대방|수취인|송금인|입금자|계약자|피보험자|수익자)\s*[:\uff1a])([가-힣]{2,7}|[가-힣] [가-힣]{1,3}|[A-Z][A-Za-z]+(?: [A-Z][A-Za-z]+){1,2})(?![가-힣A-Za-z])/g, nmRep);
+  // (rc3) 콜론이 빠진 스캔문 — 강한 레이블(성명·고객명·예금주)만 공백 구분 허용
+  text=text.replace(/(성명|고객명|예금주)(\s+)(?!(?:성명|고객명|예금주|거래상대방?|상대방|수취인|송금인|입금자|계약자|피보험자|수익자)\s*[:\uff1a])([가-힣]{2,7}|[가-힣] [가-힣]{1,3}|[A-Z][A-Za-z]+(?: [A-Z][A-Za-z]+){1,2})(?![가-힣A-Za-z])/g, nmRep);
+  text=text.replace(/(고객번호|고객ID|고객아이디)([\s:\uff1a]*)([A-Za-z0-9][A-Za-z0-9\-]{4,29})(?![A-Za-z0-9\u0000])/g,
+    function(m,l,sp,v){ if(m.indexOf('\u0000')>=0) return m; return l+sp+'\u0000'+tokenFor(v.trim(),'custno','고객번호')+'\u0000'; });
+  const IBAN_CTRY=/^(AD|AE|AL|AT|AZ|BA|BE|BG|BH|BR|BY|CH|CR|CY|CZ|DE|DK|DO|EE|EG|ES|FI|FO|FR|GB|GE|GI|GL|GR|GT|HR|HU|IE|IL|IQ|IS|IT|JO|KW|KZ|LB|LC|LI|LT|LU|LV|MC|MD|ME|MK|MR|MT|MU|NL|NO|PK|PL|PS|PT|QA|RO|RS|SA|SC|SE|SI|SK|SM|ST|SV|TL|TN|TR|UA|VA|VG|XK)$/;
+  if(chk('o_acct')) text=text.replace(/(?<![A-Za-z0-9])[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,3})?(?![A-Za-z0-9])/gi,
+    function(m,off,str){ if(m.indexOf('\u0000')>=0) return m; const _x=m.replace(/ /g,'').toUpperCase(); const _w=str.slice(Math.max(0,off-20),off); const _lab=/IBAN/i.test(_w) && !/(미사용|없음|해당없음|미보유)/.test(_w); if(!/^[A-Z]{2}\d{2}/.test(_x)) return m; if(!_lab && !ibanOk(_x) && !(IBAN_CTRY.test(_x.slice(0,2)) && / /.test(m) && _x.length>=15 && _x.length<=34)) return m; return '\u0000'+tokenFor(m.trim(),'acct','계좌')+'\u0000'; });   // (rc3·rc4) 앞 20자 안에 IBAN 표시(「IBAN 미사용·없음」 제외) → 가림 / 없으면 mod-97, 또는 국가코드+길이+4자 묶음 띄어쓰기(인쇄·OCR형) / 소문자 허용 — 「참조번호 AB1234…」 오탐 제거
   const rules=[];
   if(chk('o_rrn'))   rules.push([/\b\d{6}[-\s]?\d{7}\b/g,'rrn','주민번호']);
   if(chk('o_biz'))   rules.push([/\b\d{3}-\d{2}-\d{5}\b/g,'biz','사업자번호']);
   if(chk('o_acct'))  rules.push([/\b\d{4}-\d{4}-\d{4}-\d{4}\b/g,'card','카드']);
-  if(chk('o_phone')) rules.push([/\b01[016789][-\s.]?\d{3,4}[-\s.]?\d{4}\b/g,'phone','전화']);   // v3.5.15 점 구분 포함
-  if(chk('o_phone')) rules.push([/\b0\d{1,2}[-\s.]?\d{3,4}[-\s.]?\d{4}\b/g,'phone','전화']);
+  if(chk('o_phone')) rules.push([/(?<![\d,\-])01[016789][-\s.]?\d{3,4}[-\s.]?\d{4}(?!\d|-\d)/g,'phone','전화']);   // v3.5.15 점 구분 포함 · v3.5.16 ② 앞뒤 경계
+  if(chk('o_phone')) rules.push([/(?<![\d,\-])0\d{1,2}[-\s.]?\d{3,4}[-\s.]?\d{4}(?!\d|-\d)/g,'phone','전화']);
+  if(chk('o_phone')) rules.push([/(?<=,)0\d{1,2}([-.])\d{3,4}\1\d{4}(?!\d|-\d)/g,'phone','전화']);   // (rc2·rc3) 쉼표로 이어 쓴 전화 — 하이픈·점 구분형만(공백·무구분은 금액 000 오탐 위험)   // v3.5.16 ② 금액 끝 000·계좌 조각 오탐 차단
   // v3.5.6 계좌 — 가운데 2~10자리(10자리 계좌 누출) / 앞 4자리+월일 형태의 날짜는 제외
   if(chk('o_acct'))  rules.push([/(?<!\d)(?!\d{4}-\d{2}-\d{2}(?!\d))\d{2,6}-\d{2,10}-\d{2,7}(?:-\d{1,6})?(?!\d)/g,'acct','계좌']);
   if(chk('o_email')) rules.push([/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/g,'email','이메일']);
@@ -2290,7 +2337,7 @@ function extractNames(src){
 /* 게이트 — 치환표가 비면 자동 재추출하고, 그래도 비었는데 본문에 이름 레이블이 있으면 차단한다.
  * 반환 '' = 통과. 문자열 = 차단 사유. 평상시(이름이 있거나 레이블이 없으면) 무프롬프트. */
 /* v3.5.13 — 게이트 표시 분류용. 한글 2~4자이고 첫 글자가 흔한 성씨면 사람 이름으로 추정(차단 여부에는 쓰지 않는다 — 표시만). */
-var SURN='김이박최정강조윤장임한오서신권황안송류전홍고문양손배백허유남심노하곽성차주우구민진나지엄채원천방공현함변염여추도소석선설마길연위표명기반왕금옥육인맹제모탁국어은편용예경봉사부가복태목형피두감호계';
+var SURN='김이박최정강조윤장임한오서신권황안송류전홍고문양손배백허유남심노하곽성차주우구민진나지엄채원천방공현함변염여추도소석선설마길연위표명기반왕금옥육인맹제모탁국어은편용예경봉사부가복태목형피두감호계승';
 function isLikelyPersonName(n){ n=String(n||'').trim(); return (/^[가-힣]{2,4}$/.test(n) && SURN.indexOf(n[0])>=0) || /^[A-Za-z]{2,}(?:\s+[A-Za-z]{2,}){1,3}$/.test(n); }   // v3.5.15 ② 영문 2~4어절 이름도 사람 이름 추정
 function nameGate(){
   const el=document.getElementById('names');
@@ -2697,7 +2744,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.15',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.16',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))

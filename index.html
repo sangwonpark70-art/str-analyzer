@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.17</title>
+<title>STR 사례 분석기 v3.5.18</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -146,6 +146,7 @@
   .fiugrade{font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:99px;margin-left:6px;white-space:nowrap}
   .fiugrade.d{background:var(--primary-bg);color:var(--primary-d);border:1px solid var(--primary-line)}
   .fiugrade.j{background:#f1f1f1;color:#6b6b6b;border:1px solid #ddd}
+  .fincen{font-size:11px;color:var(--faint);margin:1px 0 0 22px;line-height:1.5;font-style:italic}   /* v3.5.18 FinCEN 참고 라벨 */
   .fiugrade.o{background:var(--chk-bg);color:#7a4d06;border:1px solid var(--chk-line)}
   .fiunote{font-size:11.5px;color:var(--faint);margin:2px 0 0 18px;line-height:1.55}
   .chip{font-size:11px;font-weight:700;padding:4px 9px;border-radius:99px;background:#eef4ff;color:#1b3a72;border:1px solid #bcd0f5}
@@ -249,7 +250,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.17</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.18</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -625,7 +626,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.17 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.18 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -637,6 +638,8 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.18(2026-11-02): ① FinCEN 3층 글로벌 라벨 — FIU 표 VI 항목 아래 회색 영문 1줄(매핑표 v0.1 연결 7건, 39e는 보험 업권만) + 하단 고지 1줄.
+//   화면 전용 — 의견서·FIU 4단·복사본에는 싣지 않는다(fiuCollect 무변경). ② FIU 1단 제목 화면 직접 수정칸(빈칸=종전 규칙, 토큰·30자 초과 거부).
 // v3.5.17(2026-10-28): 비식별 알려진 한계 4건 — ① 표 머리글(성명·예금주 등) 아래 칸의 이름 가림 ② 레이블 뒤 영문 한 단어 이름 ③ 내선 붙은 전화(02-345-6789-123)를 [계좌] 대신 [전화]로 ④ 구판 저장본 불러올 때 비식별 규칙 변경 안내
 // v3.5.16(2026-10-22): 스캔앱 붙여넣기 대응(vFlat 시험 §11-119) — ① 비식별 전 붙은 글자 분리(쉼표 금액 뒤 숫자·행번호+날짜)
 //   ② 전화 규칙 앞자리 경계 강화(숫자·쉼표·하이픈 뒤 시작 금지 — 금액 끝 000+계좌 앞자리 오탐·계좌 조각 누출 수정)
@@ -1659,8 +1662,36 @@ function fiuAnyOn(sector,codes){
   if(ro.match==='불일치' && fiuIsOn('RO|VI-3',false)) on['VI-3|11']=1;
   return on;
 }
+/* v3.5.18 — FinCEN 3층 글로벌 라벨(화면 전용). 정본 20.문서\04.기획\STR_FinCEN_mapping_v0.1_20261102.md(MD5 544A6CDC).
+ * 원칙: 확실한 것만 연결, 애매하면 비움(Sam 11-02). 키는 Item 번호가 아니라 영문 항목명(판마다 번호 변동) — 번호는 표시용.
+ * 출력(의견서·FIU 4단·복사본)은 fiuCollect()를 쓰므로 이 표가 들어가지 않는다. */
+const FINCEN_LABEL = {
+  'VI-2|10': { item:'36e', label:'Suspicious designation of beneficiaries, assignees or joint owners', note:'수익자 변경 부분 대응' },
+  'VI-3|11': { item:'36k', label:'Suspicious use of third-party transactors (straw-man)' },
+  'VI-3|12': { item:'36i', label:'Suspicious use of multiple accounts' },
+  'VI-3|13': { item:'39e', label:'Suspicious termination of policy or contract', sector:'보험' },
+  'VI-4|15': { item:'36m', label:'Transaction out of pattern for customer(s)' },
+  'VI-4|18': { item:'32',  label:'Structuring', note:'미국 기준 — 보고·기록 기준 회피' },
+  'VI-4|30': { item:'33',  label:'Terrorist financing' }
+};
+const FINCEN_SRC = 'FinCEN SAR Filing Instructions(2026-04 v1.0) Part II';
+var _fincenShown = 0;
+function fincenLine(field, list, sector){
+  var h='';
+  (list||[]).forEach(function(x){
+    var f=FINCEN_LABEL[field+'|'+x.code];
+    if(!f || (f.sector && f.sector!==sector)) return;
+    _fincenShown++;
+    h+='<div class="fincen">FinCEN '+esc(f.item)+' · '+esc(f.label)+(f.note?' ('+esc(f.note)+')':'')+'</div>';
+  });
+  return h;
+}
+function fincenNotice(){
+  return '<div class="fiunote" style="margin-left:0;margin-top:6px">글로벌 참고: '+esc(FINCEN_SRC)+' 범주. 미국 기준 참고용 비공식 대응이며 FinCEN의 승인·제휴·보증과 무관합니다.</div>';
+}
 function renderFiuCandidates(){
   const sector=fiuSector();
+  _fincenShown=0;   // v3.5.18
   const codes=(RES.typologies||[]).map(t=>String(t.code||'').trim()).filter(Boolean);
   const _on=fiuAnyOn(sector,codes);
   const seen={}; let rows=''; const narr=[];
@@ -1682,7 +1713,7 @@ function renderFiuCandidates(){
         const _v=fiuVKey(t.field,t.value);
         lines+=`<div class="fiuline"><label><input type="checkbox" data-k="${esc(_k)}" data-v="${esc(_v)}" onchange="fiuToggle(this)" ${_on[_v]?'checked':''}> `
           +`<b>${esc(t.field)}</b> ${esc(fiuValText(t.value,t.field))}</label>`
-          +`<span class="fiugrade ${direct?'d':'j'}">${tag}</span></div>${extra}${alt}${hint}`;
+          +`<span class="fiugrade ${direct?'d':'j'}">${tag}</span></div>${fincenLine(t.field,t.value,sector)}${extra}${alt}${hint}`;
       } else if(t.state==='operator'){
         lines+=`<div class="fiuline"><b>${esc(t.field)}</b> — 담당자 입력`
           +`<span class="fiugrade o">담당자 입력</span></div>${extra}${alt}${hint}`;
@@ -1699,6 +1730,7 @@ function renderFiuCandidates(){
   if(_ro.match==='불일치'){
     _link += '<div class="fiuline"><label><input type="checkbox" data-k="RO|VI-3" data-v="VI-3|11" onchange="fiuToggle(this)" '+(_on['VI-3|11']?'checked':'')+'> <b>VI-3</b> 11) 타인 명의·계좌 이용</label>'
       + '<span class="fiugrade j">판단 · 추천</span>'
+      + fincenLine('VI-3',[{code:'11'}],sector)
       + '<div class="fiunote">report_only 명의일치=불일치 연동(변환표 §4 rev.1). 선택은 담당자 몫이다.</div></div>';
   }
   var _bn = codes.filter(function(c){ return c==='B1'||c==='B3'; });
@@ -1711,7 +1743,7 @@ function renderFiuCandidates(){
   const tail=narr.length?`<div class="fiuline mut" style="margin-top:8px"><b>VI-5 31)</b> 서술 대상 ${narr.length}건 — ${esc(narr.join(' / '))}</div>`:'';
   return `<div class="sec">FIU 서식 코드 후보 <span style="font-size:11px;font-weight:500;color:var(--faint)">별지 제1호 · 변환표 v0.2 · ${esc(sector)}</span></div>`
     +`<div class="block" style="white-space:normal">${renderFiuProduct()}${rows}${tail}`
-    +`<div class="fiunote" style="margin-left:0;margin-top:10px">※ 「직접」만 선택 상태로 제시한다. 「판단」·「담당자 입력」은 추천이며 최종 선택은 담당자 몫이다(변환표 §6-9). 「서식 대응 없음」은 VI-5 31) 서술로 기재한다. <b>체크한 항목만 의견서 「FIU 4단」에 실린다.</b></div></div>`;
+    +`<div class="fiunote" style="margin-left:0;margin-top:10px">※ 「직접」만 선택 상태로 제시한다. 「판단」·「담당자 입력」은 추천이며 최종 선택은 담당자 몫이다(변환표 §6-9). 「서식 대응 없음」은 VI-5 31) 서술로 기재한다. <b>체크한 항목만 의견서 「FIU 4단」에 실린다.</b></div>${_fincenShown?fincenNotice():''}</div>`;
 }
 
 const SECTOR_TYPOLOGY = {
@@ -1935,6 +1967,20 @@ async function analyze(){
 
 /* v3.5.11 — fiu_title 정리: 토큰([..])·과장 길이(>30자)면 버린다 → 1단 제목은 종전 규칙으로 폴백.
    restore()를 쓰지 않는다 — 제목에 실명이 복원되어 들어가지 않게 한다. */
+function setFiuTitle(el){   // v3.5.18 ② 담당자 직접 수정 — 같은 사례 재분석 시 v3.5.13 규칙으로 유지된다
+  if(!RES) return;
+  var v=String(el.value||'').replace(/\s+/g,' ').trim(), msg=document.getElementById('fiuTitleMsg');
+  if(v && (/\[[^\]]*\]/.test(v) || v.length>30)){
+    if(msg) msg.textContent='가림 토큰([..])·30자 초과는 쓸 수 없습니다';
+    el.value=RES.fiu_title||''; return;
+  }
+  RES.fiu_title=v; RES.fiu_title_kept=false; RES.fiu_title_user=!!v;
+  if(msg) msg.textContent=v?'✓ 반영':'✓ 비움 — 선택 VI 문언 사용';
+  try{
+    var bg=document.getElementById('opinionModalBg');
+    if(_opinionMode==='fiu' && bg && bg.classList.contains('show')) document.getElementById('opinionText').value=buildOpinionFiu();
+  }catch(e){}
+}
 function renewFiuTitle(){   // v3.5.13 ① 명시 교체
   if(!RES || !RES.fiu_title_ai) return;
   RES.fiu_title=RES.fiu_title_ai; RES.fiu_title_kept=false; draw();
@@ -2160,6 +2206,8 @@ function draw(){
   if(RES.fiu_title_kept && RES.fiu_title_ai && RES.fiu_title_ai!==RES.fiu_title){
     html+=`<div class="convert"><div class="cv" id="fiuTitleKeep" style="background:var(--field);font-size:12.5px">📌 FIU 제목 유지: <b>${esc(RES.fiu_title)}</b> · AI 새 제안: ${esc(RES.fiu_title_ai)} <button class="btn-xs" onclick="renewFiuTitle()">새 제안으로 바꾸기</button></div></div>`;
   }
+  // v3.5.18 ② FIU 1단 제목 직접 수정칸 — 빈칸이면 종전 규칙(선택 VI 문언 → [미입력]). 화면·로컬 출력 전용(AI 전송 없음).
+  html+=`<div class="convert"><div class="cv" style="background:var(--field);font-size:12.5px">✏️ FIU 제목 <input id="fiuTitleEdit" type="text" maxlength="30" value="${esc(RES.fiu_title||'')}" placeholder="비우면 선택 VI 문언" style="display:inline-block;width:auto;min-width:14em;max-width:100%;padding:3px 6px;font-size:12.5px" onchange="setFiuTitle(this)"> <span id="fiuTitleMsg" style="color:var(--faint)"></span></div></div>`;
   if(RES.typologies&&RES.typologies.length){
     html+=`<div class="chips">`+RES.typologies.map(t=>{const c=(t.code||'').trim();var q=restore(t.quote||t.text||'');const rs=restore(t.reason||'');const bf=String(t.basis_field||'').trim();if(!q&&bf)q='입력항목: '+bf;return `<span class="chip" title="${esc(rs?rs+'\n「'+q+'」':q)}">${fiuChipText(c)}</span>`;}).join('')+`</div>`;
   }
@@ -2774,7 +2822,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.17',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.18',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))

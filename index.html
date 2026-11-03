@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.18</title>
+<title>STR 사례 분석기 v3.5.19</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -250,7 +250,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.18</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.19</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -296,6 +296,22 @@
       </div>
       <div id="driveListContent"><div style="text-align:center;padding:30px;color:var(--faint)">불러오는 중…</div></div>
       <button class="btn-sm" style="margin-top:12px;width:100%" onclick="closeDriveList()">닫기</button>
+    </div>
+  </div>
+
+  <!-- v3.5.19 ③ 사진 가림 박스 모달 -->
+  <div class="drive-modal-bg" id="maskModalBg">
+    <div class="drive-modal" style="max-width:760px;max-height:92vh">
+      <h3>⬛ 사진 가리기 (선택) <span id="maskIdx" style="font-weight:600;color:var(--faint)"></span></h3>
+      <p style="font-size:12px;color:var(--dim);margin:-4px 0 8px">이름·번호 위를 끌어서 검은 박스로 가립니다. 가린 사본만 외부 AI로 전송됩니다. 급하면 「가리지 않고 전송」.</p>
+      <canvas id="maskCv" style="display:block;width:100%;height:auto;touch-action:none;border:1px solid var(--line2);border-radius:8px;cursor:crosshair;background:#f3f3f3"></canvas>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center">
+        <button class="btn-sm" id="maskUndo">↶ 되돌리기</button>
+        <button class="btn-drive" id="maskNext">다음 사진</button>
+        <button class="btn-sm" id="maskSkip">가리지 않고 전송</button>
+        <button class="btn-sm" id="maskCancel">취소</button>
+        <span id="maskCnt" style="font-size:12px;color:var(--faint)"></span>
+      </div>
     </div>
   </div>
 
@@ -626,7 +642,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.18 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.19 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -638,6 +654,8 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.19(2026-11-03): ③ 사진 가림 박스 — 외부 AI 인식일 때만, 선택. 사진 위를 끌어 검은 박스로 가린 사본만 전송(원본 폐기).
+//   급하면 「가리지 않고 전송」. 마우스·터치 겸용(pointer events). 로컬 인식은 미전송이라 해당 없음.
 // v3.5.18(2026-11-02): ① FinCEN 3층 글로벌 라벨 — FIU 표 VI 항목 아래 회색 영문 1줄(매핑표 v0.1 연결 7건, 39e는 보험 업권만) + 하단 고지 1줄.
 //   화면 전용 — 의견서·FIU 4단·복사본에는 싣지 않는다(fiuCollect 무변경). ② FIU 1단 제목 화면 직접 수정칸(빈칸=종전 규칙, 토큰·30자 초과 거부).
 // v3.5.17(2026-10-28): 비식별 알려진 한계 4건 — ① 표 머리글(성명·예금주 등) 아래 칸의 이름 가림 ② 레이블 뒤 영문 한 단어 이름 ③ 내선 붙은 전화(02-345-6789-123)를 [계좌] 대신 [전화]로 ④ 구판 저장본 불러올 때 비식별 규칙 변경 안내
@@ -2282,9 +2300,17 @@ async function onPhotoSelect(ev){
   const btn=document.getElementById('photoBtn'); btn.disabled=true;
   try{
     ocrStatus(`이미지 ${files.length}장 준비 중…`);
-    const imgs=[]; for(const f of files){ imgs.push(await resizeToJpeg(f)); }
+    let imgs=[]; for(const f of files){ imgs.push(await resizeToJpeg(f)); }
     let text='';
     if(mode==='ai'){
+      // v3.5.19 ③ 가림 박스(선택) — 취소면 중단, 박스 수에 따라 확인 문구가 달라진다
+      ocrStatus('⬛ 가릴 부분이 있으면 박스로 가리세요 (선택)');
+      const mk=await maskImages(imgs);
+      if(!mk){ ocrStatus('사진 전송을 취소했습니다.'); return; }
+      imgs=mk.imgs;
+      if(mk.boxes>0){
+        if(!confirm('가린 사본(박스 '+mk.boxes+'개)이 외부 AI로 전송됩니다.\n박스로 가리지 않은 이름·번호는 그대로 나갑니다.\n\n[확인] 진행  [취소] 중단')){ ocrStatus('외부 전송을 취소했습니다.'); return; }
+      } else
       // v3.5.15 ⑤ 외부 전송 확인 — 사진은 가리기 전 원본 그대로 나간다
       if(!confirm('사진 원본이 외부 AI(분석 서버 → Anthropic)로 그대로 전송됩니다.\n사진 속 이름·번호는 가려지지 않습니다.\n\n[확인] 외부 전송에 동의하고 진행\n[취소] 중단(로컬 인식 권장)')){ ocrStatus('외부 전송을 취소했습니다. 💻 로컬 인식을 선택해 주세요.'); return; }
       ocrStatus(`🌐 외부 AI 인식 중… (${files.length}장)`);
@@ -2298,6 +2324,58 @@ async function onPhotoSelect(ev){
   }catch(e){
     ocrStatus(`⚠️ 인식 실패: ${e.message||e}. ${mode==='ai'?'네트워크·Worker 상태 확인 후 재시도하거나 로컬 인식으로 전환하세요.':'사진을 더 선명하게 찍거나 외부 AI 인식으로 전환하세요.'}`);
   }finally{ btn.disabled=false; }
+}
+
+/* v3.5.19 ③ 사진 가림 박스 — 외부 AI 전송 전 담당자가 박스로 가린다(선택).
+ * 반환: {imgs, boxes} 또는 null(취소). 박스가 있는 사진만 다시 그려 JPEG로 바꾸고 원본 데이터는 버린다. */
+function maskImages(imgs){
+  return new Promise(resolve=>{
+    const bg=document.getElementById('maskModalBg'), cv=document.getElementById('maskCv'), ctx=cv.getContext('2d');
+    const boxes=imgs.map(()=>[]); let idx=0, img=null, drag=null;
+    const $=id=>document.getElementById(id);
+    function pt(e){ const r=cv.getBoundingClientRect(); return {x:(e.clientX-r.left)*cv.width/r.width, y:(e.clientY-r.top)*cv.height/r.height}; }
+    function paint(){
+      if(!img) return;
+      ctx.drawImage(img,0,0,cv.width,cv.height); ctx.fillStyle='#000';
+      boxes[idx].forEach(b=>ctx.fillRect(b.x,b.y,b.w,b.h));
+      if(drag){ ctx.strokeStyle='#e11'; ctx.lineWidth=Math.max(2,cv.width/400); ctx.strokeRect(drag.x,drag.y,drag.w,drag.h); }
+      const tot=boxes.reduce((s,a)=>s+a.length,0);
+      $('maskCnt').textContent='이 사진 '+boxes[idx].length+'개 · 전체 '+tot+'개';
+    }
+    function load(i){
+      idx=i; $('maskIdx').textContent='— '+(i+1)+' / '+imgs.length;
+      $('maskNext').textContent=(i===imgs.length-1)?'✓ 가림 완료·전송':'다음 사진 →';
+      const im=new Image(); im.onload=()=>{ img=im; cv.width=im.naturalWidth; cv.height=im.naturalHeight; paint(); }; im.src=imgs[i].dataUrl;
+    }
+    function down(e){ e.preventDefault(); try{cv.setPointerCapture(e.pointerId);}catch(_){}; const p=pt(e); drag={x0:p.x,y0:p.y,x:p.x,y:p.y,w:0,h:0}; }
+    function move(e){ if(!drag) return; const p=pt(e); drag.x=Math.min(drag.x0,p.x); drag.y=Math.min(drag.y0,p.y); drag.w=Math.abs(p.x-drag.x0); drag.h=Math.abs(p.y-drag.y0); paint(); }
+    function up(){ if(!drag) return; if(drag.w>=4 && drag.h>=4) boxes[idx].push({x:drag.x,y:drag.y,w:drag.w,h:drag.h}); drag=null; paint(); }
+    function close(v){
+      cv.removeEventListener('pointerdown',down); cv.removeEventListener('pointermove',move);
+      cv.removeEventListener('pointerup',up); cv.removeEventListener('pointercancel',up);
+      ['maskUndo','maskNext','maskSkip','maskCancel'].forEach(id=>{ $(id).onclick=null; });
+      bg.classList.remove('show'); ctx.clearRect(0,0,cv.width,cv.height); resolve(v);
+    }
+    async function finish(){
+      const out=[]; let n=0;
+      for(let i=0;i<imgs.length;i++){
+        if(!boxes[i].length){ out.push(imgs[i]); continue; }
+        const im=await new Promise((ok,ng)=>{ const t=new Image(); t.onload=()=>ok(t); t.onerror=ng; t.src=imgs[i].dataUrl; });
+        const c=document.createElement('canvas'); c.width=im.naturalWidth; c.height=im.naturalHeight;
+        const g=c.getContext('2d'); g.drawImage(im,0,0); g.fillStyle='#000'; boxes[i].forEach(b=>{ g.fillRect(b.x,b.y,b.w,b.h); n++; });
+        const du=c.toDataURL('image/jpeg',0.85);
+        out.push({media_type:'image/jpeg', data:du.split(',')[1], dataUrl:du});
+      }
+      close({imgs:out, boxes:n});
+    }
+    cv.addEventListener('pointerdown',down); cv.addEventListener('pointermove',move);
+    cv.addEventListener('pointerup',up); cv.addEventListener('pointercancel',up);
+    $('maskUndo').onclick=()=>{ boxes[idx].pop(); paint(); };
+    $('maskNext').onclick=()=>{ if(idx<imgs.length-1) load(idx+1); else finish(); };
+    $('maskSkip').onclick=()=>close({imgs:imgs, boxes:0});
+    $('maskCancel').onclick=()=>close(null);
+    bg.classList.add('show'); load(0);
+  });
 }
 
 // 캔버스 리사이즈 → JPEG base64 (긴 변 1568px, 품질 0.85 — 전송량·API 제한 대응)
@@ -2822,7 +2900,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.18',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.19',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))

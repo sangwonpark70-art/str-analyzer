@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.19</title>
+<title>STR 사례 분석기 v3.5.20</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -250,7 +250,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.19</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.20</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -642,7 +642,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.19 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.20 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -654,6 +654,7 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.20(2026-11-04): 비식별 한계 2건 — ① 한 칸 공백 표 인식(머리글+칸 수 같음+숫자·날짜 칸 조건) ② 영문 관계어·역할어 정지어(과잉 가림 해소).
 // v3.5.19(2026-11-03): ③ 사진 가림 박스 — 외부 AI 인식일 때만, 선택. 사진 위를 끌어 검은 박스로 가린 사본만 전송(원본 폐기).
 //   급하면 「가리지 않고 전송」. 마우스·터치 겸용(pointer events). 로컬 인식은 미전송이라 해당 없음.
 // v3.5.18(2026-11-02): ① FinCEN 3층 글로벌 라벨 — FIU 표 VI 항목 아래 회색 영문 1줄(매핑표 v0.1 연결 7건, 39e는 보험 업권만) + 하단 고지 1줄.
@@ -1235,7 +1236,7 @@ function deidentify(){
   const NM_JOSA=/(이었다|이다|이며|이고|으로|에게|께서|로|은|는|이|가|을|를|와|과|의|님|씨)$/;
   const NM_BOK=/^(남궁|황보|제갈|선우|독고|사공|서문|동방|어금|망절)/;
   // v3.5.17 ② 영문 한 단어 이름 허용 — 사람 이름이 아닌 영문 낱말(은행·법인 표시·미상 표기·통화·약어)은 제외
-  const NM_EN_STOP=/^(BANK|BANKS|LTD|LIMITED|INC|CORP|CORPORATION|CO|COMPANY|LLC|PLC|GMBH|GROUP|HOLDINGS|TRUST|FUND|NONE|NULL|NIL|UNKNOWN|SELF|SAME|NA|TBD|TBA|ETC|IBAN|SWIFT|BIC|USD|KRW|EUR|JPY|CNY|GBP|ATM|OTP|ARS|PB|VIP|OK|NO|YES|CASH|CHECK|CHEQUE|WIRE|ACH|TEST|SAMPLE)$/i;
+  const NM_EN_STOP=/^(BANK|BANKS|LTD|LIMITED|INC|CORP|CORPORATION|CO|COMPANY|LLC|PLC|GMBH|GROUP|HOLDINGS|TRUST|FUND|NONE|NULL|NIL|UNKNOWN|SELF|SAME|NA|TBD|TBA|ETC|IBAN|SWIFT|BIC|USD|KRW|EUR|JPY|CNY|GBP|ATM|OTP|ARS|PB|VIP|OK|NO|YES|CASH|CHECK|CHEQUE|WIRE|ACH|TEST|SAMPLE|MOTHER|FATHER|PARENT|PARENTS|SPOUSE|WIFE|HUSBAND|SON|DAUGHTER|CHILD|CHILDREN|BROTHER|SISTER|SIBLING|RELATIVE|FAMILY|FRIEND|OWNER|INSURED|BENEFICIARY|POLICYHOLDER|HOLDER|CUSTOMER|CLIENT|AGENT|GUARDIAN|HEIR|NOMINEE|EMPLOYEE|EMPLOYER|DIRECTOR|CEO|PRESIDENT|PARTNER)$/i;   // v3.5.20 ② 관계어·역할어
   function nmRep(m,l,sp,v){ if(m.indexOf('\u0000')>=0) return m;
       if(/^[A-Z]/.test(v)){ if(NM_EN_STOP.test(v)) return m; return l+sp+'\u0000'+tokenFor(v,'name','이름')+'\u0000'; }
       let stem=v, tail='';
@@ -1257,15 +1258,25 @@ function deidentify(){
   //   칸 구분: 탭 / 세로줄(|) 2개 이상 / 공백 2칸 이상. 구분 방식이 다른 줄이 나오면 표가 끝난 것으로 본다.
   (function(){
     const HD=/^(성명|고객명|이름|예금주|거래상대방?|상대방|수취인|송금인|입금자|계약자|피보험자|수익자|거래자|명의인)$/;
-    const sepOf=ln=> ln.indexOf('\t')>=0 ? 't' : ((ln.match(/\|/g)||[]).length>=2 ? 'p' : (/\S {2,}\S/.test(ln) ? 's' : ''));
-    const RX={t:/(\t)/,p:/(\|)/,s:/( {2,})/};
+    const sepOf=ln=> ln.indexOf('\t')>=0 ? 't' : ((ln.match(/\|/g)||[]).length>=2 ? 'p' : (/\S {2,}\S/.test(ln) ? 's' : (/\S \S/.test(ln.trim()) ? '1' : '')));   // v3.5.20 ① 한 칸 공백 = '1'
+    const RX={t:/(\t)/,p:/(\|)/,s:/( {2,})/,'1':/( )/};
+    // v3.5.20 ① 한 칸 공백 표 — 문장과 구분하려고 ⓐ 머리글 줄에 이름 머리글 ⓑ 아래 줄 칸 수 = 머리글 칸 수 ⓒ 이름 칸이 아닌 칸에 숫자·날짜 1개 이상
+    const NUMC=/^[\d][\d,.\-\/:]*(원|건|회|%)?$/;
+    let hdrN=0;
     const ls=text.split('\n'); let cols=null, mode='';
     for(let i=0;i<ls.length;i++){
       const md=sepOf(ls[i]); if(!md){ cols=null; mode=''; continue; }
       const parts=ls[i].split(RX[md]); const cells=parts.filter((_,k)=>k%2===0);
       const hit=cells.map((c,k)=>HD.test(c.trim())?k:-1).filter(k=>k>=0);
-      if(hit.length){ cols=hit; mode=md; continue; }
-      if(!cols || md!==mode) { cols=null; mode=''; continue; }
+      if(hit.length && (md!=='1' || cells.length>=2)){ cols=hit; mode=md; hdrN=cells.length; continue; }
+      if(!cols) { mode=''; continue; }
+      if(md!==mode){
+        // 머리글은 공백 2칸·한 칸 표인데 이 줄만 한 칸 공백인 경우도 같은 조건으로 받는다
+        if(!(md==='1' && (mode==='s'||mode==='1'))){ cols=null; mode=''; continue; }
+      }
+      if(md==='1' || mode==='1'){
+        if(cells.length!==hdrN || !cells.some((c,k)=>cols.indexOf(k)<0 && NUMC.test(c.trim()))){ cols=null; mode=''; continue; }
+      }
       cols.forEach(k=>{ const pi=k*2; if(pi>=parts.length) return; const raw=parts[pi], v=raw.trim();
         if(!v || v.indexOf('\u0000')>=0) return;
         // 한 칸에 여러 이름(「김가상, 박허구」「김가상/박허구」)이면 조각마다 판정한다.
@@ -2900,7 +2911,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.19',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.20',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))

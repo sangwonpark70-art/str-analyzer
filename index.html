@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.20</title>
+<title>STR 사례 분석기 v3.5.21</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -107,6 +107,14 @@
   .afrow .af{flex:1;font-size:12.5px;padding:8px 12px}
   #rt_panel.rtdock>summary{display:none}
   #rt_panel.rtdock:not([open]){display:none}
+  #pip_panel.rtdock>summary{display:none}
+  #pip_panel.rtdock:not([open]){display:none}
+  #pip_panel{border-color:var(--ext-line);background:var(--ext-bg)}
+  #pip_panel .rt-in{background:var(--card);border:1px solid var(--ext-line);border-radius:11px;padding:12px 13px;margin-top:11px}
+  #pip_status{font-size:11.5px;padding:9px 11px;border-radius:9px;background:var(--field);border:1px dashed var(--line2);color:var(--dim);margin-top:11px;white-space:pre-wrap}
+  .pip-hit{color:var(--rep);font-weight:800}
+  .pip-na{color:var(--dim);font-style:italic}
+  #pip_sumText{white-space:pre-wrap;font-size:12.5px}
   .stepsec{margin-top:14px;border:1px solid var(--line);border-radius:11px;padding:11px 13px;background:var(--field)}
   .stephead{display:flex;align-items:baseline;gap:8px;margin:0 0 6px;flex-wrap:wrap}
   .stephead b,details#step3>summary>b{white-space:nowrap}
@@ -250,7 +258,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.20</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.21</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -378,6 +386,7 @@
       <div class="afrow">
         <button class="btn-sm af" onclick="autoFillFromText()">✨ 입력 자동채움</button>
         <button class="btn-sm af" id="rtToggleBtn" onclick="rtToggle()">🏢 실거래가 조회 <span class="tag ext">공공데이터</span></button>
+        <button class="btn-sm af" id="pipToggleBtn" onclick="pipToggle()">🔎 공개정보 조회 <span class="tag ext">PIP</span></button>
       </div>
       <div id="autoFillStatus" style="margin-top:5px;font-size:11.5px;color:var(--faint)">본문에서 이름·생년월일·거래일·금액·유형을 뽑아 아래 칸을 채웁니다 · 부동산 사례는 실거래가를 바로 조회</div>
       <details id="rt_panel" class="rtdock">
@@ -451,6 +460,41 @@
             · <b>신고 지연</b> — 계약일로부터 신고기한(최대 30일)이 있어 최근 계약분은 누락될 수 있습니다. 미조회가 곧 미거래는 아닙니다.
           </div>
         </details>
+      </details>
+
+      <details id="pip_panel" class="rtdock">
+        <summary>🔎 공개정보 조회 <span class="tag ext">PIP</span></summary>
+        <div class="rt-in">
+          <label class="l" style="margin-top:0">연결 암호 <span id="pip_keyBadge" class="rt-badge rt-b-no">미저장</span></label>
+          <div class="rt-keyrow">
+            <input type="password" id="pip_appKey" placeholder="연결 암호(STR_APP_KEY) 붙여넣기" autocomplete="off">
+            <button class="btn-sm" onclick="pip_saveKey()">저장</button>
+            <button class="btn-sm" onclick="pip_clearKey()">삭제</button>
+          </div>
+          <div class="rt-hint">암호는 이 브라우저에만 저장됩니다. 백엔드가 암호를 확인한 뒤에만 PIP를 부릅니다(PIP 토큰은 서버에만 있음).</div>
+        </div>
+        <div class="rt-in">
+          <label class="l" style="margin-top:0">조회어 <span class="opt">사업자번호·법인번호·상호 · 사람은 @이름</span></label>
+          <div class="rt-keyrow">
+            <input id="pip_q" placeholder="예: 123-45-67890 · 주식회사가나 · @홍길동" maxlength="60" onkeydown="if(event.key==='Enter'){event.preventDefault();pip_lookup();}">
+            <button class="btn-sm" id="pip_goBtn" onclick="pip_lookup()" style="padding:7px 16px">조회</button>
+          </div>
+          <div id="pip_status">대기 중 — 연결 암호 저장 후 조회하세요. 조회는 최대 45초 걸릴 수 있으며, 분석은 기다리지 않고 따로 진행해도 됩니다.</div>
+        </div>
+        <div class="rt-in" id="pip_resCard" style="display:none">
+          <label class="l" style="margin-top:0">조회 결과 <span id="pip_resWhat" class="opt"></span></label>
+          <div class="rt-tblwrap"><table id="pip_resTbl"><thead></thead><tbody></tbody></table></div>
+          <div class="rt-sum" id="pip_sumBox">
+            <div id="pip_sumText"></div>
+            <div class="rt-acts">
+              <button class="btn-sm" onclick="pip_copySummary()">📋 요약 복사</button>
+              <button class="btn-sm" onclick="pip_insertToSrc()">↳ 사례 내용란에 삽입</button>
+              <a class="btn-sm" id="pip_profileLink" target="_blank" rel="noopener" style="display:none;text-decoration:none">PIP 화면 열기 ↗</a>
+            </div>
+            <label style="display:block;margin-top:8px;font-size:12px"><input type="checkbox" id="pip_addNames" checked> 삽입할 때 상호·대표자(사람) 이름을 「가릴 이름」에 함께 추가</label>
+            <div class="rt-hint">삽입한 요약은 사례 본문과 함께 기존 가림 처리를 거쳐 외부 AI로 갑니다(통합지침 §5-3). 「조회 못 함」은 「없음」이 아닙니다. 점수 반영은 담당자 판단입니다.</div>
+          </div>
+        </div>
       </details>
 
       <label class="l">가릴 이름·상호·지명 (치환표) <span class="opt">자동채움이 이름을 채움 · 상호·지명은 직접 추가하면 함께 가려집니다</span></label>
@@ -642,7 +686,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.20 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.21 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -654,6 +698,7 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.21(2026-11-07): 공개정보(PIP) 조회 패널 — 백엔드 /pip(연결 암호) 중계, 요약을 사례 내용란에 삽입(가림 처리 그대로 적용). 통합지침 §5-3.
 // v3.5.20(2026-11-04): 비식별 한계 2건 — ① 한 칸 공백 표 인식(머리글+칸 수 같음+숫자·날짜 칸 조건) ② 영문 관계어·역할어 정지어(과잉 가림 해소).
 // v3.5.19(2026-11-03): ③ 사진 가림 박스 — 외부 AI 인식일 때만, 선택. 사진 위를 끌어 검은 박스로 가린 사본만 전송(원본 폐기).
 //   급하면 「가리지 않고 전송」. 마우스·터치 겸용(pointer events). 로컬 인식은 미전송이라 해당 없음.
@@ -2911,7 +2956,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.20',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.21',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))
@@ -3547,8 +3592,178 @@ function rt_insertToSrc(){
   rt_setStatus('사례 내용란 말미에 요약을 삽입했습니다. 점수 반영 여부는 담당자가 판단합니다.');
 }
 
+/* ── v3.5.21 공개정보(PIP) 조회 — 백엔드 /pip 중계(통합지침 §5-3) ── */
+const PIP_KEY_STORE = 'str_app_key';
+let pip_summary = '', pip_last = null;
+const PIP_LABEL = {
+  'c.name_ko':'상호','c.ceo_name':'대표자','c.bizr_no':'사업자번호','c.jurir_no':'법인번호','c.legal_form':'법인 형태',
+  'c.biz_status':'사업 상태','c.tax_type':'과세 유형','c.industry_name':'업종','c.established_date':'설립일','c.open_date':'개업일',
+  'c.closed_date':'폐업일','c.employee_count':'종업원 수','c.capital':'자본금','c.listing_market':'상장','c.business_group':'기업집단',
+  'c.major_shareholder':'최대주주','c.address':'주소',
+  'c.fin.revenue':'매출액','c.fin.operating_income':'영업이익','c.fin.net_income':'당기순이익','c.fin.total_assets':'자산총계',
+  'c.fin.total_liabilities':'부채총계','c.fin.total_equity':'자본총계',
+  'c.license':'인허가','c.vasp_registration':'가상자산사업자 신고','c.money_lender':'대부업 등록','c.fx_dealer':'환전영업',
+  'c.tax_delinquency':'고액 체납','c.wage_defaulter':'임금 체불','c.debarment':'부정당 제재','c.sanction_hit':'제재 적중'
+};
+const PIP_RES = {none:'없음', hit:'적중', candidate:'후보(상호만 같음)', unavailable:'조회 못 함'};
+function pip_$(id){ return document.getElementById(id); }
+function pip_getKey(){ try{ return localStorage.getItem(PIP_KEY_STORE)||''; }catch(e){ return ''; } }
+function pip_keyStatus(){ const b=pip_$('pip_keyBadge'); if(!b) return; const k=pip_getKey(); b.textContent=k?'저장됨':'미저장'; b.className='rt-badge '+(k?'rt-b-ok':'rt-b-no'); }
+function pip_saveKey(){ const v=(pip_$('pip_appKey').value||'').trim(); if(!v){ alert('연결 암호를 붙여넣으세요.'); return; }
+  try{ localStorage.setItem(PIP_KEY_STORE, v); }catch(e){ alert('이 브라우저가 저장을 막고 있습니다(사생활 보호 모드 등).'); return; }
+  pip_$('pip_appKey').value=''; pip_keyStatus(); pip_setStatus('연결 암호를 저장했습니다.'); pip_health(); }
+function pip_clearKey(){ try{ localStorage.removeItem(PIP_KEY_STORE); }catch(e){} pip_keyStatus(); pip_setStatus('연결 암호를 삭제했습니다.'); }
+function pip_setStatus(m){ const e=pip_$('pip_status'); if(e) e.textContent=m; }
+function pipToggle(){ const p=pip_$('pip_panel'); if(!p) return; p.open=!p.open; if(p.open){ p.scrollIntoView({block:'nearest'}); pip_keyStatus(); if(pip_getKey()) pip_health(); } }
+function pip_errMsg(status, j){
+  const c=(j&&j.code)||'';
+  if(c==='APP_KEY') return '연결 암호가 맞지 않습니다 — 저장한 암호를 확인하세요.';
+  if(c==='APP_KEY_UNSET') return '서버에 연결 암호가 아직 설정되지 않았습니다(Deno 환경변수 STR_APP_KEY).';
+  if(c==='PIP_TOKEN_UNSET') return '서버에 PIP 토큰이 설정되지 않았습니다(Deno 환경변수 PIP_LINK_TOKENS).';
+  if(c==='LINK_OFF' || status===503) return 'PIP 연결 꺼짐 — PIP 홈 화면에서 「연결 켜기」를 누르세요.';
+  if(c==='RATE' || status===429) return 'PIP 시간당 조회 한도에 걸렸습니다. 잠시 뒤 다시 하세요.';
+  if(c==='TIMEOUT' || status===504) return 'PIP 응답 시간 초과(45초). 다시 조회하거나 PIP 화면에서 직접 보세요.';
+  if(c==='REQ_Q' || c==='REQ_FIELD' || status===400) return '조회어 형식을 확인하세요(1~60자).';
+  return 'PIP 연결 실패' + (status? ' ('+status+')':'') + '.';
+}
+async function pip_call(path, opt){
+  const ctl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+  const t = ctl ? setTimeout(()=>ctl.abort(), 50000) : null;
+  try{
+    const res = await fetch(STR_WORKER_URL + path, Object.assign({}, opt, ctl?{signal:ctl.signal}:{}));
+    let j=null; try{ j = await res.json(); }catch(e){}
+    return {status:res.status, ok:res.ok, j};
+  }catch(e){ return {status:0, ok:false, j:{code:(e&&e.name==='AbortError')?'TIMEOUT':'NET'}}; }
+  finally{ if(t) clearTimeout(t); }
+}
+async function pip_health(){
+  const k=pip_getKey(); if(!k) return;
+  const r = await pip_call('/pip/health', {method:'GET', headers:{'X-STR-Key':k}});
+  if(!r.ok){ pip_setStatus(pip_errMsg(r.status, r.j)); return; }
+  const j=r.j||{}; const on = j.link==='on';
+  const err = j.session && j.session.last_error ? ' · 최근 오류: '+j.session.last_error : '';
+  pip_setStatus(on ? 'PIP 연결 켜짐 — 조회할 수 있습니다.'+err : 'PIP 연결 꺼짐 — PIP 홈 화면에서 「연결 켜기」를 누르세요.'+err);
+}
+function pip_fmt(v){
+  if(v==null) return '';
+  if(Array.isArray(v)) return v.map(pip_fmt).filter(Boolean).join(', ');
+  if(typeof v==='object'){ if(v.value!=null) return pip_fmt(v.value); if(v.name) return String(v.name)+(v.role?'('+v.role+')':'')+(v.ratio!=null?' '+v.ratio+'%':''); return JSON.stringify(v); }
+  if(typeof v==='number') return v.toLocaleString();
+  return String(v);
+}
+function pip_cut(s,n){ s=String(s); return s.length>n ? s.slice(0,n)+'…' : s; }
+function pip_checkLine(arr){
+  if(!Array.isArray(arr) || !arr.length) return '';
+  return arr.map(c=>{ const r=PIP_RES[c.result]||c.result||'?'; return c.list+' '+r+(c.result==='unavailable'&&c.code?'('+c.code+')':'')+(c.result==='candidate'&&c.confidence!=null?'('+c.confidence+')':''); }).join(', ');
+}
+function pip_buildSummary(d){
+  const today=new Date(); const ds=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  const L=['[공개정보(PIP) 조회 '+ds+' — 공개자료 기준, 출처·기준일은 PIP 원장]'];
+  if(d.kind==='corp'){
+    const e=d.entity||{};
+    L.push('법인: '+(e.name||'(이름 없음)')+(e.bizno?' / 사업자번호 '+String(e.bizno).replace(/^(\d{3})(\d{2})(\d{5})$/,'$1-$2-$3'):'')+(e.crno?' / 법인번호 '+String(e.crno).replace(/^(\d{6})(\d{7})$/,'$1-$2'):''));
+    Object.keys(PIP_LABEL).forEach(k=>{
+      if(k==='c.name_ko'||k==='c.bizr_no'||k==='c.jurir_no') return;
+      const f=(d.facts||[]).find(x=>x.key===k); if(!f) return;
+      const v=pip_fmt(f.value); if(!v) return;
+      const q=[f.as_of?'기준 '+f.as_of:'', f.qualifier||''].filter(Boolean).join(', ');
+      L.push('- '+PIP_LABEL[k]+': '+pip_cut(v,120)+(q?' ('+q+')':''));
+    });
+    const ck=d.checks||{};
+    const all=[].concat(ck.sanction||[], ck.public_lists||[]);
+    const hits=all.filter(c=>c.result==='hit');
+    if(hits.length) L.push('⚠ 적중: '+hits.map(c=>c.list).join(', '));
+    const s1=pip_checkLine(ck.sanction), s2=pip_checkLine(ck.public_lists);
+    if(s1) L.push('- 제재 대조: '+s1);
+    if(s2) L.push('- 공개 명단 대조: '+s2);
+    const na=(d.coverage||[]).filter(c=>c.status==='unavailable');
+    if(na.length) L.push('- 조회 못 한 출처 '+na.length+'곳(없음 아님): '+na.map(c=>c.source+(c.code?'('+c.code+')':'')).join(', '));
+  } else if(d.kind==='person'){
+    L.push('사람: '+(d.name||''));
+    (d.appearances||[]).slice(0,10).forEach(a=>L.push('- '+(a.company||'')+' '+(a.role||'')+(a.as_of?' (기준 '+a.as_of+')':'')));
+    if(!(d.appearances||[]).length) L.push('- PIP 원장에 등장 기록 없음');
+    const s=pip_checkLine(d.sanction); if(s) L.push('- 제재 대조: '+s);
+    const p=(d.pep||[]); if(p.length) L.push('- 선출직: '+p.map(g=>(g.items||[]).map(i=>(i.election||'')+' '+(i.result||'')).join('; ')).join(' / '));
+    if(d.note) L.push('※ '+d.note);
+  }
+  return L.join('\n');
+}
+function pip_tbl(head, rows){
+  const t=pip_$('pip_resTbl'); t.querySelector('thead').innerHTML='<tr>'+head.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr>';
+  const tb=t.querySelector('tbody'); tb.innerHTML='';
+  rows.forEach(r=>{ const tr=document.createElement('tr'); r.forEach(c=>{ const td=document.createElement('td'); if(c instanceof Node) td.appendChild(c); else td.textContent=c==null?'':String(c); tr.appendChild(td); }); tb.appendChild(tr); });
+}
+function pip_tag(c){ const s=document.createElement('span'); s.textContent=(PIP_RES[c.result]||c.result||'?')+(c.result==='unavailable'&&c.code?' ('+c.code+')':''); if(c.result==='hit') s.className='pip-hit'; if(c.result==='unavailable') s.className='pip-na'; return s; }
+function pip_render(d){
+  pip_last=d; const card=pip_$('pip_resCard'); card.style.display='';
+  const box=pip_$('pip_sumBox'); const link=pip_$('pip_profileLink');
+  if(d.profile_url && /^https:\/\//.test(d.profile_url)){ link.href=d.profile_url; link.style.display=''; } else link.style.display='none';
+  if(d.kind==='candidates'){
+    pip_$('pip_resWhat').textContent='상호 후보 '+(d.candidates||[]).length+'곳 — 하나를 고르세요';
+    pip_tbl(['상호','사업자번호','상태','확인',''], (d.candidates||[]).map(c=>{ const b=document.createElement('button'); b.className='btn-sm'; b.textContent='이 회사로 조회'; b.dataset.q=c.bizno||c.crno||''; b.onclick=function(){ pip_$('pip_q').value=this.dataset.q; pip_lookup(); }; return [c.name, c.bizno, c.status||'', c.cross_checked?'번호 대조됨':(c.via||''), b]; }));
+    box.style.display='none'; pip_summary=''; return;
+  }
+  if(d.kind==='corp'){
+    pip_$('pip_resWhat').textContent=(d.entity&&d.entity.name)||'';
+    const rows=(d.facts||[]).map(f=>[PIP_LABEL[f.key]||f.key, pip_cut(pip_fmt(f.value),200), f.source||'', f.as_of||'']);
+    const ck=d.checks||{}; [].concat(ck.sanction||[], ck.public_lists||[]).forEach(c=>rows.push(['대조: '+c.list, pip_tag(c), '', '']));
+    (d.coverage||[]).filter(c=>c.status==='unavailable').forEach(c=>rows.push(['출처: '+c.source, pip_tag({result:'unavailable',code:c.code}), '', '']));
+    pip_tbl(['항목','값','출처','기준일'], rows);
+  } else if(d.kind==='person'){
+    pip_$('pip_resWhat').textContent=d.name||'';
+    const rows=(d.appearances||[]).map(a=>[a.company||'', a.role||'', a.source||'', a.as_of||'']);
+    (d.sanction||[]).forEach(c=>rows.push(['제재: '+c.list, pip_tag(c), '', '']));
+    pip_tbl(['회사·명단','역할·결과','출처','기준일'], rows);
+  } else {
+    pip_$('pip_resWhat').textContent='알 수 없는 응답 형식'; pip_tbl(['내용'], [[pip_cut(JSON.stringify(d),300)]]);
+    box.style.display='none'; pip_summary=''; return;
+  }
+  pip_summary=pip_buildSummary(d);
+  pip_$('pip_sumText').textContent=pip_summary; box.style.display='block';
+}
+async function pip_lookup(){
+  const q=(pip_$('pip_q').value||'').trim();
+  if(!q){ pip_setStatus('조회어를 넣으세요.'); return; }
+  if(q.length>60){ pip_setStatus('조회어는 60자 이내입니다.'); return; }
+  const k=pip_getKey(); if(!k){ pip_setStatus('먼저 연결 암호를 저장하세요.'); return; }
+  const btn=pip_$('pip_goBtn'); btn.disabled=true;
+  pip_setStatus('조회 중… (최대 45초 — 이 사이 분석을 따로 진행해도 됩니다)');
+  const kind = q.charAt(0)==='@' ? 'person' : 'auto';
+  const r = await pip_call('/pip', {method:'POST', headers:{'Content-Type':'application/json','X-STR-Key':k}, body:JSON.stringify({q:q, kind:kind})});
+  btn.disabled=false;
+  if(!r.ok || !r.j || r.j.ok===false){ pip_setStatus(pip_errMsg(r.status, r.j)); return; }
+  pip_render(r.j);
+  pip_setStatus(r.j.kind==='candidates' ? '상호 후보가 여럿입니다 — 표에서 하나를 고르세요.' : '조회 완료. 요약을 확인하고 필요하면 사례 내용란에 삽입하세요.');
+}
+function pip_copySummary(){
+  if(!pip_summary){ alert('복사할 요약이 없습니다.'); return; }
+  navigator.clipboard.writeText(pip_summary).then(()=>pip_setStatus('요약이 복사되었습니다.'), ()=>alert('복사 실패 — 요약을 드래그해 직접 복사하세요.'));
+}
+function pip_namesToAdd(d){
+  const out=[];
+  if(!d) return out;
+  if(d.kind==='corp'){ if(d.entity&&d.entity.name) out.push(String(d.entity.name)); (d.facts||[]).filter(f=>f.key==='c.ceo_name').forEach(f=>{ pip_fmt(f.value).split(/\s*,\s*/).forEach(n=>{ if(n) out.push(n); }); }); }
+  if(d.kind==='person' && d.name) out.push(String(d.name).replace(/^@/,''));
+  return out.map(s=>s.trim()).filter(s=>s.length>=2);
+}
+function pip_insertToSrc(){
+  const ta=pip_$('src'); if(!ta){ alert('사례 내용란을 찾을 수 없습니다.'); return; }
+  if(!pip_summary){ alert('삽입할 요약이 없습니다. 먼저 조회하세요.'); return; }
+  const cur=ta.value.replace(/\s+$/,'');
+  ta.value=(cur? cur+'\n\n' : '')+pip_summary;
+  ta.dispatchEvent(new Event('input',{bubbles:true}));
+  let added=0;
+  if(pip_$('pip_addNames') && pip_$('pip_addNames').checked){
+    const ni=pip_$('names'); const have=ni.value.split(',').map(s=>s.trim()).filter(Boolean);
+    pip_namesToAdd(pip_last).forEach(n=>{ if(have.indexOf(n)<0){ have.push(n); added++; } });
+    if(added){ ni.value=have.join(', '); ni.dispatchEvent(new Event('input',{bubbles:true})); }
+  }
+  pip_setStatus('사례 내용란 말미에 요약을 삽입했습니다'+(added?' · 가릴 이름 '+added+'개 추가':'')+'. 점수 반영 여부는 담당자가 판단합니다.');
+}
+
 rt_fillSido();
 rt_keyStatus();
+pip_keyStatus();
 </script>
 <!-- ===== 계측 모듈 (2026-08-18 신설, A안 2+3 고정 오버헤드 실측용) =====
      Worker 왕복 시각·입력자수·응답자수를 자동 기록. 앱 동작에는 관여하지 않음.

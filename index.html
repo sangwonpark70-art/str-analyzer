@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.21</title>
+<title>STR 사례 분석기 v3.5.22</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -258,7 +258,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.21</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.22</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -686,7 +686,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.21 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.22 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -698,6 +698,7 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.22(2026-11-08): PIP v1.7.1 응답 반영 — 최대주주·임원 여러 줄(본인 행 판정) · 안 본 명단의 지난 결과(last) 별도 표시 · code_lists 한글.
 // v3.5.21(2026-11-07): 공개정보(PIP) 조회 패널 — 백엔드 /pip(연결 암호) 중계, 요약을 사례 내용란에 삽입(가림 처리 그대로 적용). 통합지침 §5-3.
 // v3.5.20(2026-11-04): 비식별 한계 2건 — ① 한 칸 공백 표 인식(머리글+칸 수 같음+숫자·날짜 칸 조건) ② 영문 관계어·역할어 정지어(과잉 가림 해소).
 // v3.5.19(2026-11-03): ③ 사진 가림 박스 — 외부 AI 인식일 때만, 선택. 사진 위를 끌어 검은 박스로 가린 사본만 전송(원본 폐기).
@@ -2956,7 +2957,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.21',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.22',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))
@@ -3652,9 +3653,28 @@ function pip_fmt(v){
   return String(v);
 }
 function pip_cut(s,n){ s=String(s); return s.length>n ? s.slice(0,n)+'…' : s; }
+// v3.5.22 코드표(code_lists) — 객체 {ACTIVE:'계속사업자'} · 배열 [{code,label}] 둘 다
+function pip_code(d,key,v){
+  const cl=d&&d.code_lists&&d.code_lists[key]; if(!cl||v==null) return v;
+  if(Array.isArray(cl)){ const h=cl.find(x=>x&&String(x.code)===String(v)); return h?(h.label||h.name||v):v; }
+  return (cl[v]!=null)?cl[v]:v;
+}
+// v3.5.22 같은 항목키의 값을 모두 펼친다(여러 fact 줄 · 배열 값 둘 다)
+function pip_rows(d,key){ const r=[]; (d.facts||[]).filter(f=>f.key===key).forEach(f=>{ (Array.isArray(f.value)?f.value:[f.value]).forEach(v=>r.push({v:v,f:f})); }); return r; }
+function pip_relOf(v){ return (v&&typeof v==='object')?String(v.relation||v.rel||v.role||''):''; }
+function pip_ratioOf(v){ if(!v||typeof v!=='object') return null; const x=(v.ratio!=null?v.ratio:(v.share_ratio!=null?v.share_ratio:v.pct)); const n=parseFloat(x); return isFinite(n)?n:null; }
+function pip_nameOf(v){ return (v&&typeof v==='object')?String(v.name||v.holder||v.nm||''):String(v==null?'':v); }
+function pip_holderLine(rows){
+  if(!rows.length) return '';
+  const own=rows.find(r=>/본인/.test(pip_relOf(r.v)));
+  const others=rows.length-(own?1:0);
+  if(own){ const q=pip_ratioOf(own.v); return pip_nameOf(own.v)+'(본인'+(q!=null?' '+q+'%':'')+')'+(others?' 외 특수관계인 '+others+'명':''); }
+  return '본인 행 없음(확인 필요) — '+rows.slice(0,3).map(r=>pip_nameOf(r.v)+(pip_relOf(r.v)?'('+pip_relOf(r.v)+')':'')).join(', ')+(rows.length>3?' 외 '+(rows.length-3)+'명':'');
+}
+function pip_lastTxt(c){ const l=c&&c.last; if(!l) return ''; return ' · 지난 결과 '+(PIP_RES[l.result]||l.result||'?')+(l.at?' '+String(l.at).slice(0,10):''); }
 function pip_checkLine(arr){
   if(!Array.isArray(arr) || !arr.length) return '';
-  return arr.map(c=>{ const r=PIP_RES[c.result]||c.result||'?'; return c.list+' '+r+(c.result==='unavailable'&&c.code?'('+c.code+')':'')+(c.result==='candidate'&&c.confidence!=null?'('+c.confidence+')':''); }).join(', ');
+  return arr.map(c=>{ const r=PIP_RES[c.result]||c.result||'?'; return c.list+' '+r+(c.result==='unavailable'&&c.code?'('+c.code+')':'')+(c.result==='candidate'&&c.confidence!=null?'('+c.confidence+')':'')+(c.result==='unavailable'?pip_lastTxt(c):''); }).join(', ');
 }
 function pip_buildSummary(d){
   const today=new Date(); const ds=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
@@ -3665,7 +3685,8 @@ function pip_buildSummary(d){
     Object.keys(PIP_LABEL).forEach(k=>{
       if(k==='c.name_ko'||k==='c.bizr_no'||k==='c.jurir_no') return;
       const f=(d.facts||[]).find(x=>x.key===k); if(!f) return;
-      const v=pip_fmt(f.value); if(!v) return;
+      if(k==='c.major_shareholder'){ const hl=pip_holderLine(pip_rows(d,k)); if(hl) L.push('- 최대주주: '+hl+(f.as_of?' (기준 '+f.as_of+')':'')); return; }
+      const v=pip_fmt(pip_code(d,k,f.value)); if(!v) return;
       const q=[f.as_of?'기준 '+f.as_of:'', f.qualifier||''].filter(Boolean).join(', ');
       L.push('- '+PIP_LABEL[k]+': '+pip_cut(v,120)+(q?' ('+q+')':''));
     });
@@ -3676,8 +3697,8 @@ function pip_buildSummary(d){
     const s1=pip_checkLine(ck.sanction), s2=pip_checkLine(ck.public_lists);
     if(s1) L.push('- 제재 대조: '+s1);
     if(s2) L.push('- 공개 명단 대조: '+s2);
-    const na=(d.coverage||[]).filter(c=>c.status==='unavailable');
-    if(na.length) L.push('- 조회 못 한 출처 '+na.length+'곳(없음 아님): '+na.map(c=>c.source+(c.code?'('+c.code+')':'')).join(', '));
+    const na=(d.coverage||[]).filter(c=>c.status==='unavailable'||c.skipped===true||c.this_call===false);
+    if(na.length) L.push('- 이번에 조회 못 한 출처 '+na.length+'곳(없음 아님): '+na.map(c=>c.source+(c.code?'('+c.code+')':(c.skipped||c.this_call===false?'(건너뜀)':''))).join(', '));
   } else if(d.kind==='person'){
     L.push('사람: '+(d.name||''));
     (d.appearances||[]).slice(0,10).forEach(a=>L.push('- '+(a.company||'')+' '+(a.role||'')+(a.as_of?' (기준 '+a.as_of+')':'')));
@@ -3693,7 +3714,7 @@ function pip_tbl(head, rows){
   const tb=t.querySelector('tbody'); tb.innerHTML='';
   rows.forEach(r=>{ const tr=document.createElement('tr'); r.forEach(c=>{ const td=document.createElement('td'); if(c instanceof Node) td.appendChild(c); else td.textContent=c==null?'':String(c); tr.appendChild(td); }); tb.appendChild(tr); });
 }
-function pip_tag(c){ const s=document.createElement('span'); s.textContent=(PIP_RES[c.result]||c.result||'?')+(c.result==='unavailable'&&c.code?' ('+c.code+')':''); if(c.result==='hit') s.className='pip-hit'; if(c.result==='unavailable') s.className='pip-na'; return s; }
+function pip_tag(c){ const s=document.createElement('span'); s.textContent=(PIP_RES[c.result]||c.result||'?')+(c.result==='unavailable'&&c.code?' ('+c.code+')':'')+(c.result==='unavailable'?pip_lastTxt(c):''); if(c.result==='hit') s.className='pip-hit'; if(c.result==='unavailable') s.className='pip-na'; return s; }
 function pip_render(d){
   pip_last=d; const card=pip_$('pip_resCard'); card.style.display='';
   const box=pip_$('pip_sumBox'); const link=pip_$('pip_profileLink');
@@ -3705,9 +3726,9 @@ function pip_render(d){
   }
   if(d.kind==='corp'){
     pip_$('pip_resWhat').textContent=(d.entity&&d.entity.name)||'';
-    const rows=(d.facts||[]).map(f=>[PIP_LABEL[f.key]||f.key, pip_cut(pip_fmt(f.value),200), f.source||'', f.as_of||'']);
+    const rows=[]; (d.facts||[]).forEach(f=>{ if(Array.isArray(f.value)&&f.value.length>1&&typeof f.value[0]==='object'){ f.value.forEach((v,i)=>rows.push([(PIP_LABEL[f.key]||f.key)+' '+(i+1), pip_cut(pip_nameOf(v)+(pip_relOf(v)?' ('+pip_relOf(v)+')':'')+(pip_ratioOf(v)!=null?' '+pip_ratioOf(v)+'%':''),200), f.source||'', f.as_of||''])); } else rows.push([PIP_LABEL[f.key]||f.key, pip_cut(pip_fmt(pip_code(d,f.key,f.value)),200), f.source||'', f.as_of||'']); });
     const ck=d.checks||{}; [].concat(ck.sanction||[], ck.public_lists||[]).forEach(c=>rows.push(['대조: '+c.list, pip_tag(c), '', '']));
-    (d.coverage||[]).filter(c=>c.status==='unavailable').forEach(c=>rows.push(['출처: '+c.source, pip_tag({result:'unavailable',code:c.code}), '', '']));
+    (d.coverage||[]).filter(c=>c.status==='unavailable'||c.skipped===true||c.this_call===false).forEach(c=>rows.push(['출처: '+c.source, pip_tag({result:'unavailable',code:c.code||((c.skipped||c.this_call===false)?'건너뜀':'')}), '', '']));
     pip_tbl(['항목','값','출처','기준일'], rows);
   } else if(d.kind==='person'){
     pip_$('pip_resWhat').textContent=d.name||'';

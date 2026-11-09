@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.23</title>
+<title>STR 사례 분석기 v3.5.24</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -258,7 +258,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.23</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.24</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -492,7 +492,7 @@
               <button class="btn-sm" onclick="pip_insertToSrc()">↳ 사례 내용란에 삽입</button>
               <a class="btn-sm" id="pip_profileLink" target="_blank" rel="noopener" style="display:none;text-decoration:none">PIP 화면 열기 ↗</a>
             </div>
-            <label style="display:block;margin-top:8px;font-size:12px"><input type="checkbox" id="pip_addNames" checked> 삽입할 때 상호·대표자(사람) 이름을 「가릴 이름」에 함께 추가</label>
+            <label style="display:flex;align-items:center;gap:7px;margin-top:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="pip_addNames" checked style="width:auto;margin:0;padding:0;flex:none"> 삽입할 때 상호·대표자(사람) 이름을 「가릴 이름」에 함께 추가</label>
             <div class="rt-hint">삽입한 요약은 사례 본문과 함께 기존 가림 처리를 거쳐 외부 AI로 갑니다(통합지침 §5-3). 「조회 못 함」은 「없음」이 아닙니다. 점수 반영은 담당자 판단입니다.</div>
           </div>
         </div>
@@ -687,7 +687,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.23 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.24 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -699,6 +699,7 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.24(2026-11-09): PIP 표 같은 값 합치기 · 빠른 조회의 NOT_RUN·건너뜀을 「미조회(빠른 조회)」로 · 항목 이름 한글 · 체크박스 배치.
 // v3.5.23(2026-11-09): PIP 조회 2단 — 「조회」 빠른 조회(basic) · 「전체 조회」(full, 최대 90초) · 빠른 조회에서 안 본 명단 「미조회(빠른 조회)」.
 // v3.5.22(2026-11-08): PIP v1.7.1 응답 반영 — 최대주주·임원 여러 줄(본인 행 판정) · 안 본 명단의 지난 결과(last) 별도 표시 · code_lists 한글.
 // v3.5.21(2026-11-07): 공개정보(PIP) 조회 패널 — 백엔드 /pip(연결 암호) 중계, 요약을 사례 내용란에 삽입(가림 처리 그대로 적용). 통합지침 §5-3.
@@ -2959,7 +2960,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.23',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.24',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))
@@ -3609,6 +3610,10 @@ const PIP_LABEL = {
   'c.tax_delinquency':'고액 체납','c.wage_defaulter':'임금 체불','c.debarment':'부정당 제재','c.sanction_hit':'제재 적중'
 };
 const PIP_RES = {none:'없음', hit:'적중', candidate:'후보(상호만 같음)', unavailable:'조회 못 함'};
+const PIP_LABEL_TBL = {'c.name_ko':'상호','c.name_en':'영문 상호','c.bizr_no':'사업자번호','c.jurir_no':'법인번호','c.dart_corp_code':'DART 고유번호','c.stock_code':'종목코드','c.industry_code':'업종 코드','c.officer':'임원','c.subsidiary':'자회사','c.affiliate':'계열사','c.social_insurance':'4대보험','c.pension':'국민연금','c.medical':'의료기관','c.franchise_hq':'가맹본부','c.welfare_facility':'복지시설','c.ltc_institution':'장기요양기관','c.procurement_reg_date':'조달 등록일','c.homepage':'홈페이지','c.phone':'전화'};
+function pip_lbl(k){ return PIP_LABEL[k]||PIP_LABEL_TBL[k]||k; }
+// v3.5.24 빠른 조회일 때 안 본 것 판정 — DEPTH_BASIC · NOT_RUN · 코드 없는 건너뜀(전체 조회에서는 NOT_RUN을 그대로 「조회 못 함」)
+function pip_isBasicSkip(c){ if(!c) return false; if(c.code==='DEPTH_BASIC') return true; return pip_depth==='basic' && (c.code==='NOT_RUN' || ((c.skipped===true||c.this_call===false) && !c.code)); }
 function pip_$(id){ return document.getElementById(id); }
 function pip_getKey(){ try{ return localStorage.getItem(PIP_KEY_STORE)||''; }catch(e){ return ''; } }
 function pip_keyStatus(){ const b=pip_$('pip_keyBadge'); if(!b) return; const k=pip_getKey(); b.textContent=k?'저장됨':'미저장'; b.className='rt-badge '+(k?'rt-b-ok':'rt-b-no'); }
@@ -3676,7 +3681,7 @@ function pip_holderLine(rows){
 function pip_lastTxt(c){ const l=c&&c.last; if(!l) return ''; return ' · 지난 결과 '+(PIP_RES[l.result]||l.result||'?')+(l.at?' '+String(l.at).slice(0,10):''); }
 function pip_checkLine(arr){
   if(!Array.isArray(arr) || !arr.length) return '';
-  return arr.map(c=>{ const r=PIP_RES[c.result]||c.result||'?'; if(c.result==='unavailable'&&c.code==='DEPTH_BASIC') return c.list+' 미조회(빠른 조회)'+pip_lastTxt(c); return c.list+' '+r+(c.result==='unavailable'&&c.code?'('+c.code+')':'')+(c.result==='candidate'&&c.confidence!=null?'('+c.confidence+')':'')+(c.result==='unavailable'?pip_lastTxt(c):''); }).join(', ');
+  return arr.map(c=>{ const r=PIP_RES[c.result]||c.result||'?'; if(c.result==='unavailable'&&pip_isBasicSkip(c)) return c.list+' 미조회(빠른 조회)'+pip_lastTxt(c); return c.list+' '+r+(c.result==='unavailable'&&c.code?'('+c.code+')':'')+(c.result==='candidate'&&c.confidence!=null?'('+c.confidence+')':'')+(c.result==='unavailable'?pip_lastTxt(c):''); }).join(', ');
 }
 function pip_buildSummary(d){
   const today=new Date(); const ds=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
@@ -3700,7 +3705,7 @@ function pip_buildSummary(d){
     if(s1) L.push('- 제재 대조: '+s1);
     if(s2) L.push('- 공개 명단 대조: '+s2);
     const na=(d.coverage||[]).filter(c=>c.status==='unavailable'||c.skipped===true||c.this_call===false);
-    const naB=na.filter(c=>c.code==='DEPTH_BASIC'), naX=na.filter(c=>c.code!=='DEPTH_BASIC');
+    const naB=na.filter(c=>pip_isBasicSkip(c)), naX=na.filter(c=>!pip_isBasicSkip(c));
     if(naB.length) L.push('- 빠른 조회라 안 본 출처 '+naB.length+'곳(없음 아님 — 「전체 조회」로 확인): '+naB.map(c=>c.source).join(', '));
     if(naX.length) L.push('- 이번에 조회 못 한 출처 '+naX.length+'곳(없음 아님): '+naX.map(c=>c.source+(c.code?'('+c.code+')':(c.skipped||c.this_call===false?'(건너뜀)':''))).join(', '));
   } else if(d.kind==='person'){
@@ -3718,7 +3723,7 @@ function pip_tbl(head, rows){
   const tb=t.querySelector('tbody'); tb.innerHTML='';
   rows.forEach(r=>{ const tr=document.createElement('tr'); r.forEach(c=>{ const td=document.createElement('td'); if(c instanceof Node) td.appendChild(c); else td.textContent=c==null?'':String(c); tr.appendChild(td); }); tb.appendChild(tr); });
 }
-function pip_tag(c){ const s=document.createElement('span'); if(c.result==='unavailable'&&c.code==='DEPTH_BASIC'){ s.className='pip-na'; s.textContent='미조회(빠른 조회)'+pip_lastTxt(c); return s; } s.textContent=(PIP_RES[c.result]||c.result||'?')+(c.result==='unavailable'&&c.code?' ('+c.code+')':'')+(c.result==='unavailable'?pip_lastTxt(c):''); if(c.result==='hit') s.className='pip-hit'; if(c.result==='unavailable') s.className='pip-na'; return s; }
+function pip_tag(c){ const s=document.createElement('span'); if(c.result==='unavailable'&&pip_isBasicSkip(c)){ s.className='pip-na'; s.textContent='미조회(빠른 조회)'+pip_lastTxt(c); return s; } s.textContent=(PIP_RES[c.result]||c.result||'?')+(c.result==='unavailable'&&c.code?' ('+c.code+')':'')+(c.result==='unavailable'?pip_lastTxt(c):''); if(c.result==='hit') s.className='pip-hit'; if(c.result==='unavailable') s.className='pip-na'; return s; }
 function pip_render(d){
   pip_last=d; const card=pip_$('pip_resCard'); card.style.display='';
   const box=pip_$('pip_sumBox'); const link=pip_$('pip_profileLink');
@@ -3730,9 +3735,14 @@ function pip_render(d){
   }
   if(d.kind==='corp'){
     pip_$('pip_resWhat').textContent=(d.entity&&d.entity.name)||'';
-    const rows=[]; (d.facts||[]).forEach(f=>{ if(Array.isArray(f.value)&&f.value.length>1&&typeof f.value[0]==='object'){ f.value.forEach((v,i)=>rows.push([(PIP_LABEL[f.key]||f.key)+' '+(i+1), pip_cut(pip_nameOf(v)+(pip_relOf(v)?' ('+pip_relOf(v)+')':'')+(pip_ratioOf(v)!=null?' '+pip_ratioOf(v)+'%':''),200), f.source||'', f.as_of||''])); } else rows.push([PIP_LABEL[f.key]||f.key, pip_cut(pip_fmt(pip_code(d,f.key,f.value)),200), f.source||'', f.as_of||'']); });
+    const rows=[]; const grp={}, order=[];
+    (d.facts||[]).forEach(f=>{ if(Array.isArray(f.value)&&f.value.length>1&&typeof f.value[0]==='object'){ f.value.forEach((v,i)=>rows.push([pip_lbl(f.key)+' '+(i+1), pip_cut(pip_nameOf(v)+(pip_relOf(v)?' ('+pip_relOf(v)+')':'')+(pip_ratioOf(v)!=null?' '+pip_ratioOf(v)+'%':''),200), f.source||'', f.as_of||''])); return; }
+      const val=pip_fmt(pip_code(d,f.key,f.value)); const norm=val.replace(/\s+/g,'').replace(/,/g,''); const gk=f.key+'\u0001'+norm;
+      if(!grp[gk]){ grp[gk]={k:f.key,v:val,src:[],asof:''}; order.push(gk); }
+      const g=grp[gk]; if(f.source && g.src.indexOf(f.source)<0) g.src.push(f.source); if(f.as_of && f.as_of>g.asof) g.asof=f.as_of; });
+    order.forEach(gk=>{ const g=grp[gk]; rows.push([pip_lbl(g.k), pip_cut(g.v,200), g.src.join(', '), g.asof]); });
     const ck=d.checks||{}; [].concat(ck.sanction||[], ck.public_lists||[]).forEach(c=>rows.push(['대조: '+c.list, pip_tag(c), '', '']));
-    (d.coverage||[]).filter(c=>c.status==='unavailable'||c.skipped===true||c.this_call===false).forEach(c=>rows.push(['출처: '+c.source, pip_tag({result:'unavailable',code:c.code||((c.skipped||c.this_call===false)?'건너뜀':'')}), '', '']));
+    (d.coverage||[]).filter(c=>c.status==='unavailable'||c.skipped===true||c.this_call===false).forEach(c=>rows.push(['출처: '+c.source, pip_tag({result:'unavailable',code:c.code||((c.skipped||c.this_call===false)?(pip_depth==='basic'?'':'건너뜀'):''),skipped:c.skipped,this_call:c.this_call}), '', '']));
     pip_tbl(['항목','값','출처','기준일'], rows);
   } else if(d.kind==='person'){
     pip_$('pip_resWhat').textContent=d.name||'';

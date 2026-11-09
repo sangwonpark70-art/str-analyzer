@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.22</title>
+<title>STR 사례 분석기 v3.5.23</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -258,7 +258,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.22</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.23</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -476,10 +476,11 @@
         <div class="rt-in">
           <label class="l" style="margin-top:0">조회어 <span class="opt">사업자번호·법인번호·상호 · 사람은 @이름</span></label>
           <div class="rt-keyrow">
-            <input id="pip_q" placeholder="예: 123-45-67890 · 주식회사가나 · @홍길동" maxlength="60" onkeydown="if(event.key==='Enter'){event.preventDefault();pip_lookup();}">
-            <button class="btn-sm" id="pip_goBtn" onclick="pip_lookup()" style="padding:7px 16px">조회</button>
+            <input id="pip_q" placeholder="예: 123-45-67890 · 주식회사가나 · @홍길동" maxlength="60" onkeydown="if(event.key==='Enter'){event.preventDefault();pip_lookup('basic');}">
+            <button class="btn-sm" id="pip_goBtn" onclick="pip_lookup('basic')" style="padding:7px 16px">조회</button>
+            <button class="btn-sm" id="pip_fullBtn" onclick="pip_lookup('full')" title="명단·인허가까지 — 최대 90초">전체 조회</button>
           </div>
-          <div id="pip_status">대기 중 — 연결 암호 저장 후 조회하세요. 조회는 최대 45초 걸릴 수 있으며, 분석은 기다리지 않고 따로 진행해도 됩니다.</div>
+          <div id="pip_status">대기 중 — 연결 암호 저장 후 조회하세요. 「조회」는 빠른 조회(보통 10~20초), 명단·인허가까지는 「전체 조회」(최대 90초). 분석은 기다리지 않고 따로 진행해도 됩니다.</div>
         </div>
         <div class="rt-in" id="pip_resCard" style="display:none">
           <label class="l" style="margin-top:0">조회 결과 <span id="pip_resWhat" class="opt"></span></label>
@@ -686,7 +687,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.22 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.23 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -698,6 +699,7 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.23(2026-11-09): PIP 조회 2단 — 「조회」 빠른 조회(basic) · 「전체 조회」(full, 최대 90초) · 빠른 조회에서 안 본 명단 「미조회(빠른 조회)」.
 // v3.5.22(2026-11-08): PIP v1.7.1 응답 반영 — 최대주주·임원 여러 줄(본인 행 판정) · 안 본 명단의 지난 결과(last) 별도 표시 · code_lists 한글.
 // v3.5.21(2026-11-07): 공개정보(PIP) 조회 패널 — 백엔드 /pip(연결 암호) 중계, 요약을 사례 내용란에 삽입(가림 처리 그대로 적용). 통합지침 §5-3.
 // v3.5.20(2026-11-04): 비식별 한계 2건 — ① 한 칸 공백 표 인식(머리글+칸 수 같음+숫자·날짜 칸 조건) ② 영문 관계어·역할어 정지어(과잉 가림 해소).
@@ -2957,7 +2959,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.22',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.23',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))
@@ -3623,13 +3625,13 @@ function pip_errMsg(status, j){
   if(c==='PIP_TOKEN_UNSET') return '서버에 PIP 토큰이 설정되지 않았습니다(Deno 환경변수 PIP_LINK_TOKENS).';
   if(c==='LINK_OFF' || status===503) return 'PIP 연결 꺼짐 — PIP 홈 화면에서 「연결 켜기」를 누르세요.';
   if(c==='RATE' || status===429) return 'PIP 시간당 조회 한도에 걸렸습니다. 잠시 뒤 다시 하세요.';
-  if(c==='TIMEOUT' || status===504) return 'PIP 응답 시간 초과(45초). 다시 조회하거나 PIP 화면에서 직접 보세요.';
+  if(c==='TIMEOUT' || status===504) return 'PIP 응답 시간 초과. 「조회」(빠른 조회)로 먼저 보거나, 잠시 뒤 다시 하거나 PIP 화면에서 직접 보세요.';
   if(c==='REQ_Q' || c==='REQ_FIELD' || status===400) return '조회어 형식을 확인하세요(1~60자).';
   return 'PIP 연결 실패' + (status? ' ('+status+')':'') + '.';
 }
 async function pip_call(path, opt){
   const ctl = (typeof AbortController!=='undefined') ? new AbortController() : null;
-  const t = ctl ? setTimeout(()=>ctl.abort(), 50000) : null;
+  const t = ctl ? setTimeout(()=>ctl.abort(), 95000) : null;
   try{
     const res = await fetch(STR_WORKER_URL + path, Object.assign({}, opt, ctl?{signal:ctl.signal}:{}));
     let j=null; try{ j = await res.json(); }catch(e){}
@@ -3674,11 +3676,11 @@ function pip_holderLine(rows){
 function pip_lastTxt(c){ const l=c&&c.last; if(!l) return ''; return ' · 지난 결과 '+(PIP_RES[l.result]||l.result||'?')+(l.at?' '+String(l.at).slice(0,10):''); }
 function pip_checkLine(arr){
   if(!Array.isArray(arr) || !arr.length) return '';
-  return arr.map(c=>{ const r=PIP_RES[c.result]||c.result||'?'; return c.list+' '+r+(c.result==='unavailable'&&c.code?'('+c.code+')':'')+(c.result==='candidate'&&c.confidence!=null?'('+c.confidence+')':'')+(c.result==='unavailable'?pip_lastTxt(c):''); }).join(', ');
+  return arr.map(c=>{ const r=PIP_RES[c.result]||c.result||'?'; if(c.result==='unavailable'&&c.code==='DEPTH_BASIC') return c.list+' 미조회(빠른 조회)'+pip_lastTxt(c); return c.list+' '+r+(c.result==='unavailable'&&c.code?'('+c.code+')':'')+(c.result==='candidate'&&c.confidence!=null?'('+c.confidence+')':'')+(c.result==='unavailable'?pip_lastTxt(c):''); }).join(', ');
 }
 function pip_buildSummary(d){
   const today=new Date(); const ds=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
-  const L=['[공개정보(PIP) 조회 '+ds+' — 공개자료 기준, 출처·기준일은 PIP 원장]'];
+  const L=['[공개정보(PIP) '+(pip_depth==='full'?'전체 조회':'빠른 조회')+' '+ds+' — 공개자료 기준, 출처·기준일은 PIP 원장]'];
   if(d.kind==='corp'){
     const e=d.entity||{};
     L.push('법인: '+(e.name||'(이름 없음)')+(e.bizno?' / 사업자번호 '+String(e.bizno).replace(/^(\d{3})(\d{2})(\d{5})$/,'$1-$2-$3'):'')+(e.crno?' / 법인번호 '+String(e.crno).replace(/^(\d{6})(\d{7})$/,'$1-$2'):''));
@@ -3698,7 +3700,9 @@ function pip_buildSummary(d){
     if(s1) L.push('- 제재 대조: '+s1);
     if(s2) L.push('- 공개 명단 대조: '+s2);
     const na=(d.coverage||[]).filter(c=>c.status==='unavailable'||c.skipped===true||c.this_call===false);
-    if(na.length) L.push('- 이번에 조회 못 한 출처 '+na.length+'곳(없음 아님): '+na.map(c=>c.source+(c.code?'('+c.code+')':(c.skipped||c.this_call===false?'(건너뜀)':''))).join(', '));
+    const naB=na.filter(c=>c.code==='DEPTH_BASIC'), naX=na.filter(c=>c.code!=='DEPTH_BASIC');
+    if(naB.length) L.push('- 빠른 조회라 안 본 출처 '+naB.length+'곳(없음 아님 — 「전체 조회」로 확인): '+naB.map(c=>c.source).join(', '));
+    if(naX.length) L.push('- 이번에 조회 못 한 출처 '+naX.length+'곳(없음 아님): '+naX.map(c=>c.source+(c.code?'('+c.code+')':(c.skipped||c.this_call===false?'(건너뜀)':''))).join(', '));
   } else if(d.kind==='person'){
     L.push('사람: '+(d.name||''));
     (d.appearances||[]).slice(0,10).forEach(a=>L.push('- '+(a.company||'')+' '+(a.role||'')+(a.as_of?' (기준 '+a.as_of+')':'')));
@@ -3714,14 +3718,14 @@ function pip_tbl(head, rows){
   const tb=t.querySelector('tbody'); tb.innerHTML='';
   rows.forEach(r=>{ const tr=document.createElement('tr'); r.forEach(c=>{ const td=document.createElement('td'); if(c instanceof Node) td.appendChild(c); else td.textContent=c==null?'':String(c); tr.appendChild(td); }); tb.appendChild(tr); });
 }
-function pip_tag(c){ const s=document.createElement('span'); s.textContent=(PIP_RES[c.result]||c.result||'?')+(c.result==='unavailable'&&c.code?' ('+c.code+')':'')+(c.result==='unavailable'?pip_lastTxt(c):''); if(c.result==='hit') s.className='pip-hit'; if(c.result==='unavailable') s.className='pip-na'; return s; }
+function pip_tag(c){ const s=document.createElement('span'); if(c.result==='unavailable'&&c.code==='DEPTH_BASIC'){ s.className='pip-na'; s.textContent='미조회(빠른 조회)'+pip_lastTxt(c); return s; } s.textContent=(PIP_RES[c.result]||c.result||'?')+(c.result==='unavailable'&&c.code?' ('+c.code+')':'')+(c.result==='unavailable'?pip_lastTxt(c):''); if(c.result==='hit') s.className='pip-hit'; if(c.result==='unavailable') s.className='pip-na'; return s; }
 function pip_render(d){
   pip_last=d; const card=pip_$('pip_resCard'); card.style.display='';
   const box=pip_$('pip_sumBox'); const link=pip_$('pip_profileLink');
   if(d.profile_url && /^https:\/\//.test(d.profile_url)){ link.href=d.profile_url; link.style.display=''; } else link.style.display='none';
   if(d.kind==='candidates'){
     pip_$('pip_resWhat').textContent='상호 후보 '+(d.candidates||[]).length+'곳 — 하나를 고르세요';
-    pip_tbl(['상호','사업자번호','상태','확인',''], (d.candidates||[]).map(c=>{ const b=document.createElement('button'); b.className='btn-sm'; b.textContent='이 회사로 조회'; b.dataset.q=c.bizno||c.crno||''; b.onclick=function(){ pip_$('pip_q').value=this.dataset.q; pip_lookup(); }; return [c.name, c.bizno, c.status||'', c.cross_checked?'번호 대조됨':(c.via||''), b]; }));
+    pip_tbl(['상호','사업자번호','상태','확인',''], (d.candidates||[]).map(c=>{ const b=document.createElement('button'); b.className='btn-sm'; b.textContent='이 회사로 조회'; b.dataset.q=c.bizno||c.crno||''; b.onclick=function(){ pip_$('pip_q').value=this.dataset.q; pip_lookup(pip_depth); }; return [c.name, c.bizno, c.status||'', c.cross_checked?'번호 대조됨':(c.via||''), b]; }));
     box.style.display='none'; pip_summary=''; return;
   }
   if(d.kind==='corp'){
@@ -3742,19 +3746,21 @@ function pip_render(d){
   pip_summary=pip_buildSummary(d);
   pip_$('pip_sumText').textContent=pip_summary; box.style.display='block';
 }
-async function pip_lookup(){
+let pip_depth='basic';
+async function pip_lookup(depth){
+  depth = (depth==='full') ? 'full' : 'basic';
   const q=(pip_$('pip_q').value||'').trim();
   if(!q){ pip_setStatus('조회어를 넣으세요.'); return; }
   if(q.length>60){ pip_setStatus('조회어는 60자 이내입니다.'); return; }
   const k=pip_getKey(); if(!k){ pip_setStatus('먼저 연결 암호를 저장하세요.'); return; }
-  const btn=pip_$('pip_goBtn'); btn.disabled=true;
-  pip_setStatus('조회 중… (최대 45초 — 이 사이 분석을 따로 진행해도 됩니다)');
+  const btn=pip_$('pip_goBtn'), btn2=pip_$('pip_fullBtn'); btn.disabled=true; if(btn2) btn2.disabled=true;
+  pip_setStatus(depth==='full' ? '전체 조회 중… (최대 90초 — 이 사이 분석을 따로 진행해도 됩니다)' : '빠른 조회 중… (보통 10~20초)');
   const kind = q.charAt(0)==='@' ? 'person' : 'auto';
-  const r = await pip_call('/pip', {method:'POST', headers:{'Content-Type':'application/json','X-STR-Key':k}, body:JSON.stringify({q:q, kind:kind})});
-  btn.disabled=false;
+  const r = await pip_call('/pip', {method:'POST', headers:{'Content-Type':'application/json','X-STR-Key':k}, body:JSON.stringify({q:q, kind:kind, depth:depth})});
+  btn.disabled=false; if(btn2) btn2.disabled=false;
   if(!r.ok || !r.j || r.j.ok===false){ pip_setStatus(pip_errMsg(r.status, r.j)); return; }
-  pip_render(r.j);
-  pip_setStatus(r.j.kind==='candidates' ? '상호 후보가 여럿입니다 — 표에서 하나를 고르세요.' : '조회 완료. 요약을 확인하고 필요하면 사례 내용란에 삽입하세요.');
+  pip_depth=depth; pip_render(r.j);
+  pip_setStatus(r.j.kind==='candidates' ? '상호 후보가 여럿입니다 — 표에서 하나를 고르세요.' : (depth==='full' ? '전체 조회 완료. 요약을 확인하고 필요하면 사례 내용란에 삽입하세요.' : '빠른 조회 완료. 명단·인허가까지 보려면 「전체 조회」(최대 90초)를 누르세요.'));
 }
 function pip_copySummary(){
   if(!pip_summary){ alert('복사할 요약이 없습니다.'); return; }

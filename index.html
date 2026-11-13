@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.25</title>
+<title>STR 사례 분석기 v3.5.26</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -258,7 +258,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.25</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.26</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -687,7 +687,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.25 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.26 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -699,6 +699,7 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.26(2026-11-13): PIP 후보 0곳 문구 · 번호+조사 조회어 · 표 번호 하이픈 · 같은 항목 여러 값은 최신 기준일 순(요약도 최신).
 // v3.5.25(2026-11-12): PIP 표 주소·대표자 합치기 · 출처·명단 이름 한글 · 대조/출처 중복 제거 · code_text·last_code.
 // v3.5.24(2026-11-09): PIP 표 같은 값 합치기 · 빠른 조회의 NOT_RUN·건너뜀을 「미조회(빠른 조회)」로 · 항목 이름 한글 · 체크박스 배치.
 // v3.5.23(2026-11-09): PIP 조회 2단 — 「조회」 빠른 조회(basic) · 「전체 조회」(full, 최대 90초) · 빠른 조회에서 안 본 명단 「미조회(빠른 조회)」.
@@ -2961,7 +2962,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.25',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.26',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))
@@ -3620,6 +3621,20 @@ function pip_codeTxt(c){ return (c&&(c.code_text||c.code))||''; }
 // v3.5.25 주소 비교용 정규화 — 공백·쉼표 제거, 시·도 이름을 짧은 꼴로
 const PIP_SIDO = [['서울특별시','서울'],['부산광역시','부산'],['대구광역시','대구'],['인천광역시','인천'],['광주광역시','광주'],['대전광역시','대전'],['울산광역시','울산'],['세종특별자치시','세종'],['경기도','경기'],['강원특별자치도','강원'],['강원도','강원'],['충청북도','충북'],['충청남도','충남'],['전북특별자치도','전북'],['전라북도','전북'],['전라남도','전남'],['경상북도','경북'],['경상남도','경남'],['제주특별자치도','제주'],['제주도','제주']];
 function pip_addrNorm(s){ let t=String(s||'').replace(/[\s,]+/g,''); for(const [a,b] of PIP_SIDO){ if(t.indexOf(a)===0){ t=b+t.slice(a.length); break; } } return t; }
+// v3.5.26 표·요약 공용 묶음 — 같은 값·주소 포함·대표자 겹침은 한 묶음, 같은 항목 여러 묶음은 기준일 최신 순
+function pip_numFmt(k,val){ const s=String(val); if(k==='c.bizr_no'&&/^\d{10}$/.test(s)) return s.replace(/^(\d{3})(\d{2})(\d{5})$/,'$1-$2-$3'); if(k==='c.jurir_no'&&/^\d{13}$/.test(s)) return s.replace(/^(\d{6})(\d{7})$/,'$1-$2'); return s; }
+function pip_groups(d){ const gs=[], first={};
+  (d.facts||[]).forEach(f=>{ if(Array.isArray(f.value)&&f.value.length>1&&typeof f.value[0]==='object') return;
+    const val=pip_numFmt(f.key, pip_fmt(pip_code(d,f.key,f.value))); const isA=(f.key==='c.address'), isN=(f.key==='c.ceo_name');
+    const norm=isA?pip_addrNorm(val):val.replace(/\s+/g,'').replace(/[,-]/g,''); const ns=isN?pip_nameSet(val):null;
+    if(first[f.key]==null) first[f.key]=Object.keys(first).length;
+    let g=gs.find(x=>x.k===f.key&&(x.n===norm||(isA&&norm&&x.n&&(x.n.indexOf(norm)>=0||norm.indexOf(x.n)>=0))||(isN&&ns.some(n=>x.names.indexOf(n)>=0))));
+    if(!g){ g={k:f.key,v:val,n:norm,names:ns?ns.slice():[],src:[],asof:'',q:'',i:gs.length}; gs.push(g); }
+    else if(isA){ if(norm.length>g.n.length){ g.n=norm; g.v=val; } }
+    else if(isN){ ns.forEach(n=>{ if(g.names.indexOf(n)<0) g.names.push(n); }); g.v=g.names.join(', '); }
+    if(f.source && g.src.indexOf(f.source)<0) g.src.push(f.source); if(f.as_of && f.as_of>=g.asof){ g.asof=f.as_of; g.q=f.qualifier||g.q; } else if(!g.q && f.qualifier) g.q=f.qualifier; });
+  gs.sort((a,b)=>(first[a.k]-first[b.k]) || (a.asof<b.asof?1:(a.asof>b.asof?-1:a.i-b.i)));
+  return gs; }
 function pip_nameSet(s){ return String(s||'').split(/\s*[,·]\s*/).map(x=>x.trim()).filter(Boolean); }
 // v3.5.24 빠른 조회일 때 안 본 것 판정 — DEPTH_BASIC · NOT_RUN · 코드 없는 건너뜀(전체 조회에서는 NOT_RUN을 그대로 「조회 못 함」)
 function pip_isBasicSkip(c){ if(!c) return false; if(c.code==='DEPTH_BASIC') return true; return pip_depth==='basic' && (c.code==='NOT_RUN' || ((c.skipped===true||c.this_call===false) && !c.code)); }
@@ -3698,12 +3713,13 @@ function pip_buildSummary(d){
   if(d.kind==='corp'){
     const e=d.entity||{};
     L.push('법인: '+(e.name||'(이름 없음)')+(e.bizno?' / 사업자번호 '+String(e.bizno).replace(/^(\d{3})(\d{2})(\d{5})$/,'$1-$2-$3'):'')+(e.crno?' / 법인번호 '+String(e.crno).replace(/^(\d{6})(\d{7})$/,'$1-$2'):''));
+    const GS=pip_groups(d);
     Object.keys(PIP_LABEL).forEach(k=>{
       if(k==='c.name_ko'||k==='c.bizr_no'||k==='c.jurir_no') return;
       const f=(d.facts||[]).find(x=>x.key===k); if(!f) return;
       if(k==='c.major_shareholder'){ const hl=pip_holderLine(pip_rows(d,k)); if(hl) L.push('- 최대주주: '+hl+(f.as_of?' (기준 '+f.as_of+')':'')); return; }
-      const v=pip_fmt(pip_code(d,k,f.value)); if(!v) return;
-      const q=[f.as_of?'기준 '+f.as_of:'', f.qualifier||''].filter(Boolean).join(', ');
+      const g=GS.find(x=>x.k===k); if(!g) return; const v=g.v; if(!v) return;
+      const q=[g.asof?'기준 '+g.asof:'', g.q||''].filter(Boolean).join(', ');
       L.push('- '+PIP_LABEL[k]+': '+pip_cut(v,120)+(q?' ('+q+')':''));
     });
     const ck=d.checks||{};
@@ -3739,22 +3755,15 @@ function pip_render(d){
   const box=pip_$('pip_sumBox'); const link=pip_$('pip_profileLink');
   if(d.profile_url && /^https:\/\//.test(d.profile_url)){ link.href=d.profile_url; link.style.display=''; } else link.style.display='none';
   if(d.kind==='candidates'){
-    pip_$('pip_resWhat').textContent='상호 후보 '+(d.candidates||[]).length+'곳 — 하나를 고르세요';
+    pip_$('pip_resWhat').textContent=(d.candidates||[]).length ? '상호 후보 '+(d.candidates||[]).length+'곳 — 하나를 고르세요' : '찾은 회사 없음';
     pip_tbl(['상호','사업자번호','상태','확인',''], (d.candidates||[]).map(c=>{ const b=document.createElement('button'); b.className='btn-sm'; b.textContent='이 회사로 조회'; b.dataset.q=c.bizno||c.crno||''; b.onclick=function(){ pip_$('pip_q').value=this.dataset.q; pip_lookup(pip_depth); }; return [c.name, c.bizno, c.status||'', c.cross_checked?'번호 대조됨':(c.via||''), b]; }));
     box.style.display='none'; pip_summary=''; return;
   }
   if(d.kind==='corp'){
     pip_$('pip_resWhat').textContent=(d.entity&&d.entity.name)||'';
-    const rows=[]; const grp={}, order=[];
-    (d.facts||[]).forEach(f=>{ if(Array.isArray(f.value)&&f.value.length>1&&typeof f.value[0]==='object'){ f.value.forEach((v,i)=>rows.push([pip_lbl(f.key)+' '+(i+1), pip_cut(pip_nameOf(v)+(pip_relOf(v)?' ('+pip_relOf(v)+')':'')+(pip_ratioOf(v)!=null?' '+pip_ratioOf(v)+'%':''),200), pip_src(f.source), f.as_of||''])); return; }
-      const val=pip_fmt(pip_code(d,f.key,f.value)); const isA=(f.key==='c.address'), isN=(f.key==='c.ceo_name');
-      const norm=isA?pip_addrNorm(val):val.replace(/\s+/g,'').replace(/,/g,''); const ns=isN?pip_nameSet(val):null;
-      let g=order.map(x=>grp[x]).find(x=>x.k===f.key&&(x.n===norm||(isA&&norm&&x.n&&(x.n.indexOf(norm)>=0||norm.indexOf(x.n)>=0))||(isN&&ns.some(n=>x.names.indexOf(n)>=0))));
-      if(!g){ g={k:f.key,v:val,n:norm,names:ns?ns.slice():[],src:[],asof:''}; grp[f.key+'\u0001'+order.length]=g; order.push(f.key+'\u0001'+(order.length)); }
-      else if(isA){ if(norm.length>g.n.length){ g.n=norm; g.v=val; } }
-      else if(isN){ ns.forEach(n=>{ if(g.names.indexOf(n)<0) g.names.push(n); }); g.v=g.names.join(', '); }
-      if(f.source && g.src.indexOf(f.source)<0) g.src.push(f.source); if(f.as_of && f.as_of>g.asof) g.asof=f.as_of; });
-    order.forEach(gk=>{ const g=grp[gk]; rows.push([pip_lbl(g.k), pip_cut(g.v,200), g.src.map(pip_src).join(', '), g.asof]); });
+    const rows=[];
+    (d.facts||[]).forEach(f=>{ if(Array.isArray(f.value)&&f.value.length>1&&typeof f.value[0]==='object'){ f.value.forEach((v,i)=>rows.push([pip_lbl(f.key)+' '+(i+1), pip_cut(pip_nameOf(v)+(pip_relOf(v)?' ('+pip_relOf(v)+')':'')+(pip_ratioOf(v)!=null?' '+pip_ratioOf(v)+'%':''),200), pip_src(f.source), f.as_of||''])); } });
+    pip_groups(d).forEach(g=>rows.push([pip_lbl(g.k), pip_cut(g.v,200), g.src.map(pip_src).join(', '), g.asof]));
     const ck=d.checks||{}; const ckL={}; [].concat(ck.sanction||[], ck.public_lists||[]).forEach(c=>{ if(c&&c.list) ckL[c.list]=1; rows.push(['대조: '+pip_src(c.list), pip_tag(c), '', '']); });
     (d.coverage||[]).filter(c=>(c.status==='unavailable'||c.skipped===true||c.this_call===false)&&!ckL[c.source]).forEach(c=>rows.push(['출처: '+pip_src(c.source), pip_tag({result:'unavailable',code:c.code||((c.skipped||c.this_call===false)?(pip_depth==='basic'?'':'건너뜀'):''),code_text:c.code_text,skipped:c.skipped,this_call:c.this_call,last:c.last,last_code:c.last_code,last_code_text:c.last_code_text}), '', '']));
     pip_tbl(['항목','값','출처','기준일'], rows);
@@ -3773,7 +3782,8 @@ function pip_render(d){
 let pip_depth='basic';
 async function pip_lookup(depth){
   depth = (depth==='full') ? 'full' : 'basic';
-  const q=(pip_$('pip_q').value||'').trim();
+  let q=(pip_$('pip_q').value||'').trim();
+  if(q.charAt(0)!=='@'){ const mm=q.match(/^(\d{3}-?\d{2}-?\d{5}|\d{6}-?\d{7})(?=\D|$)/); if(mm && mm[1]!==q){ q=mm[1]; pip_$('pip_q').value=q; } }
   if(!q){ pip_setStatus('조회어를 넣으세요.'); return; }
   if(q.length>60){ pip_setStatus('조회어는 60자 이내입니다.'); return; }
   const k=pip_getKey(); if(!k){ pip_setStatus('먼저 연결 암호를 저장하세요.'); return; }
@@ -3784,7 +3794,7 @@ async function pip_lookup(depth){
   btn.disabled=false; if(btn2) btn2.disabled=false;
   if(!r.ok || !r.j || r.j.ok===false){ pip_setStatus(pip_errMsg(r.status, r.j)); return; }
   pip_depth=depth; pip_render(r.j);
-  pip_setStatus(r.j.kind==='candidates' ? '상호 후보가 여럿입니다 — 표에서 하나를 고르세요.' : (depth==='full' ? '전체 조회 완료. 요약을 확인하고 필요하면 사례 내용란에 삽입하세요.' : '빠른 조회 완료. 명단·인허가까지 보려면 「전체 조회」(최대 90초)를 누르세요.'));
+  pip_setStatus(r.j.kind==='candidates' ? ((r.j.candidates||[]).length ? '상호 후보가 여럿입니다 — 표에서 하나를 고르세요.' : '찾지 못했습니다 — 사업자번호·법인번호로 조회하거나 상호를 바꿔 보세요.') : (depth==='full' ? '전체 조회 완료. 요약을 확인하고 필요하면 사례 내용란에 삽입하세요.' : '빠른 조회 완료. 명단·인허가까지 보려면 「전체 조회」(최대 90초)를 누르세요.'));
 }
 function pip_copySummary(){
   if(!pip_summary){ alert('복사할 요약이 없습니다.'); return; }

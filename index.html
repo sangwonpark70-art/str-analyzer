@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.29</title>
+<title>STR 사례 분석기 v3.5.30</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -258,7 +258,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.29</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.30</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -687,7 +687,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.29 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.30 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -699,6 +699,7 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.30(2026-11-16): 상호를 가릴 이름에 자동 추가(자동채움·이름 게이트) · 레이블 없는 날짜의 생년월일 오인 차단(최근 연도·거래 문맥 제외).
 // v3.5.29(2026-11-15): 입력 자동채움 → 공개정보 조회어(사업자번호·법인번호·상호) 채움 · 번호면 빠른 조회 자동 실행 · 초기화 때 조회칸 비움.
 // v3.5.28(2026-11-15): 재무 표 라벨 (연결)/(별도) 구분 · 요약 CFS·OFS 한글 · 홈페이지 한 줄 합침.
 // v3.5.27(2026-11-14): PIP 출처·명단 표시명(source_text·list_text) 정본 사용, STR 한글표는 보조.
@@ -2560,12 +2561,29 @@ function extractNames(src){
 /* v3.5.13 — 게이트 표시 분류용. 한글 2~4자이고 첫 글자가 흔한 성씨면 사람 이름으로 추정(차단 여부에는 쓰지 않는다 — 표시만). */
 var SURN='김이박최정강조윤장임한오서신권황안송류전홍고문양손배백허유남심노하곽성차주우구민진나지엄채원천방공현함변염여추도소석선설마길연위표명기반왕금옥육인맹제모탁국어은편용예경봉사부가복태목형피두감호계승';
 function isLikelyPersonName(n){ n=String(n||'').trim(); return (/^[가-힣]{2,4}$/.test(n) && SURN.indexOf(n[0])>=0) || /^[A-Za-z]{2,}(?:\s+[A-Za-z]{2,}){1,3}$/.test(n); }   // v3.5.15 ② 영문 2~4어절 이름도 사람 이름 추정
+// v3.5.30 상호 추출 — 법인 형태 앞뒤 이름 · 상호 레이블. 반환은 이름 본체(법인 형태 제외).
+const CORP_STOP=['법인','회사','해당','동일','관계','계열','신규','설립','기존','당사','타사','기타','명의','대표'];
+function corpCore(n){ n=String(n||'').replace(/주식회사|유한회사|합자회사|\(주\)|㈜|\(유\)/g,'').replace(/\s+/g,'').trim();
+  const p2=n.match(/^(.{3,})(에서|에게|으로|까지|부터|처럼|이다|이며)$/); if(p2) n=p2[1];
+  else { const p1=n.match(/^(.{3,})[은는이가을를의에와과도만로]$/); if(p1) n=p1[1]; }
+  return n; }
+function extractCorpNames(src){
+  src=String(src||''); const out=[]; let m;
+  const add=function(raw){ const c=corpCore(raw); if(c.length>=2 && c.length<=20 && CORP_STOP.indexOf(c)<0 && !/^\d+$/.test(c) && out.indexOf(c)<0) out.push(c); };
+  const pre=/(?:(?:주식회사|유한회사|합자회사)[ \t]?|\(주\)|㈜|\(유\))([가-힣A-Za-z0-9&]{2,20})/g;
+  while((m=pre.exec(src))!==null) add(m[1]);
+  const suf=/([가-힣A-Za-z0-9&]{2,20})[ \t]?(?:주식회사|\(주\)|㈜)(?![가-힣A-Za-z0-9])/g;
+  while((m=suf.exec(src))!==null) add(m[1]);
+  const lbl=/(?:(?:상호명|법인명|회사명|업체명)[：:\s]+|상호\s*[：:]\s*)((?:주식회사|\(주\)|㈜)?\s*[가-힣A-Za-z0-9&]{2,30})/g;
+  while((m=lbl.exec(src))!==null) add(m[1]);
+  return out;
+}
 function nameGate(){
   const el=document.getElementById('names');
   if(!el) return '';
   const src=document.getElementById('src').value||'';
   if(!el.value.trim()){
-    const got=extractNames(src);
+    const got=extractNames(src).concat(extractCorpNames(src)).filter(function(v,i,a){return a.indexOf(v)===i;});
     if(got.length){ el.value=got.join(', '); if(typeof genIdCode==='function') genIdCode(); }
   }
   if(!el.value.trim()){
@@ -2575,10 +2593,11 @@ function nameGate(){
   }
   // v3.5.3 — 치환표가 채워져 있어도 본문 인물 후보가 빠져 있으면 알린다(제3자 누출 방지).
   var have=el.value.split(',').map(function(x){return x.trim();}).filter(Boolean);
-  var miss=extractNames(src).filter(function(n){ return have.indexOf(n)<0; });
+  var corpL=extractCorpNames(src);
+  var miss=extractNames(src).concat(corpL).filter(function(n,i,a){ return a.indexOf(n)===i && have.indexOf(n)<0; });
   if(miss.length){
     // v3.5.13 — 사람 이름 추정(한글 2~4자 + 흔한 성씨)과 그 밖(상호·일반어 추정)을 나눠 보인다. 섞인 목록에 습관적 [확인]을 막는다.
-    var ppl=miss.filter(isLikelyPersonName), etc=miss.filter(function(n){return !isLikelyPersonName(n);});
+    var ppl=miss.filter(function(n){return isLikelyPersonName(n) && corpL.indexOf(n)<0;}), etc=miss.filter(function(n){return ppl.indexOf(n)<0;});   // v3.5.30 상호로 잡힌 것은 상호 쪽
     var msg='본문에 있는 다음 항목이 「가릴 이름」에 없습니다 — 이대로면 그대로 전송됩니다.\n';
     if(ppl.length) msg+='\n  ⚠ 사람 이름 추정: '+ppl.join(', ');
     if(etc.length) msg+='\n  · 상호·일반어 추정: '+etc.join(', ');
@@ -2647,6 +2666,9 @@ function autoFillFromText(){
   const foundNames=extractNames(src);
   const addedNames=mergeNames(foundNames);
   if(addedNames.length) filled.push('이름('+addedNames.join('·')+')');
+  // v3.5.30 상호도 가릴 이름에 — 비식별문에 상호가 남지 않게
+  const addedCorp=mergeNames(extractCorpNames(src));
+  if(addedCorp.length) filled.push('상호('+addedCorp.join('·')+')');
   /* v3.5.1 이전 인라인 규칙 — extractNames()로 이관, 원문 보존(무삭제)
   const namePatterns=[
     // 레이블 뒤 영문 이름: "성명 GUO JIE", "이름: JOHN SMITH"
@@ -2693,14 +2715,22 @@ function autoFillFromText(){
      fn:(m)=>`${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`},
     {re:/(?:생년월일|생일|주민)[^\d]*(\d{6})/,
      fn:(m)=>{const s=m[1];const y=parseInt(s.slice(0,2));const yr=(y>=0&&y<=30)?'20'+s.slice(0,2):'19'+s.slice(0,2);return `${yr}-${s.slice(2,4)}-${s.slice(4,6)}`;}},
-    {re:/\b(19|20)(\d{2})[.\-\/년](\d{1,2})[.\-\/월](\d{1,2})일?\b/,
+    {re:/\b(19|20)(\d{2})[.\-\/년](\d{1,2})[.\-\/월](\d{1,2})일?\b/g, free:true,
      fn:(m)=>`${m[1]}${m[2]}-${m[3].padStart(2,'0')}-${m[4].padStart(2,'0')}`},
-    {re:/\b((?:19|20)\d{2})(\d{2})(\d{2})\b/,
+    {re:/\b((?:19|20)\d{2})(\d{2})(\d{2})\b/g, free:true,
      fn:(m)=>`${m[1]}-${m[2]}-${m[3]}`},
   ];
-  for(const {re,fn} of birthPatterns){
-    const m=src.match(re);
-    if(m){ if(setIfEmpty('birth',fn(m),'생년월일')) filled.push('생년월일'); break; }
+  // v3.5.30 레이블 없는 날짜(free)는 올해-14년 이전 연도 + 바로 앞 거래 문맥 없음일 때만 생년월일로 본다
+  const BIRTH_MAXY=new Date().getFullYear()-14, TXCTX=/(?:거래|납입|해지|인출|신청|접수|계약|가입|입금|출금|송금|지급|일자|일시)[^\n]{0,4}$/;
+  const birthPick=(re,fn,free)=>{
+    if(!free){ const m=src.match(re); return m?fn(m):''; }
+    let m; re.lastIndex=0;
+    while((m=re.exec(src))!==null){ const v=fn(m); if(+v.slice(0,4)<=BIRTH_MAXY && !TXCTX.test(src.slice(Math.max(0,m.index-12),m.index))) return v; }
+    return '';
+  };
+  for(const {re,fn,free} of birthPatterns){
+    const v=birthPick(re,fn,free);
+    if(v){ if(setIfEmpty('birth',v,'생년월일')) filled.push('생년월일'); break; }
   }
 
   // 3) 거래일 — YYYY-MM-DD 또는 한국식
@@ -2973,7 +3003,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.29',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.30',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))

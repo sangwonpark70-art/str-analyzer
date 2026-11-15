@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.28</title>
+<title>STR 사례 분석기 v3.5.29</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -258,7 +258,7 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.28</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.29</span></h1>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -388,7 +388,7 @@
         <button class="btn-sm af" id="rtToggleBtn" onclick="rtToggle()">🏢 실거래가 조회 <span class="tag ext">공공데이터</span></button>
         <button class="btn-sm af" id="pipToggleBtn" onclick="pipToggle()">🔎 공개정보 조회 <span class="tag ext">PIP</span></button>
       </div>
-      <div id="autoFillStatus" style="margin-top:5px;font-size:11.5px;color:var(--faint)">본문에서 이름·생년월일·거래일·금액·유형을 뽑아 아래 칸을 채웁니다 · 부동산 사례는 실거래가를 바로 조회</div>
+      <div id="autoFillStatus" style="margin-top:5px;font-size:11.5px;color:var(--faint)">본문에서 이름·생년월일·거래일·금액·유형을 뽑아 아래 칸을 채웁니다 · 사업자번호가 있으면 공개정보 빠른 조회 · 부동산 사례는 실거래가를 바로 조회</div>
       <details id="rt_panel" class="rtdock">
         <summary>🏢 실거래가 조회 <span class="tag ext">외부 API</span></summary>
 
@@ -687,7 +687,7 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.28 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.29 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
   </footer>
 </div>
@@ -699,6 +699,7 @@
 /* ── Drive 연동 ── */
 const STR_CLIENT_ID = '460236644640-nin2aa4ft6hulbd2g0mfbo4quuttchon.apps.googleusercontent.com';
 // Claude 분석 백엔드 (Cloudflare Worker — API 키는 Worker Secret에 보관)
+// v3.5.29(2026-11-15): 입력 자동채움 → 공개정보 조회어(사업자번호·법인번호·상호) 채움 · 번호면 빠른 조회 자동 실행 · 초기화 때 조회칸 비움.
 // v3.5.28(2026-11-15): 재무 표 라벨 (연결)/(별도) 구분 · 요약 CFS·OFS 한글 · 홈페이지 한 줄 합침.
 // v3.5.27(2026-11-14): PIP 출처·명단 표시명(source_text·list_text) 정본 사용, STR 한글표는 보조.
 // v3.5.26(2026-11-13): PIP 후보 0곳 문구 · 번호+조사 조회어 · 표 번호 하이픈 · 같은 항목 여러 값은 최신 기준일 순(요약도 최신).
@@ -2767,6 +2768,14 @@ function autoFillFromText(){
     if(setIfEmpty('ncnt',n,'보유계약건수')) filled.push('보유계약건수');
   }
 
+  // 9) v3.5.29 공개정보 조회어 — 사업자번호·법인번호(레이블)·상호(레이블). 사람 이름은 넣지 않는다.
+  const pq=pip_afPick(src);
+  if(pq){
+    const qel=document.getElementById('pip_q');
+    if(qel && !qel.value.trim()){ qel.value=pq.q; filled.push('공개정보 조회어('+pq.label+')'); pip_afRun(pq); }
+    else if(qel && pip_afNorm(qel.value)!==pip_afNorm(pq.q)) AF_SUGGEST.push({id:'pip_q',val:pq.q,label:'공개정보 조회어('+pq.label+')',cur:qel.value.trim()});
+  }
+
   // 식별코드 재생성 (이름·생년월일 채워졌을 수 있으므로)
   genIdCode();
 
@@ -2808,7 +2817,7 @@ function afApplyAll(){ while(AF_SUGGEST.length) afApply(0); }
 /* v3.5.14 ⑤-2 입력칸 전체를 기본값으로 — 초기화와 불러오기(2곳)가 공용. 저장본에 없는 필드가 직전 사례 값으로 남지 않게 한다.
    마스킹 옵션은 전부 켬(안전 기본값), 위험 플래그는 전부 끔, 업권 전용 필드·보고서 전용 칸도 비운다. */
 function clearInputs(){
-  ['caseno','txdate','birth','custno','amt','ncnt','ntot','names','src','ro_period','ro_txcnt','ro_branch','ro_note'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';}); genIdCode();
+  ['caseno','txdate','birth','custno','amt','ncnt','ntot','names','src','ro_period','ro_txcnt','ro_branch','ro_note','pip_q'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';}); genIdCode();
   ['ro_acct43','ro_remit44','ro_match'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;}); roSync();
   ['ttype','ctype','fpath','fsrc','cdd_status','scale'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;});
   ['f_sanc','f_third','f_refuse','f_cddref','f_fraud','f_cash','f_recheck'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
@@ -2964,7 +2973,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.28',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.29',phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))
@@ -3643,6 +3652,27 @@ function pip_groups(d){ const gs=[], first={};
 function pip_urlSet(s){ const a=String(s||'').split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean), r=[], k=[]; a.forEach(u=>{ const q=pip_urlKey(u); if(q && k.indexOf(q)<0){ k.push(q); r.push(u); } }); return r; }
 function pip_urlKey(u){ return String(u||'').trim().toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/+$/,''); }
 function pip_qTxt(q){ const s=String(q||'').trim(); return s==='CFS'?'연결':(s==='OFS'?'별도':s); }
+// v3.5.29 자동채움 → 공개정보 조회어. 사업자번호 검증번호(국세청 규칙)로 레이블 없는 000-00-00000의 계좌번호 오인을 막는다.
+function pip_bizCk(d){ d=String(d||'').replace(/\D/g,''); if(d.length!==10) return false; const w=[1,3,7,1,3,7,1,3,5]; let s=0; for(let i=0;i<9;i++) s+=(+d[i])*w[i]; s+=Math.floor((+d[8])*5/10); return (10-(s%10))%10===(+d[9]); }
+function pip_afNorm(s){ s=String(s||'').trim(); return /^[\d-]+$/.test(s) ? s.replace(/-/g,'') : s.replace(/\s+/g,''); }
+function pip_afPick(src){
+  const s=String(src||'');
+  let m=s.match(/사업자\s*(?:등록)?\s*번호[：:\s]*(\d{3}-?\d{2}-?\d{5})(?![\d-])/);
+  if(m) return {q:m[1], kind:'num', label:'사업자번호'};
+  const re=/(?:^|[^\d-])(\d{3}-\d{2}-\d{5})(?![\d-])/g; let x;
+  while((x=re.exec(s))!==null){ if(pip_bizCk(x[1])) return {q:x[1], kind:'num', label:'사업자번호'}; }
+  m=s.match(/법인\s*(?:등록)?\s*번호[：:\s]*(\d{6}-?\d{7})(?![\d-])/);
+  if(m) return {q:m[1], kind:'num', label:'법인번호'};
+  m=s.match(/(?:(?:상호명|법인명|회사명|업체명)[：:\s]+|상호\s*[：:]\s*)((?:주식회사|\(주\)|㈜)?\s*[가-힣A-Za-z0-9&]{2,30}(?:\s*(?:주식회사|\(주\)|㈜))?)/);
+  if(m){ const n=m[1].replace(/\s+/g,' ').trim(); if(n.replace(/주식회사|\(주\)|㈜|\s/g,'').length>=2) return {q:n, kind:'name', label:'상호'}; }
+  return null;
+}
+function pip_afRun(pq){
+  const p=pip_$('pip_panel'); if(p && !p.open){ p.open=true; } pip_keyStatus();
+  if(pq.kind!=='num'){ pip_setStatus('자동채움이 상호를 조회어에 넣었습니다 — 「조회」를 누르세요(같은 이름 후보가 여럿일 수 있음).'); return; }
+  if(!pip_getKey()){ pip_setStatus('자동채움이 '+pq.label+'를 조회어에 넣었습니다 — 연결 암호를 저장한 뒤 「조회」를 누르세요.'); return; }
+  pip_lookup('basic');
+}
 function pip_nameSet(s){ return String(s||'').split(/\s*[,·]\s*/).map(x=>x.trim()).filter(Boolean); }
 // v3.5.24 빠른 조회일 때 안 본 것 판정 — DEPTH_BASIC · NOT_RUN · 코드 없는 건너뜀(전체 조회에서는 NOT_RUN을 그대로 「조회 못 함」)
 function pip_isBasicSkip(c){ if(!c) return false; if(c.code==='DEPTH_BASIC') return true; return pip_depth==='basic' && (c.code==='NOT_RUN' || ((c.skipped===true||c.this_call===false) && !c.code)); }

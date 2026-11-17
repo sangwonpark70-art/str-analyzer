@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.31</title>
+<title>STR 사례 분석기 v3.5.32</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -261,8 +261,8 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.31</span></h1>
-    <div class="verchip" id="verChip">STR 사례 분석기 · v3.5.31 · 2026-11-17판 · 외부 데이터: 공개정보 조회(PIP, 선택) · 외부 AI 사용(분석·사진 인식)</div>
+    <h1>STR 사례 분석기 <span class="v">v3.5.32</span></h1>
+    <div class="verchip" id="verChip">STR 사례 분석기 · v3.5.32 · 2026-11-17판 · 외부 데이터: 공개정보 조회(PIP, 선택) · 외부 AI 사용(분석·사진 인식)</div>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -691,9 +691,9 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.31(2026-11-17판) · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.32(2026-11-17판) · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.<br>
-    문의할 때는 화면 맨 위 판 표기(예: v3.5.31 · 2026-11-17판)와 의견서 끝 각인 줄을 함께 알려 주세요.
+    문의할 때는 화면 맨 위 판 표기(예: v3.5.32 · 2026-11-17판)와 의견서 끝 각인 줄을 함께 알려 주세요.
     <div class="refdata" id="refData"></div>
   </footer>
 </div>
@@ -3432,9 +3432,10 @@ function copyOut(){
     }).catch(()=>fallback());
   } else { fallback(); }
 }
+// v3.5.32(2026-11-17): 유형 라이브러리 기준일 = 2026-07-01(v3.2 이후 무변경 — v3.2·v3.3.1·v3.5.3·v3.5.31 해당 블록 MD5 4F3EBD49 동일).
 // v3.5.31(2026-11-17): 통합지침 §3-2 — 버전 칩·의견서 각인·참조 데이터 표시(기준일·경과일·임계 ⚠, 「최신」 단정 금지).
 // 각인은 의견서 보기(전체 복사) 산출물에만 붙인다 — FIU 입력용 복사·바로 복사(입력용)는 서식에 붙일 본문만 나가야 하므로 각인 없음.
-var APP_VER='v3.5.31', APP_DATE='2026-11-17', REF_WARN_DAYS=90;
+var APP_VER='v3.5.32', APP_DATE='2026-11-17', REF_WARN_DAYS=90;
 var STAMP_PREFIX='— STR 사례 분석기 ';
 function seoulNow(){
   try{ return new Date().toLocaleString('sv-SE',{timeZone:'Asia/Seoul',hour12:false}).slice(0,16); }
@@ -3446,7 +3447,7 @@ function withStamp(t){
   return t.replace(/\s+$/,'')+'\n\n'+STAMP_PREFIX+APP_VER+' · '+APP_DATE+'판 · 생성 '+seoulNow()+'(서울) · 문의 때 이 줄을 알려 주세요';
 }
 var REF_DATA=[
-  {name:'STR 유형 라이브러리', size:'6개 업권', date:null},
+  {name:'STR 유형 라이브러리', size:'6개 업권', date:'2026-07-01', dnote:'마지막 변경(v3.2)'},
   {name:'FIU 서식 코드 변환표 v0.2', size:'6개 업권', date:'2026-09-08'},
   {name:'FinCEN 3층 라벨(원문 2026-04 v1.0)', size:'7건', date:'2026-10-11', dnote:'원문 대조일'}
 ];

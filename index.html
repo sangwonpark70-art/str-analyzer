@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.30</title>
+<title>STR 사례 분석기 v3.5.31</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -48,6 +48,9 @@
   .kicker{font-size:11.5px;letter-spacing:.18em;color:var(--primary);text-transform:uppercase;font-weight:800}
   h1{font-size:27px;font-weight:800;margin-top:7px;letter-spacing:-.6px;color:var(--ink)}
   h1 .v{font-size:13px;color:var(--faint);font-weight:700;letter-spacing:0}
+  .verchip{display:inline-block;font-size:11.5px;color:var(--dim);background:var(--field);border:1px solid var(--line);border-radius:99px;padding:3px 10px;margin-top:6px}
+  .refdata{font-size:11.5px;color:var(--dim);margin-top:6px}
+  .refdata .warn{color:#b45309;font-weight:700}
   .sub{color:var(--dim);font-size:13.5px;margin-top:7px}
   .badge{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;padding:5px 11px;border-radius:99px;border:1px solid var(--primary-line);background:var(--primary-bg);color:var(--primary-d);margin-top:13px}
   .badge i{width:7px;height:7px;border-radius:50%;background:var(--primary);display:block;animation:p 2.2s infinite}
@@ -258,7 +261,8 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.30</span></h1>
+    <h1>STR 사례 분석기 <span class="v">v3.5.31</span></h1>
+    <div class="verchip" id="verChip">STR 사례 분석기 · v3.5.31 · 2026-11-17판 · 외부 데이터: 공개정보 조회(PIP, 선택) · 외부 AI 사용(분석·사진 인식)</div>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -687,8 +691,10 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.30 · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
-    업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.
+    STR 사례 분석기 v3.5.31(2026-11-17판) · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    업권별(보험·은행·저축은행·상호금융공제·증권·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.<br>
+    문의할 때는 화면 맨 위 판 표기(예: v3.5.31 · 2026-11-17판)와 의견서 끝 각인 줄을 함께 알려 주세요.
+    <div class="refdata" id="refData"></div>
   </footer>
 </div>
 
@@ -1677,7 +1683,7 @@ function fiuToggle(el){
   if(v){ document.querySelectorAll('input[data-v="'+v+'"]').forEach(function(o){ o.checked=el.checked; m[o.getAttribute('data-k')]=el.checked; }); }   // v3.5.10 같은 항목 전 행 동기화
   try{
     var bg=document.getElementById('opinionModalBg');
-    if(_opinionMode==='fiu' && bg && bg.classList.contains('show')) document.getElementById('opinionText').value=buildOpinionFiu();
+    if(_opinionMode==='fiu' && bg && bg.classList.contains('show')) document.getElementById('opinionText').value=withStamp(buildOpinionFiu());
   }catch(e){}
 }
 /* 출력용 수집 — renderFiuCandidates()와 같은 순회 규칙. 같은 필드·같은 번호는 1회만 싣는다(B1·B3 → VI-3 11) 중복). */
@@ -2062,7 +2068,7 @@ function setFiuTitle(el){   // v3.5.18 ② 담당자 직접 수정 — 같은 �
   if(msg) msg.textContent=v?'✓ 반영':'✓ 비움 — 선택 VI 문언 사용';
   try{
     var bg=document.getElementById('opinionModalBg');
-    if(_opinionMode==='fiu' && bg && bg.classList.contains('show')) document.getElementById('opinionText').value=buildOpinionFiu();
+    if(_opinionMode==='fiu' && bg && bg.classList.contains('show')) document.getElementById('opinionText').value=withStamp(buildOpinionFiu());
   }catch(e){}
 }
 function renewFiuTitle(){   // v3.5.13 ① 명시 교체
@@ -3003,7 +3009,7 @@ function maskName(n){
 
 function exportJSON(){
   if(!RES){alert('먼저 분석을 실행하세요.');return;}
-  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 v3.5.30',phase:(RES.phase||1)};
+  const meta={saved_at:new Date().toISOString(),tool:'STR 사례 분석기 '+APP_VER,release:APP_DATE,phase:(RES.phase||1)};
   // 재평가 이력 연결: 원본 파일명 기록
   if(LOADED_FROM&&LOADED_FROM.fname) meta.prev_round=LOADED_FROM.fname;
   meta.report_only=roVals();   // v3.5.0 입력 본체와 분리 보관(mapping_v2 §3(6))
@@ -3108,7 +3114,7 @@ function switchOpinion(mode){
   var _tf=document.getElementById('opTabFiu');
   if(_tf){ _tf.style.background=mode==='fiu'?'var(--primary)':'var(--field)'; _tf.style.color=mode==='fiu'?'#fff':'var(--dim)'; }
   document.getElementById('opTabHint').textContent=OP_HINTS[mode];
-  document.getElementById('opinionText').value=mode==='fiu'?buildOpinionFiu():(mode==='brief'?buildOpinionBrief():buildOpinionText());
+  document.getElementById('opinionText').value=withStamp(mode==='fiu'?buildOpinionFiu():(mode==='brief'?buildOpinionBrief():buildOpinionText()));
 }
 
 /* ── v3.5.1 ⓐ③ 원칙문 축약 ────────────────────────────────────────────
@@ -3392,7 +3398,7 @@ function fiuInputText(){
   var full=buildOpinionFiu(); if(!full) return {text:'',na:0,hard:0};
   var a=full.indexOf('\n1. 제목 : '), b=full.indexOf('\n━━ 작성 점검');
   var body=full.slice(a<0?0:a+1, b<0?full.length:b).replace(/\s+$/,'');
-  body=body.split('\n').filter(function(l){ return !/^\s*\(내부 분류 키:/.test(l) && !/^\s*\[VI-5 31\) 서술 대상\]/.test(l); }).join('\n');
+  body=body.split('\n').filter(function(l){ return !/^\s*\(내부 분류 키:/.test(l) && !/^\s*\[VI-5 31\) 서술 대상\]/.test(l) && l.indexOf(STAMP_PREFIX)!==0; }).join('\n');
   var na=(body.match(/\[미입력[^\]]*\]/g)||[]).length;
   var hm=full.match(/\[보완 필요\]\n((?:- .*\n)+)/); var hard=hm?hm[1].trim().split('\n').length:0;
   return {text:body,na:na,hard:hard};
@@ -3426,7 +3432,36 @@ function copyOut(){
     }).catch(()=>fallback());
   } else { fallback(); }
 }
+// v3.5.31(2026-11-17): 통합지침 §3-2 — 버전 칩·의견서 각인·참조 데이터 표시(기준일·경과일·임계 ⚠, 「최신」 단정 금지).
+// 각인은 의견서 보기(전체 복사) 산출물에만 붙인다 — FIU 입력용 복사·바로 복사(입력용)는 서식에 붙일 본문만 나가야 하므로 각인 없음.
+var APP_VER='v3.5.31', APP_DATE='2026-11-17', REF_WARN_DAYS=90;
+var STAMP_PREFIX='— STR 사례 분석기 ';
+function seoulNow(){
+  try{ return new Date().toLocaleString('sv-SE',{timeZone:'Asia/Seoul',hour12:false}).slice(0,16); }
+  catch(e){ var d=new Date(Date.now()+9*3600e3); return d.toISOString().slice(0,16).replace('T',' '); }
+}
+function withStamp(t){
+  t=String(t||'');
+  if(!t) return t;
+  return t.replace(/\s+$/,'')+'\n\n'+STAMP_PREFIX+APP_VER+' · '+APP_DATE+'판 · 생성 '+seoulNow()+'(서울) · 문의 때 이 줄을 알려 주세요';
+}
+var REF_DATA=[
+  {name:'STR 유형 라이브러리', size:'6개 업권', date:null},
+  {name:'FIU 서식 코드 변환표 v0.2', size:'6개 업권', date:'2026-09-08'},
+  {name:'FinCEN 3층 라벨(원문 2026-04 v1.0)', size:'7건', date:'2026-10-11', dnote:'원문 대조일'}
+];
+function daysSince(ymd){ var p=String(ymd).split('-'); var t=Date.UTC(+p[0],+p[1]-1,+p[2]); var n=new Date(seoulNow().slice(0,10)+'T00:00:00Z').getTime(); return Math.floor((n-t)/86400000); }
+function renderRefData(){
+  var el=document.getElementById('refData'); if(!el) return;
+  var parts=REF_DATA.map(function(r){
+    if(!r.date) return esc(r.name)+' '+esc(r.size)+' · 기준일 미기재 <span class="warn">⚠ 갱신 확인</span>';
+    var d=daysSince(r.date);
+    return esc(r.name)+' '+esc(r.size)+' · '+(r.dnote?esc(r.dnote)+' ':'기준일 ')+r.date+' · '+d+'일 경과'+(d>REF_WARN_DAYS?' <span class="warn">⚠ 갱신 확인</span>':'');
+  });
+  el.innerHTML='참조 데이터(임계 '+REF_WARN_DAYS+'일): '+parts.join(' / ')+' · 공개정보(PIP)는 조회 때 실시간이며 출처·기준일은 결과에 표시';
+}
 setStep(1);
+try{ renderRefData(); }catch(e){}
 </script>
 <script>
 /* ══ v3.3 실거래가 조회 패널 — 국토부 RTMS API (브라우저 직접 호출) ══

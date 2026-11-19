@@ -25,7 +25,7 @@
   document.getElementById('pwaIcon').href=url;
 })();
 </script>
-<title>STR 사례 분석기 v3.5.33</title>
+<title>STR 사례 분석기 v3.5.34</title>
 <style>
   :root{
     --bg:#eef2f7; --card:#ffffff; --field:#f6f8fc; --line:#dce3ec; --line2:#c6d0dd;
@@ -261,8 +261,8 @@
 <div class="wrap">
   <header>
     <div class="kicker">의심거래보고 검토 보조 · 금융기관</div>
-    <h1>STR 사례 분석기 <span class="v">v3.5.33</span></h1>
-    <div class="verchip" id="verChip">STR 사례 분석기 · v3.5.33 · 2026-11-19판 · 외부 데이터: 공개정보 조회(PIP, 선택) · 외부 AI 사용(분석·사진 인식)</div>
+    <h1>STR 사례 분석기 <span class="v">v3.5.34</span></h1>
+    <div class="verchip" id="verChip">STR 사례 분석기 · v3.5.34 · 2026-11-19판 · 외부 데이터: 공개정보 조회(PIP, 선택) · 외부 AI 사용(분석·사진 인식)</div>
     <p class="sub">사례를 붙여넣으면 개인정보를 가린 뒤 위험도(0~100)·유형·의견서를 만듭니다. 1차 선별(트리아지) 후 세부 분석으로 이어집니다.</p>
     <span class="badge"><i></i> 개인정보 가림(비식별화) 후 분석 · 결과에서 자동 복원</span>
   </header>
@@ -472,11 +472,11 @@
         <div class="rt-in">
           <label class="l" style="margin-top:0">연결 암호 <span id="pip_keyBadge" class="rt-badge rt-b-no">미저장</span></label>
           <div class="rt-keyrow">
-            <input type="password" id="pip_appKey" placeholder="연결 암호(STR_APP_KEY) 붙여넣기" autocomplete="off">
+            <input type="password" id="pip_appKey" placeholder="연결 암호(분석·공개정보 공용) 붙여넣기" autocomplete="off">
             <button class="btn-sm" onclick="pip_saveKey()">저장</button>
             <button class="btn-sm" onclick="pip_clearKey()">삭제</button>
           </div>
-          <div class="rt-hint">암호는 이 브라우저에만 저장됩니다. 백엔드가 암호를 확인한 뒤에만 PIP를 부릅니다(PIP 토큰은 서버에만 있음).</div>
+          <div class="rt-hint">암호는 이 브라우저에만 저장됩니다(1회). 분석·사진 인식·공개정보 조회에 함께 쓰입니다 — 백엔드가 암호를 확인한 뒤에만 AI·PIP를 부릅니다(API 키·PIP 토큰은 서버에만 있음).</div>
         </div>
         <div class="rt-in">
           <label class="l" style="margin-top:0">조회어 <span class="opt">사업자번호·법인번호·상호 · 사람은 @이름</span></label>
@@ -692,9 +692,9 @@
   </div>
 
   <footer>
-    STR 사례 분석기 v3.5.33(2026-11-19판) · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
+    STR 사례 분석기 v3.5.34(2026-11-19판) · 0~100 엔진 + 고객사 척도 환산 · 트리아지/세부분석 · 사진 인식(외부AI/로컬) — 보조 도구이며 <b>최종 판단은 담당자 책임</b>입니다.<br>
     업권별(보험·은행·저축은행·상호금융공제·증권·전자금융·기타) STR 유형 라이브러리 기반. 데모 단계: 규칙기반 비식별 + AI 의견. 상용 시 온프레·정밀 비식별화로 고도화.<br>
-    문의할 때는 화면 맨 위 판 표기(예: v3.5.33 · 2026-11-19판)와 의견서 끝 각인 줄을 함께 알려 주세요.
+    문의할 때는 화면 맨 위 판 표기(예: v3.5.34 · 2026-11-19판)와 의견서 끝 각인 줄을 함께 알려 주세요.
     <div class="refdata" id="refData"></div>
   </footer>
 </div>
@@ -2123,7 +2123,7 @@ async function analyze(){
     // 세부분석 모드는 1차 표시 직후 2차를 자동 연속 호출(트리아지는 버튼 수동)
     if(MODE==='full') analyzePhase2();
   }catch(e){
-    if(_rid===ROUND.id){ if(e&&e.guard){ document.getElementById('result').innerHTML='<div class="fallback"><h3>⛔ 전송 차단</h3><p>'+esc(e.message)+'</p></div>'; } else renderFallback(); }
+    if(_rid===ROUND.id){ if(e&&e.guard){ document.getElementById('result').innerHTML='<div class="fallback"><h3>⛔ 전송 차단</h3><p>'+esc(e.message)+'</p></div>'; } else if(e&&e.auth){ document.getElementById('result').innerHTML='<div class="fallback"><h3>🔑 연결 암호 확인</h3><p>'+esc(e.message)+'</p></div>'; } else renderFallback(); }
   } finally { setBusy(-1); btn.disabled=false; btn.textContent='분석 실행'; }
 }
 
@@ -2178,18 +2178,29 @@ function guardPrompt(prompt, rid){
     e.guard=true; throw e;
   }
 }
+/* v3.5.34 — 백엔드 v4는 분석·사진 인식에도 연결 암호를 요구한다. 암호는 공개정보 패널에서 저장한 것과 같다(브라우저별 1회). */
+function strAuthHeaders(h){ var k=''; try{ k=pip_getKey(); }catch(e){} if(k) h['X-STR-Key']=k; return h; }
+async function strErrOf(res, fallback){
+  var j=null; try{ j=await res.json(); }catch(e){}
+  var code=j&&j.code, err;
+  if(res.status===401||code==='APP_KEY') err=new Error('연결 암호가 없거나 맞지 않습니다 — 「🔎 공개정보 조회」 패널의 「연결 암호」에 저장한 뒤 다시 실행하세요(분석·공개정보 공용, 이 브라우저에 1회 저장).');
+  else if(res.status===429||code==='DAILY_LIMIT') err=new Error((j&&j.error)||'오늘 분석 상한에 도달했습니다 — 내일 다시 사용하세요.');
+  else if(code==='APP_KEY_UNSET') err=new Error('서버에 연결 암호가 설정되지 않았습니다(관리자 설정 필요).');
+  else return new Error(fallback||('Worker '+res.status));
+  err.auth=true; return err;
+}
 async function callWorker(prompt, phase, rid){
   guardPrompt(prompt, rid);   // v3.5.14 ② 네트워크 요청 전 차단
   const ac=new AbortController(); const tid=setTimeout(()=>ac.abort(),120000);
   let res;
   try{
     res=await fetch(STR_WORKER_URL,{
-      method:"POST",headers:{"Content-Type":"application/json"},
+      method:"POST",headers:strAuthHeaders({"Content-Type":"application/json"}),
       body:JSON.stringify({prompt: prompt, phase: phase||1}),
       signal:ac.signal
     });
   } finally { clearTimeout(tid); }
-  if(!res.ok) throw new Error("Worker "+res.status);
+  if(!res.ok) throw await strErrOf(res);
   const data=await res.json();
   if(data.error) throw new Error(data.error);
   let txt=(data.text||"").replace(/```json|```/g,"").trim();
@@ -2260,7 +2271,7 @@ async function analyzePhase2(){
     // 1차 결과는 보존 — 화면 재그리기 없이 상태줄만 갱신
     if(_rid!==ROUND.id || RES!==_res) return;
     const s2=document.getElementById('p2status');
-    if(s2) s2.innerHTML='<span style="color:var(--rep)">⚠ '+(e&&e.guard?esc(e.message):'상세 분석 실패 — 1차 결과는 유지됩니다. 다시 시도하세요.')+'</span>';
+    if(s2) s2.innerHTML='<span style="color:var(--rep)">⚠ '+(e&&(e.guard||e.auth)?esc(e.message):'상세 분석 실패 — 1차 결과는 유지됩니다. 다시 시도하세요.')+'</span>';
   } finally { P2_RUNNING=false; setBusy(-1); }
 }
 
@@ -2547,12 +2558,12 @@ async function extractByWorker(imgs){
 규칙: 1) 표는 "항목명: 값" 형식으로 줄바꿈 정리 2) 요약·해석·생략 금지, 원문 그대로 3) 숫자·날짜·금액·계약번호는 특히 정확히 4) 마스킹하지 말 것(별도 비식별화 단계 있음) 5) 결과는 순수 텍스트만.`;
   const ac=new AbortController(); const tid=setTimeout(()=>ac.abort(),120000);
   const res=await fetch(STR_WORKER_URL,{
-    method:'POST',headers:{'Content-Type':'application/json'},
+    method:'POST',headers:strAuthHeaders({'Content-Type':'application/json'}),
     body:JSON.stringify({task:'vision_extract', prompt:inst, images:imgs.map(i=>({media_type:i.media_type,data:i.data}))}),
     signal:ac.signal
   });
   clearTimeout(tid);
-  if(!res.ok) throw new Error('Worker '+res.status+(res.status===400?' (Worker가 이미지 미지원 — worker.js 업데이트 필요)':''));
+  if(!res.ok) throw await strErrOf(res, 'Worker '+res.status+(res.status===400?' (Worker가 이미지 미지원 — worker.js 업데이트 필요)':''));
   const d=await res.json(); if(d.error) throw new Error(d.error);
   return d.text||'';
 }
@@ -3505,13 +3516,14 @@ function copyOut(){
     }).catch(()=>fallback());
   } else { fallback(); }
 }
+// v3.5.34(2026-11-19): 분석·사진 인식 요청에 연결 암호(X-STR-Key) 전송(백엔드 v4 대비, v3에서도 동작) · 401/429/서버 미설정 안내 화면 · 암호 칸 문구(공용).
 // v3.5.33(2026-11-19): 유형 라이브러리 재정비(대조표 v0.1, Sam 11-19 채택) — 공통 C6 가상자산 경유·C7 계좌·카드 양도, 은행 A7~A9·상호금융 A5·증권 A7·기타 A4,
 //   전자금융(선불·간편결제) 업권 신설(A1~A4·B1·B2), 업권 지침 보강(근거: FIU 국가 AML 전략 2026-09·금감원 2026-07/08·FATF 2026-03/09).
 //   FIU 변환표 v0.3(신규 행, 상품권 현금화·C6은 VI 대응 없음 → 31) 서술). 증권 B3은 유지(지침 의존·저장 사례 호환). 기준일 2026-11-19.
 // v3.5.32(2026-11-17): 유형 라이브러리 기준일 = 2026-07-01(v3.2 이후 무변경 — v3.2·v3.3.1·v3.5.3·v3.5.31 해당 블록 MD5 4F3EBD49 동일).
 // v3.5.31(2026-11-17): 통합지침 §3-2 — 버전 칩·의견서 각인·참조 데이터 표시(기준일·경과일·임계 ⚠, 「최신」 단정 금지).
 // 각인은 의견서 보기(전체 복사) 산출물에만 붙인다 — FIU 입력용 복사·바로 복사(입력용)는 서식에 붙일 본문만 나가야 하므로 각인 없음.
-var APP_VER='v3.5.33', APP_DATE='2026-11-19', REF_WARN_DAYS=90;
+var APP_VER='v3.5.34', APP_DATE='2026-11-19', REF_WARN_DAYS=90;
 var STAMP_PREFIX='— STR 사례 분석기 ';
 function seoulNow(){
   try{ return new Date().toLocaleString('sv-SE',{timeZone:'Asia/Seoul',hour12:false}).slice(0,16); }
